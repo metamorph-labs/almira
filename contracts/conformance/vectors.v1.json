@@ -203,6 +203,12 @@
       "condition": "the FileService result cannot be determined safely",
       "code": "ALMIRA_FILE_OUTCOME_UNKNOWN",
       "http_status": 503
+    },
+    {
+      "name": "missing_collection_is_not_found",
+      "condition": "the exact active collection instance does not exist in the authorized environment",
+      "code": "ALMIRA_COLLECTION_NOT_FOUND",
+      "http_status": 404
     }
   ]
 }

@@ -59,6 +59,11 @@
       "retryable": false
     },
     {
+      "code": "ALMIRA_COLLECTION_NOT_FOUND",
+      "http_status": 404,
+      "retryable": false
+    },
+    {
       "code": "ALMIRA_COLLECTION_OPERATION_CONFLICT",
       "http_status": 409,
       "retryable": false

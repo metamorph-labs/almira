@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Almira API",
-    "version": "0.1.0-dev.5",
+    "version": "0.1.0-dev.6",
     "description": "Provider-neutral application file storage management and data API."
   },
   "servers": [
@@ -970,6 +970,7 @@
         "properties": {
           "environments": {
             "type": "array",
+            "minItems": 2,
             "maxItems": 10,
             "items": {
               "$ref": "#/components/schemas/Environment"
