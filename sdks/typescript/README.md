@@ -81,6 +81,15 @@ collection reports `migrating`.
 Direct transfer URLs and headers returned by `createUpload` are sensitive, one-use capabilities.
 The SDK returns them only to the caller and never logs or persists them.
 
+Files have stable entry identities and immutable generations. Use `createFileVersion` to add bytes
+to an existing entry, `listFileGenerations` to inspect retained history, `renameFile` to move the
+logical path without copying objects, and `restoreFileGeneration` to make a retained generation
+current. File-entry responses return that exact `current_generation` separately from the newest
+retained `latest_generation`, which can differ after a restore. `deleteFile` immediately refuses
+reads and starts the server-defined recycle window;
+management callers can use `listFiles({ includeDeleted: true })` and `restoreFile` before expiry.
+Builder-subject listing never admits `includeDeleted`.
+
 Application backends can pass a normalized `subject` with `listFiles`, `getFileMetadata`, and
 `readPrivateFile`; the SDK puts its canonical context on that same workload-authenticated call.
 For browser and other end-user data paths, use the deliberately separate `AlmiraDataClient`. It

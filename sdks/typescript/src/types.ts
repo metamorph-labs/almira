@@ -200,6 +200,14 @@ export interface CreateUploadRequest {
   browser_origin?: string | null;
 }
 
+export interface CreateFileVersionRequest {
+  expected_entry_revision: number;
+  expected_size_bytes: number;
+  content_sha256: ContentSha256;
+  declared_media_type: string;
+  browser_origin?: string | null;
+}
+
 export interface DirectUploadHeader {
   name: string;
   value: string;
@@ -266,6 +274,10 @@ export interface FileEntry {
   logical_path: string;
   lifecycle: "active" | "restricted" | "deleted";
   revision: number;
+  current_generation_id: UuidV7 | null;
+  current_generation: FileGeneration | null;
+  deleted_at: Timestamp | null;
+  recycle_until: Timestamp | null;
   latest_generation: FileGeneration;
   created_at: Timestamp;
   updated_at: Timestamp;
@@ -274,6 +286,30 @@ export interface FileEntry {
 export interface FileEntryPage {
   entries: FileEntry[];
   next_cursor: string | null;
+}
+
+export interface FileGenerationPage {
+  generations: FileGeneration[];
+  next_cursor: string | null;
+}
+
+export interface RenameFileRequest {
+  logical_path: string;
+  expected_revision: number;
+}
+
+export interface RestoreFileGenerationRequest {
+  generation_id: UuidV7;
+  expected_revision: number;
+}
+
+export interface RestoreFileRequest {
+  expected_revision: number;
+}
+
+export interface FileMutationOutcome {
+  disposition: "applied" | "exact_replay";
+  entry: FileEntry;
 }
 
 export interface DeleteFileOutcome {
@@ -311,6 +347,12 @@ export interface PageOptions {
   limit?: number;
   cursor?: string;
   signal?: AbortSignal;
+}
+
+export interface FilePageOptions extends PageOptions {
+  pathPrefix?: string;
+  includeDeleted?: boolean;
+  subject?: BuilderSubject;
 }
 
 export interface ReadPrivateFileOptions extends FileReference {

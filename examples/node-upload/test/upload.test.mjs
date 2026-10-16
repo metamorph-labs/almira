@@ -58,11 +58,11 @@ test("example performs create, direct PUT and finalize without credential crosso
       const body = JSON.parse(init.body);
       assert.equal(body.etag, "opaque-etag");
       assert.equal(body.provider_version, null);
-      return json({ entry_id: entryId, logical_path: "sample.bin" });
+      return json({ entry_id: entryId, generation_id: generationId });
     },
   });
   let directAuthorization;
-  const entry = await uploadFile({
+  const generation = await uploadFile({
     client,
     tenantId,
     projectId,
@@ -82,5 +82,6 @@ test("example performs create, direct PUT and finalize without credential crosso
   assert.equal(controlCalls[1].init.headers.get("authorization"), "Bearer mm_sak_v1.test");
   assert.equal(controlCalls[0].init.headers.get("x-almira-tenant-id"), tenantId);
   assert.equal(directAuthorization, null);
-  assert.equal(entry.entry_id, entryId);
+  assert.equal(generation.entry_id, entryId);
+  assert.equal(generation.generation_id, generationId);
 });

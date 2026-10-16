@@ -80,6 +80,12 @@ It returns a root `operation_id` plus deterministic child operation IDs; reuse t
 ambiguous outcome. A class-only collection change starts the same governed migration; other
 unsupported existing collection changes are conflicts, never silent no-ops.
 
+File lifecycle commands are `file list|get|versions|rename|select-version|delete|restore`.
+Renaming changes only the stable entry path; versions remain immutable. `file delete` immediately
+removes read access and starts the bounded recycle window. Use `file list --include-deleted` to
+find recyclable entries and `file restore` before expiry. Rename, generation selection, delete,
+and restore all require the current `--revision`.
+
 Collection access, CDN delivery, shares, and local capability issuers use the same noun/verb
 shape: `policy get|set|simulate`, `delivery get|set`, `share create|revoke`, and
 `issuer list|register|rotate|revoke|signing-config`. Structured request bodies are passed through

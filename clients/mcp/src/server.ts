@@ -171,7 +171,7 @@ const outputSchema = z
 
 /** Creates one stdio-safe MCP server over the canonical Almira SDK client. */
 export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
-  const server = new McpServer({ name: "almira", version: "0.1.0-dev.18" });
+  const server = new McpServer({ name: "almira", version: "0.1.0-dev.20" });
 
   server.registerTool(
     "almira_project_bootstrap",
@@ -557,13 +557,14 @@ export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
           environment_id: uuid,
           collection_instance_id: uuid,
           path_prefix: z.string().min(1).max(1024).optional(),
+          include_deleted: z.boolean().optional(),
           ...page,
         })
         .strict(),
       outputSchema,
       annotations: readAnnotations,
     },
-    async ({ tenant_id, project_id, environment_id, collection_instance_id, path_prefix, limit, cursor }) =>
+    async ({ tenant_id, project_id, environment_id, collection_instance_id, path_prefix, include_deleted, limit, cursor }) =>
       execute(() =>
         client.listFiles(
           {
@@ -574,11 +575,35 @@ export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
           },
           {
             ...(path_prefix === undefined ? {} : { pathPrefix: path_prefix }),
+            ...(include_deleted === undefined ? {} : { includeDeleted: include_deleted }),
             ...(limit === undefined ? {} : { limit }),
             ...(cursor === undefined ? {} : { cursor }),
           },
         ),
       ),
+  );
+
+  server.registerTool(
+    "almira_file_versions_list",
+    {
+      title: "List Almira file versions",
+      description: "List immutable generations for one stable file entry, newest first.",
+      inputSchema: z.object({
+        ...collectionScope,
+        entry_id: uuid,
+        ...page,
+      }).strict(),
+      outputSchema,
+      annotations: readAnnotations,
+    },
+    async ({ tenant_id, project_id, environment_id, collection_instance_id, entry_id, limit, cursor }) =>
+      execute(() => client.listFileGenerations(
+        fileReference(tenant_id, project_id, environment_id, collection_instance_id, entry_id),
+        {
+          ...(limit === undefined ? {} : { limit }),
+          ...(cursor === undefined ? {} : { cursor }),
+        },
+      )),
   );
 
   server.registerTool(
@@ -652,6 +677,80 @@ export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
           ),
         id,
       );
+    },
+  );
+
+  server.registerTool(
+    "almira_file_rename",
+    {
+      title: "Rename Almira file",
+      description: "Rename or move one stable file identity without copying its generations.",
+      inputSchema: z.object({
+        ...collectionScope,
+        entry_id: uuid,
+        logical_path: z.string().min(1).max(1024),
+        expected_revision: z.number().int().min(1),
+        operation_id: operationId,
+      }).strict(),
+      outputSchema,
+      annotations: mutationAnnotations,
+    },
+    async ({ tenant_id, project_id, environment_id, collection_instance_id, entry_id, logical_path, expected_revision, operation_id }) => {
+      const id = operation_id ?? createOperationId();
+      return execute(() => client.renameFile(
+        fileReference(tenant_id, project_id, environment_id, collection_instance_id, entry_id),
+        { logical_path, expected_revision },
+        { operationId: id },
+      ), id);
+    },
+  );
+
+  server.registerTool(
+    "almira_file_generation_restore",
+    {
+      title: "Select Almira file version",
+      description: "Make one retained immutable generation current for its stable file identity.",
+      inputSchema: z.object({
+        ...collectionScope,
+        entry_id: uuid,
+        generation_id: uuid,
+        expected_revision: z.number().int().min(1),
+        operation_id: operationId,
+      }).strict(),
+      outputSchema,
+      annotations: mutationAnnotations,
+    },
+    async ({ tenant_id, project_id, environment_id, collection_instance_id, entry_id, generation_id, expected_revision, operation_id }) => {
+      const id = operation_id ?? createOperationId();
+      return execute(() => client.restoreFileGeneration(
+        fileReference(tenant_id, project_id, environment_id, collection_instance_id, entry_id),
+        { generation_id, expected_revision },
+        { operationId: id },
+      ), id);
+    },
+  );
+
+  server.registerTool(
+    "almira_file_restore",
+    {
+      title: "Restore Almira file",
+      description: "Restore one file entry that is still inside its recycle window.",
+      inputSchema: z.object({
+        ...collectionScope,
+        entry_id: uuid,
+        expected_revision: z.number().int().min(1),
+        operation_id: operationId,
+      }).strict(),
+      outputSchema,
+      annotations: mutationAnnotations,
+    },
+    async ({ tenant_id, project_id, environment_id, collection_instance_id, entry_id, expected_revision, operation_id }) => {
+      const id = operation_id ?? createOperationId();
+      return execute(() => client.restoreFile(
+        fileReference(tenant_id, project_id, environment_id, collection_instance_id, entry_id),
+        { expected_revision },
+        { operationId: id },
+      ), id);
     },
   );
 
@@ -903,6 +1002,16 @@ function collectionReference(
   collectionInstanceId: string,
 ) {
   return { tenantId, projectId, environmentId, collectionInstanceId };
+}
+
+function fileReference(
+  tenantId: string,
+  projectId: string,
+  environmentId: string,
+  collectionInstanceId: string,
+  entryId: string,
+) {
+  return { tenantId, projectId, environmentId, collectionInstanceId, entryId };
 }
 
 async function execute(call: () => Promise<unknown>, operationId?: string) {

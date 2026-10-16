@@ -285,6 +285,53 @@ test("environment lifecycle commands preserve exact body and revision semantics"
   ]);
 });
 
+test("file lifecycle commands expose recycle, versions, rename, and generation selection", async () => {
+  const collectionId = "018f0000-0000-7000-8000-000000000012";
+  const entryId = "018f0000-0000-7000-8000-000000000013";
+  const generationId = "018f0000-0000-7000-8000-000000000014";
+  const requests = [];
+  const invoke = async (arguments_) => {
+    const stream = io();
+    const exitCode = await runCli(arguments_, {
+      environment,
+      io: stream.value,
+      fetch: async (input, init) => {
+        requests.push({ input, init });
+        return json(init.method === "GET"
+          ? (input.includes("/versions") ? { generations: [], next_cursor: null } : { entries: [], next_cursor: null })
+          : { disposition: "applied" });
+      },
+    });
+    assert.equal(exitCode, 0);
+  };
+  const common = [
+    "--tenant", tenantId,
+    "--project", projectId,
+    "--environment", environmentId,
+    "--collection", collectionId,
+  ];
+  const file = [...common, "--entry", entryId];
+  await invoke(["file", "list", ...common, "--include-deleted"]);
+  await invoke(["file", "versions", ...file, "--limit", "20"]);
+  await invoke(["file", "rename", ...file, "--path", "archive/file.txt", "--revision", "3", "--operation-id", operationId]);
+  await invoke(["file", "select-version", ...file, "--generation", generationId, "--revision", "4", "--operation-id", operationId]);
+  await invoke(["file", "restore", ...file, "--revision", "5", "--operation-id", operationId]);
+
+  const base = `https://almira.test/v1/projects/${projectId}/environments/${environmentId}/collections/${collectionId}/files`;
+  assert.deepEqual(requests.map(({ input, init }) => ({
+    input,
+    method: init.method,
+    operationId: init.headers.get("idempotency-key"),
+    body: init.body === undefined ? undefined : JSON.parse(init.body),
+  })), [
+    { input: `${base}?include_deleted=true`, method: "GET", operationId: null, body: undefined },
+    { input: `${base}/${entryId}/versions?limit=20`, method: "GET", operationId: null, body: undefined },
+    { input: `${base}/${entryId}`, method: "PATCH", operationId, body: { logical_path: "archive/file.txt", expected_revision: 3 } },
+    { input: `${base}/${entryId}/current-generation`, method: "PUT", operationId, body: { generation_id: generationId, expected_revision: 4 } },
+    { input: `${base}/${entryId}/restore`, method: "POST", operationId, body: { expected_revision: 5 } },
+  ]);
+});
+
 test("storage capability discovery uses the selected environment and remains read-only", async () => {
   const stream = io();
   let request;

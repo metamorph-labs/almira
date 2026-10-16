@@ -5,7 +5,7 @@ import {
   createOperationId,
   uploadDirect,
   type CollectionReference,
-  type FileEntry,
+  type FileGeneration,
 } from "@metamorph-labs/almira-sdk";
 
 export interface UploadFileInput extends CollectionReference {
@@ -16,7 +16,7 @@ export interface UploadFileInput extends CollectionReference {
   path: string;
 }
 
-export async function uploadFile(input: UploadFileInput): Promise<FileEntry> {
+export async function uploadFile(input: UploadFileInput): Promise<FileGeneration> {
   const contentSha256 = `sha256:${createHash("sha256").update(input.bytes).digest("hex")}` as const;
   const created = await input.client.createUpload(
     input,

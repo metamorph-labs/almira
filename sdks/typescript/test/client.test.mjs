@@ -16,6 +16,7 @@ const collectionInstanceId = "018f0000-0000-7000-8000-000000000005";
 const entryId = "018f0000-0000-7000-8000-000000000006";
 const operationId = "018f0000-0000-7000-8000-000000000007";
 const requestId = "018f0000-0000-7000-8000-000000000008";
+const generationId = "018f0000-0000-7000-8000-000000000009";
 
 test("operation IDs are UUIDv7 values with the requested timestamp", () => {
   const operationId = createOperationId(1_729_080_000_000);
@@ -322,6 +323,78 @@ test("list query encoding cannot change the request path", async () => {
     { tenantId, projectId, environmentId, collectionInstanceId },
     { limit: 25, cursor: "a&admin=true", pathPrefix: "images/cover.png" },
   );
+});
+
+test("file lifecycle methods use stable entry paths and optimistic revisions", async () => {
+  const calls = [];
+  const client = new AlmiraClient({
+    credential: "mm_pat_v1.test",
+    fetch: async (input, init) => {
+      calls.push({ input, init });
+      return json(init.method === "GET"
+        ? { generations: [], next_cursor: null }
+        : { disposition: "applied" }, { status: init.method === "POST" && input.endsWith("/versions") ? 201 : 200 });
+    },
+  });
+  const reference = { tenantId, projectId, environmentId, collectionInstanceId, entryId };
+  await client.createFileVersion(reference, {
+    expected_entry_revision: 2,
+    expected_size_bytes: 12,
+    content_sha256: "b".repeat(64),
+    declared_media_type: "text/plain",
+  }, { operationId });
+  await client.listFileGenerations(reference, { limit: 25, cursor: "next page" });
+  await client.renameFile(reference, {
+    logical_path: "archive/file.txt",
+    expected_revision: 3,
+  }, { operationId });
+  await client.restoreFileGeneration(reference, {
+    generation_id: generationId,
+    expected_revision: 4,
+  }, { operationId });
+  await client.restoreFile(reference, { expected_revision: 5 }, { operationId });
+
+  const base = `/v1/projects/${projectId}/environments/${environmentId}/collections/${collectionInstanceId}/files/${entryId}`;
+  assert.deepEqual(calls.map(({ input, init }) => ({
+    input,
+    method: init.method,
+    operationId: init.headers.get("idempotency-key"),
+    body: init.body === undefined ? undefined : JSON.parse(init.body),
+  })), [
+    {
+      input: `${base}/versions`,
+      method: "POST",
+      operationId,
+      body: {
+        expected_entry_revision: 2,
+        expected_size_bytes: 12,
+        content_sha256: "b".repeat(64),
+        declared_media_type: "text/plain",
+      },
+    },
+    { input: `${base}/versions?limit=25&cursor=next+page`, method: "GET", operationId: null, body: undefined },
+    { input: base, method: "PATCH", operationId, body: { logical_path: "archive/file.txt", expected_revision: 3 } },
+    { input: `${base}/current-generation`, method: "PUT", operationId, body: { generation_id: generationId, expected_revision: 4 } },
+    { input: `${base}/restore`, method: "POST", operationId, body: { expected_revision: 5 } },
+  ]);
+});
+
+test("recycle listing is management-only", async () => {
+  const calls = [];
+  const client = new AlmiraClient({
+    fetch: async (input) => {
+      calls.push(input);
+      return json({ entries: [], next_cursor: null });
+    },
+  });
+  const reference = { tenantId, projectId, environmentId, collectionInstanceId };
+  await client.listFiles(reference, { includeDeleted: true });
+  assert.equal(calls[0], `/v1/projects/${projectId}/environments/${environmentId}/collections/${collectionInstanceId}/files?include_deleted=true`);
+  await assert.rejects(
+    client.listFiles(reference, { includeDeleted: true, subject: { subject_id: "builder-user" } }),
+    (error) => error instanceof AlmiraClientError && error.code === "ALMIRA_CLIENT_INPUT_INVALID",
+  );
+  assert.equal(calls.length, 1);
 });
 
 test("typed API errors expose no response body", async () => {

@@ -17,6 +17,7 @@ import type {
   CreateCollectionRequest,
   CreateCapabilitySessionRequest,
   CreateEnvironmentRequest,
+  CreateFileVersionRequest,
   CreateUploadOutcome,
   CreateUploadRequest,
   CreateShareRequest,
@@ -28,6 +29,10 @@ import type {
   EnvironmentReference,
   FileEntry,
   FileEntryPage,
+  FileGeneration,
+  FileGenerationPage,
+  FileMutationOutcome,
+  FilePageOptions,
   FileReference,
   FinalizeUploadRequest,
   LocalIssuer,
@@ -44,6 +49,9 @@ import type {
   ReplaceBrowserOriginsOutcome,
   ReplaceBrowserOriginsRequest,
   ReplaceDeliveryConfigRequest,
+  RenameFileRequest,
+  RestoreFileGenerationRequest,
+  RestoreFileRequest,
   RotateLocalIssuerKeyRequest,
   ShareGrant,
   ShareReference,
@@ -299,7 +307,7 @@ export class AlmiraClient {
     reference: CollectionReference & { transferSessionId: UuidV7 },
     request: FinalizeUploadRequest,
     options: MutationOptions,
-  ): Promise<FileEntry> {
+  ): Promise<FileGeneration> {
     return this.#json(
       collectionPath(reference, `/uploads/${uuid(reference.transferSessionId)}/finalize`),
       {
@@ -314,15 +322,44 @@ export class AlmiraClient {
 
   async listFiles(
     reference: CollectionReference,
-    options: PageOptions & { pathPrefix?: string; subject?: BuilderSubject } = {},
+    options: FilePageOptions = {},
   ): Promise<FileEntryPage> {
     const query = new URLSearchParams();
     appendPage(query, options);
     if (options.pathPrefix !== undefined) query.set("path_prefix", options.pathPrefix);
+    if (options.includeDeleted === true) {
+      if (options.subject !== undefined) invalidInput();
+      query.set("include_deleted", "true");
+    }
     const subject = subjectHeaders(options.subject);
     return this.#json(withQuery(collectionPath(reference, "/files"), query), {
       method: "GET",
       ...(subject === undefined ? {} : { headers: subject }),
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async createFileVersion(
+    reference: FileReference,
+    request: CreateFileVersionRequest,
+    options: MutationOptions,
+  ): Promise<CreateUploadOutcome> {
+    return this.#json(filePath(reference, "/versions"), {
+      method: "POST",
+      headers: mutationHeaders(options.operationId),
+      body: request,
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async listFileGenerations(
+    reference: FileReference,
+    options: PageOptions = {},
+  ): Promise<FileGenerationPage> {
+    const query = new URLSearchParams();
+    appendPage(query, options);
+    return this.#json(withQuery(filePath(reference, "/versions"), query), {
+      method: "GET",
       signal: options.signal,
     }, reference.tenantId);
   }
@@ -351,6 +388,45 @@ export class AlmiraClient {
         ...mutationHeaders(options.operationId),
         "if-match": String(expectedRevision),
       },
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async renameFile(
+    reference: FileReference,
+    request: RenameFileRequest,
+    options: MutationOptions,
+  ): Promise<FileMutationOutcome> {
+    return this.#json(filePath(reference), {
+      method: "PATCH",
+      headers: mutationHeaders(options.operationId),
+      body: request,
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async restoreFileGeneration(
+    reference: FileReference,
+    request: RestoreFileGenerationRequest,
+    options: MutationOptions,
+  ): Promise<FileMutationOutcome> {
+    return this.#json(filePath(reference, "/current-generation"), {
+      method: "PUT",
+      headers: mutationHeaders(options.operationId),
+      body: request,
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async restoreFile(
+    reference: FileReference,
+    request: RestoreFileRequest,
+    options: MutationOptions,
+  ): Promise<FileMutationOutcome> {
+    return this.#json(filePath(reference, "/restore"), {
+      method: "POST",
+      headers: mutationHeaders(options.operationId),
+      body: request,
       signal: options.signal,
     }, reference.tenantId);
   }

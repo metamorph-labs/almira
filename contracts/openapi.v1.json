@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Almira API",
-    "version": "0.1.0-dev.18",
+    "version": "0.1.0-dev.20",
     "description": "Provider-neutral application file storage management and data API."
   },
   "servers": [
@@ -860,6 +860,15 @@
             }
           },
           {
+            "name": "include_deleted",
+            "in": "query",
+            "description": "Include entries still inside their recycle window. Not accepted with builder subject context.",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
             "name": "limit",
             "in": "query",
             "schema": {
@@ -955,6 +964,66 @@
           }
         }
       },
+      "patch": {
+        "operationId": "renameFile",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/EntryId"
+          },
+          {
+            "$ref": "#/components/parameters/OperationId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameFileRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Stable file identity renamed or exactly replayed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileMutationOutcome"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      },
       "delete": {
         "operationId": "deleteFile",
         "parameters": [
@@ -985,11 +1054,275 @@
         ],
         "responses": {
           "200": {
-            "description": "File soft-deleted or exactly replayed.",
+            "description": "File moved into its bounded recycle window or exactly replayed.",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/DeleteFileOutcome"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/files/{entry_id}/versions": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "get": {
+        "operationId": "listFileGenerations",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/EntryId"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retained immutable generations ordered newest first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileGenerationPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createFileVersion",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/EntryId"
+          },
+          {
+            "$ref": "#/components/parameters/OperationId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateFileVersionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Immutable version transfer prepared with bounded one-use requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateUploadOutcome"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/files/{entry_id}/current-generation": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "put": {
+        "operationId": "restoreFileGeneration",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/EntryId"
+          },
+          {
+            "$ref": "#/components/parameters/OperationId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RestoreFileGenerationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Selected retained generation made current or exactly replayed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileMutationOutcome"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/files/{entry_id}/restore": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "post": {
+        "operationId": "restoreFile",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/EntryId"
+          },
+          {
+            "$ref": "#/components/parameters/OperationId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RestoreFileRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "File restored from its unexpired recycle window or exactly replayed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileMutationOutcome"
                 }
               }
             }
@@ -3114,6 +3447,43 @@
           }
         }
       },
+      "CreateFileVersionRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "expected_entry_revision",
+          "expected_size_bytes",
+          "content_sha256",
+          "declared_media_type"
+        ],
+        "properties": {
+          "expected_entry_revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "expected_size_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10737418240
+          },
+          "content_sha256": {
+            "$ref": "#/components/schemas/ContentSha256"
+          },
+          "declared_media_type": {
+            "$ref": "#/components/schemas/MediaType"
+          },
+          "browser_origin": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/BrowserOrigin"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
       "DirectUploadHeader": {
         "type": "object",
         "additionalProperties": false,
@@ -3414,6 +3784,10 @@
           "logical_path",
           "lifecycle",
           "revision",
+          "current_generation_id",
+          "current_generation",
+          "deleted_at",
+          "recycle_until",
           "latest_generation",
           "created_at",
           "updated_at"
@@ -3436,6 +3810,46 @@
           "revision": {
             "type": "integer",
             "minimum": 1
+          },
+          "current_generation_id": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/UuidV7"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "current_generation": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/FileGeneration"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "deleted_at": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Timestamp"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "recycle_until": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Timestamp"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "latest_generation": {
             "$ref": "#/components/schemas/FileGeneration"
@@ -3469,6 +3883,97 @@
               "null"
             ],
             "maxLength": 2048
+          }
+        }
+      },
+      "FileGenerationPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "generations",
+          "next_cursor"
+        ],
+        "properties": {
+          "generations": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/FileGeneration"
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2048
+          }
+        }
+      },
+      "RenameFileRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "logical_path",
+          "expected_revision"
+        ],
+        "properties": {
+          "logical_path": {
+            "$ref": "#/components/schemas/LogicalPath"
+          },
+          "expected_revision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "RestoreFileGenerationRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "generation_id",
+          "expected_revision"
+        ],
+        "properties": {
+          "generation_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "expected_revision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "RestoreFileRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "expected_revision"
+        ],
+        "properties": {
+          "expected_revision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "FileMutationOutcome": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "disposition",
+          "entry"
+        ],
+        "properties": {
+          "disposition": {
+            "type": "string",
+            "enum": [
+              "applied",
+              "exact_replay"
+            ]
+          },
+          "entry": {
+            "$ref": "#/components/schemas/FileEntry"
           }
         }
       },

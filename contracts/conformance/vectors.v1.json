@@ -667,6 +667,46 @@
       "expected": "invalid"
     },
     {
+      "name": "immutable_version_upload_is_revision_bound",
+      "schema": "CreateFileVersionRequest",
+      "instance": {
+        "expected_entry_revision": 3,
+        "expected_size_bytes": 12,
+        "content_sha256": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "declared_media_type": "text/plain",
+        "browser_origin": "https://app.example.com"
+      },
+      "expected": "valid"
+    },
+    {
+      "name": "immutable_version_upload_without_revision_is_refused",
+      "schema": "CreateFileVersionRequest",
+      "instance": {
+        "expected_size_bytes": 12,
+        "content_sha256": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "declared_media_type": "text/plain"
+      },
+      "expected": "invalid"
+    },
+    {
+      "name": "stable_file_rename_is_revision_bound",
+      "schema": "RenameFileRequest",
+      "instance": {
+        "logical_path": "archive/report.pdf",
+        "expected_revision": 4
+      },
+      "expected": "valid"
+    },
+    {
+      "name": "generation_restore_is_explicit_and_revision_bound",
+      "schema": "RestoreFileGenerationRequest",
+      "instance": {
+        "generation_id": "018f0000-0000-7000-8000-000000000032",
+        "expected_revision": 5
+      },
+      "expected": "valid"
+    },
+    {
       "name": "safe_error_envelope",
       "schema": "Error",
       "instance": {

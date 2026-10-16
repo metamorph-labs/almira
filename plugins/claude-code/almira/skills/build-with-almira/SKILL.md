@@ -26,6 +26,8 @@ Reuse the returned `operation_id` when retrying any mutation whose result was no
 
 Use `@metamorph-labs/almira-sdk` instead of hand-written HTTP calls. Instantiate `AlmiraClient`, create a transfer with `createUpload`, send bytes with `uploadDirect`, and commit the generation with `finalizeUpload`. Use `readPrivateFile` for authorized reads. Follow the SDK README and the Node upload example when available in the checked-out Almira repository.
 
+Treat a file entry as the stable identity and generations as immutable bytes. For lifecycle work, use the published `createFileVersion`, `listFileGenerations`, `renameFile`, `restoreFileGeneration`, `deleteFile`, and `restoreFile` SDK methods or their management tools. Deletion must be treated as immediate read refusal even though a management caller can restore the entry during its bounded recycle window.
+
 Keep the Almira product origin in `ALMIRA_BASE_URL` (without a `/platform/almira` prefix) and an `mm_pat_v1.` PAT or `mm_sak_v1.` SAK in `METAMORPH_TOKEN`. Never write a PAT, SAK, workload credential, one-use upload URL, or upload header into source, logs, prompts, or generated documentation. Deployed applications must use short-lived customer-workload evidence from Metamorph Identity, not a developer PAT or SAK.
 
 Do not provision S3, GCS, or Azure credentials in application code. Almira owns provider placement, delivery, safety processing, metadata extraction, and CDN behavior behind its API.

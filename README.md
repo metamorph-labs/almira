@@ -30,7 +30,9 @@ the complete local repository gate.
 
 The first management commands are in [`clients/cli`](clients/cli). The CLI uses predictable
 noun/verb commands, JSON-only stdout, stable exit codes and environment-backed credentials; it
-shares the SDK transport instead of implementing a second API client.
+shares the SDK transport instead of implementing a second API client. Stable file identities can
+be listed with their immutable generations, renamed without copying bytes, switched to a retained
+generation, moved into a bounded recycle window, and restored while that window remains open.
 
 The stdio MCP server is in [`clients/mcp`](clients/mcp). It presents the same bounded management
 slice to external coding agents, leaves approvals with the MCP host and deliberately keeps

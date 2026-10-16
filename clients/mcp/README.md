@@ -28,6 +28,11 @@ placed in model context; application integration uses the SDK. Mutating tools ac
 Collection creation accepts `storage_class` as `normal` (the default) or `express`; agents should
 first verify that the selected environment advertises the requested class.
 
+File management tools list retained immutable generations, rename stable entries, select a
+retained generation, move an entry into its recycle window, and restore it before expiry. Deleted
+entries are visible only when a management caller explicitly requests `include_deleted`; these
+tools never turn recycle visibility into application-user access.
+
 The same bounded catalog includes policy read/replace/simulation, CDN delivery read/replace,
 revocable generation shares, and local issuer registration/rotation/revocation/signing
 configuration. The MCP server handles public keys and declared ceilings only; it never accepts a

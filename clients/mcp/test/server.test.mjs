@@ -62,8 +62,12 @@ test("tool catalog is closed and marks destructive behavior accurately", async (
       "almira_environment_list",
       "almira_environment_update",
       "almira_file_delete",
+      "almira_file_generation_restore",
       "almira_file_list",
       "almira_file_metadata_get",
+      "almira_file_rename",
+      "almira_file_restore",
+      "almira_file_versions_list",
       "almira_local_issuer_list",
       "almira_local_issuer_register",
       "almira_local_issuer_revoke",
@@ -93,9 +97,74 @@ test("tool catalog is closed and marks destructive behavior accurately", async (
     true,
   );
   assert.equal(
+    response.tools.find((tool) => tool.name === "almira_file_versions_list").annotations.readOnlyHint,
+    true,
+  );
+  assert.equal(
+    response.tools.find((tool) => tool.name === "almira_file_restore").annotations.destructiveHint,
+    false,
+  );
+  assert.equal(
     response.tools.find((tool) => tool.name === "almira_share_revoke").annotations.destructiveHint,
     true,
   );
+});
+
+test("file lifecycle tools preserve stable entry scope, revisions, and operation identity", async (context) => {
+  const environmentId = "018f0000-0000-7000-8000-000000000004";
+  const collectionId = "018f0000-0000-7000-8000-000000000005";
+  const entryId = "018f0000-0000-7000-8000-000000000006";
+  const generationId = "018f0000-0000-7000-8000-000000000009";
+  const operationId = "018f0000-0000-7000-8000-000000000007";
+  const requests = [];
+  const connection = await connected(async (input, init) => {
+    requests.push({ input, init });
+    return json(init.method === "GET" ? { generations: [], entries: [], next_cursor: null } : { disposition: "applied" });
+  });
+  context.after(async () => {
+    await connection.client.close();
+    await connection.server.close();
+  });
+  const scope = {
+    tenant_id: tenantId,
+    project_id: projectId,
+    environment_id: environmentId,
+    collection_instance_id: collectionId,
+  };
+  await connection.client.callTool({
+    name: "almira_file_list",
+    arguments: { ...scope, include_deleted: true },
+  });
+  await connection.client.callTool({
+    name: "almira_file_versions_list",
+    arguments: { ...scope, entry_id: entryId, limit: 25 },
+  });
+  await connection.client.callTool({
+    name: "almira_file_rename",
+    arguments: { ...scope, entry_id: entryId, logical_path: "archive/file.txt", expected_revision: 3, operation_id: operationId },
+  });
+  await connection.client.callTool({
+    name: "almira_file_generation_restore",
+    arguments: { ...scope, entry_id: entryId, generation_id: generationId, expected_revision: 4, operation_id: operationId },
+  });
+  await connection.client.callTool({
+    name: "almira_file_restore",
+    arguments: { ...scope, entry_id: entryId, expected_revision: 5, operation_id: operationId },
+  });
+
+  const base = `https://almira.test/v1/projects/${projectId}/environments/${environmentId}/collections/${collectionId}/files`;
+  assert.deepEqual(requests.map(({ input, init }) => ({
+    input,
+    method: init.method,
+    operationId: init.headers.get("idempotency-key"),
+    body: init.body === undefined ? undefined : JSON.parse(init.body),
+  })), [
+    { input: `${base}?include_deleted=true`, method: "GET", operationId: null, body: undefined },
+    { input: `${base}/${entryId}/versions?limit=25`, method: "GET", operationId: null, body: undefined },
+    { input: `${base}/${entryId}`, method: "PATCH", operationId, body: { logical_path: "archive/file.txt", expected_revision: 3 } },
+    { input: `${base}/${entryId}/current-generation`, method: "PUT", operationId, body: { generation_id: generationId, expected_revision: 4 } },
+    { input: `${base}/${entryId}/restore`, method: "POST", operationId, body: { expected_revision: 5 } },
+  ]);
 });
 
 test("configuration tools preview and converge the same structured document", async (context) => {

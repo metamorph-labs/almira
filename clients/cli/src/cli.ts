@@ -57,7 +57,11 @@ Commands:
   migration get           Read durable storage-migration progress
   file list               List file metadata
   file get                Read one file's metadata
-  file delete             Soft-delete one file
+  file versions           List immutable generations
+  file rename             Rename or move a stable file identity
+  file select-version     Make one retained generation current
+  file delete             Move one file into its recycle window
+  file restore            Restore one file from its recycle window
   policy get              Read a collection access policy
   policy set              Replace a collection access policy from --input JSON
   policy simulate         Evaluate an access decision from --input JSON
@@ -82,9 +86,12 @@ Common identifiers:
   --collection UUID       Almira collection-instance UUIDv7
   --migration UUID        Almira storage-migration UUIDv7
   --entry UUID            Almira file-entry UUIDv7
+  --generation UUID       Almira immutable generation UUIDv7
   --share UUID            Almira share UUIDv7
   --issuer UUID           Almira local-issuer UUIDv7
   --input PATH            Exact JSON request body for structured operations
+  --path PATH             Canonical logical file path
+  --include-deleted       Include entries still inside their recycle window
   --file PATH             almira.yaml path for config preview/apply
 
 Collection creation:
@@ -105,8 +112,10 @@ const options = {
   entry: { type: "string" },
   environment: { type: "string" },
   file: { type: "string" },
+  generation: { type: "string" },
   help: { type: "boolean", short: "h" },
   input: { type: "string" },
+  "include-deleted": { type: "boolean" },
   issuer: { type: "string" },
   key: { type: "string" },
   limit: { type: "string" },
@@ -114,6 +123,7 @@ const options = {
   "operation-id": { type: "string" },
   origin: { type: "string", multiple: true },
   "path-prefix": { type: "string" },
+  path: { type: "string" },
   project: { type: "string" },
   revision: { type: "string" },
   scan: { type: "string" },
@@ -258,16 +268,43 @@ export async function runCli(arguments_: string[], dependencies: CliDependencies
       const pathPrefix = stringValue(values, "path-prefix");
       result = await client.listFiles(collectionReference(values, tenantId, projectId), {
         ...page(values),
+        ...(values["include-deleted"] === true ? { includeDeleted: true } : {}),
         ...(pathPrefix === undefined ? {} : { pathPrefix }),
       });
     } else if (noun === "file" && verb === "get") {
       result = await client.getFileMetadata(fileReference(values, tenantId, projectId));
+    } else if (noun === "file" && verb === "versions") {
+      result = await client.listFileGenerations(fileReference(values, tenantId, projectId), page(values));
+    } else if (noun === "file" && verb === "rename") {
+      operationId = mutationId(values);
+      mutation = true;
+      result = await client.renameFile(
+        fileReference(values, tenantId, projectId),
+        { logical_path: required(values, "path"), expected_revision: positiveInteger(values, "revision") },
+        { operationId },
+      );
+    } else if (noun === "file" && verb === "select-version") {
+      operationId = mutationId(values);
+      mutation = true;
+      result = await client.restoreFileGeneration(
+        fileReference(values, tenantId, projectId),
+        { generation_id: required(values, "generation"), expected_revision: positiveInteger(values, "revision") },
+        { operationId },
+      );
     } else if (noun === "file" && verb === "delete") {
       operationId = mutationId(values);
       mutation = true;
       result = await client.deleteFile(
         fileReference(values, tenantId, projectId),
         positiveInteger(values, "revision"),
+        { operationId },
+      );
+    } else if (noun === "file" && verb === "restore") {
+      operationId = mutationId(values);
+      mutation = true;
+      result = await client.restoreFile(
+        fileReference(values, tenantId, projectId),
+        { expected_revision: positiveInteger(values, "revision") },
         { operationId },
       );
     } else if (noun === "policy" && verb === "get") {
@@ -380,9 +417,13 @@ const commandOptions = new Map<string, ReadonlySet<string>>([
   ["collection:get", new Set(["base-url", "collection", "environment", "project", "tenant"])],
   ["collection:migrate", new Set(["base-url", "class", "collection", "environment", "operation-id", "project", "revision", "tenant"])],
   ["migration:get", new Set(["base-url", "collection", "environment", "migration", "project", "tenant"])],
-  ["file:list", new Set(["base-url", "collection", "cursor", "environment", "limit", "path-prefix", "project", "tenant"])],
+  ["file:list", new Set(["base-url", "collection", "cursor", "environment", "include-deleted", "limit", "path-prefix", "project", "tenant"])],
   ["file:get", new Set(["base-url", "collection", "entry", "environment", "project", "tenant"])],
+  ["file:versions", new Set(["base-url", "collection", "cursor", "entry", "environment", "limit", "project", "tenant"])],
+  ["file:rename", new Set(["base-url", "collection", "entry", "environment", "operation-id", "path", "project", "revision", "tenant"])],
+  ["file:select-version", new Set(["base-url", "collection", "entry", "environment", "generation", "operation-id", "project", "revision", "tenant"])],
   ["file:delete", new Set(["base-url", "collection", "entry", "environment", "operation-id", "project", "revision", "tenant"])],
+  ["file:restore", new Set(["base-url", "collection", "entry", "environment", "operation-id", "project", "revision", "tenant"])],
   ["policy:get", collectionCommandOptions()],
   ["policy:set", collectionCommandOptions("input", "operation-id")],
   ["policy:simulate", collectionCommandOptions("input", "operation-id")],
