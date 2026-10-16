@@ -1,5 +1,6 @@
 packages:
-  - "packages/*"
+  - "clients/*"
+  - "sdks/*"
 
 nodeLinker: hoisted
 engineStrict: true

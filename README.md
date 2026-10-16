@@ -17,7 +17,7 @@ Released public contracts are installed under [`contracts/`](contracts/) from a 
 digest-bound bundle produced by `almira-core`. Run `pnpm contracts:verify` to verify the installed
 bundle independently; see [`AGENTS.md`](AGENTS.md) before proposing a contract change.
 
-The dependency-light TypeScript client is in [`packages/sdk`](packages/sdk). It covers every
+The dependency-light TypeScript client is in [`sdks/typescript`](sdks/typescript). It covers every
 operation in the promoted contract and supports same-origin browser sessions, PATs, SAKs and
 short-lived workload evidence through the standard Fetch API. Run `pnpm check` for the complete
 local repository gate.
