@@ -120,12 +120,12 @@
       "instance": {
         "descriptor_id": "018f0000-0000-7000-8000-000000000001",
         "protocol": "single_put",
-        "etag": "etag-one",
+        "etag": "etag/one==",
         "provider_version": null,
         "parts": [
           {
             "part_number": 1,
-            "etag": "etag-one"
+            "etag": "etag/one=="
           }
         ],
         "size_bytes": 11,
@@ -134,17 +134,63 @@
       "expected": "valid"
     },
     {
-      "name": "completion_unknown_coordinates_refused",
+      "name": "multipart_completion_uses_only_part_receipts",
       "schema": "FinalizeUploadRequest",
       "instance": {
         "descriptor_id": "018f0000-0000-7000-8000-000000000001",
-        "protocol": "single_put",
-        "etag": "etag-one",
+        "protocol": "multipart",
+        "etag": null,
         "provider_version": null,
         "parts": [
           {
             "part_number": 1,
             "etag": "etag-one"
+          },
+          {
+            "part_number": 2,
+            "etag": "etag-two"
+          }
+        ],
+        "size_bytes": 11,
+        "content_sha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "expected": "valid"
+    },
+    {
+      "name": "multipart_premature_aggregate_refused",
+      "schema": "FinalizeUploadRequest",
+      "instance": {
+        "descriptor_id": "018f0000-0000-7000-8000-000000000001",
+        "protocol": "multipart",
+        "etag": "not-yet-completed",
+        "provider_version": null,
+        "parts": [
+          {
+            "part_number": 1,
+            "etag": "etag-one"
+          },
+          {
+            "part_number": 2,
+            "etag": "etag-two"
+          }
+        ],
+        "size_bytes": 11,
+        "content_sha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "expected": "invalid"
+    },
+    {
+      "name": "completion_unknown_coordinates_refused",
+      "schema": "FinalizeUploadRequest",
+      "instance": {
+        "descriptor_id": "018f0000-0000-7000-8000-000000000001",
+        "protocol": "single_put",
+        "etag": "etag/one==",
+        "provider_version": null,
+        "parts": [
+          {
+            "part_number": 1,
+            "etag": "etag/one=="
           }
         ],
         "size_bytes": 11,

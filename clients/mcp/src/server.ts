@@ -46,7 +46,7 @@ const outputSchema = z
 
 /** Creates one stdio-safe MCP server over the canonical Almira SDK client. */
 export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
-  const server = new McpServer({ name: "almira", version: "0.1.0-dev.6" });
+  const server = new McpServer({ name: "almira", version: "0.1.0-dev.8" });
 
   server.registerTool(
     "almira_project_bootstrap",

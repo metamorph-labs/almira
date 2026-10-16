@@ -119,7 +119,7 @@ export interface DirectUploadPartCompletion {
 export interface FinalizeUploadRequest {
   descriptor_id: UuidV7;
   protocol: "single_put" | "multipart";
-  etag: string;
+  etag: string | null;
   provider_version: string | null;
   parts: DirectUploadPartCompletion[];
   size_bytes: number;

@@ -29,3 +29,6 @@ shares the SDK transport instead of implementing a second API client.
 The stdio MCP server is in [`clients/mcp`](clients/mcp). It presents the same bounded management
 slice to external coding agents, leaves approvals with the MCP host and deliberately keeps
 one-use transfer capabilities and file bytes out of model context.
+
+[`examples/node-upload`](examples/node-upload) exercises the complete SDK upload path: create a
+transfer, PUT bytes using only the one-use descriptor, and finalize the resulting generation.

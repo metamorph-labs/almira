@@ -35,3 +35,26 @@ export class AlmiraClientError extends Error {
     this.code = code;
   }
 }
+
+export class AlmiraTransferError extends Error {
+  readonly code:
+    | "ALMIRA_TRANSFER_DESCRIPTOR_EXPIRED"
+    | "ALMIRA_TRANSFER_DESCRIPTOR_INVALID"
+    | "ALMIRA_TRANSFER_OUTCOME_UNKNOWN"
+    | "ALMIRA_TRANSFER_PART_REFUSED"
+    | "ALMIRA_TRANSFER_RESPONSE_INVALID";
+  readonly partNumber: number | null;
+  readonly status: number | null;
+
+  constructor(
+    code: AlmiraTransferError["code"],
+    partNumber: number | null = null,
+    status: number | null = null,
+  ) {
+    super(code);
+    this.name = "AlmiraTransferError";
+    this.code = code;
+    this.partNumber = partNumber;
+    this.status = status;
+  }
+}
