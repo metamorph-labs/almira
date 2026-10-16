@@ -12,6 +12,12 @@ const almira = new AlmiraClient({
 });
 
 const { environments } = await almira.listEnvironments({ tenantId, projectId });
+
+const preview = await almira.createEnvironment(
+  { tenantId, projectId },
+  { environment_key: "preview-one", display_name: "Preview one" },
+  { operationId },
+);
 ```
 
 Omit both `baseUrl` and `credential` in a browser product session; the client uses same-origin
@@ -20,6 +26,10 @@ Omit both `baseUrl` and `credential` in a browser product session; the client us
 so callers can rotate them. Every request carries the tenant routing scope separately from the
 project path. Mutation methods require an explicit UUIDv7 operation ID: retain and reuse it when
 retrying an ambiguous outcome.
+
+Projects start with protected `development` and `production` environments and may have up to ten
+environments. Additional environments can be created, renamed and marked for deletion through the
+same scoped client; deleting either protected default is refused.
 
 Direct transfer URLs and headers returned by `createUpload` are sensitive, one-use capabilities.
 The SDK returns them only to the caller and never logs or persists them.

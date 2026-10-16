@@ -32,6 +32,9 @@ const HELP = `Usage: almira <noun> <verb> [options]
 Commands:
   project bootstrap       Converge the Almira project and default environments
   environment list       List all project environments
+  environment create     Create an additional managed environment
+  environment update     Rename an environment
+  environment delete     Mark an additional environment for deletion
   origin get              Read an environment's browser-origin policy
   origin set              Replace an environment's browser-origin policy
   collection list         List collections in an environment
@@ -114,6 +117,30 @@ export async function runCli(arguments_: string[], dependencies: CliDependencies
       result = await client.bootstrapProject(reference, { tenancy_project: tenancyProject }, { operationId });
     } else if (noun === "environment" && verb === "list") {
       result = await client.listEnvironments(reference);
+    } else if (noun === "environment" && verb === "create") {
+      operationId = mutationId(values);
+      mutation = true;
+      result = await client.createEnvironment(
+        reference,
+        { environment_key: required(values, "key"), display_name: required(values, "display") },
+        { operationId },
+      );
+    } else if (noun === "environment" && verb === "update") {
+      operationId = mutationId(values);
+      mutation = true;
+      result = await client.updateEnvironment(
+        { ...reference, environmentId: required(values, "environment") },
+        { display_name: required(values, "display"), expected_revision: positiveInteger(values, "revision") },
+        { operationId },
+      );
+    } else if (noun === "environment" && verb === "delete") {
+      operationId = mutationId(values);
+      mutation = true;
+      result = await client.deleteEnvironment(
+        { ...reference, environmentId: required(values, "environment") },
+        positiveInteger(values, "revision"),
+        { operationId },
+      );
     } else if (noun === "origin" && verb === "get") {
       result = await client.getBrowserOrigins({ ...reference, environmentId: required(values, "environment") });
     } else if (noun === "origin" && verb === "set") {
@@ -188,6 +215,9 @@ class CliConfigError extends Error {
 const commandOptions = new Map<string, ReadonlySet<string>>([
   ["project:bootstrap", new Set(["base-url", "operation-id", "project", "tenant", "tenancy-project"])],
   ["environment:list", new Set(["base-url", "project", "tenant"])],
+  ["environment:create", new Set(["base-url", "display", "key", "operation-id", "project", "tenant"])],
+  ["environment:update", new Set(["base-url", "display", "environment", "operation-id", "project", "revision", "tenant"])],
+  ["environment:delete", new Set(["base-url", "environment", "operation-id", "project", "revision", "tenant"])],
   ["origin:get", new Set(["base-url", "environment", "project", "tenant"])],
   ["origin:set", new Set(["base-url", "environment", "operation-id", "origin", "project", "revision", "tenant"])],
   ["collection:list", new Set(["base-url", "cursor", "environment", "limit", "project", "tenant"])],

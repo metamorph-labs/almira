@@ -42,6 +42,8 @@ const page = {
   cursor: z.string().min(1).max(2048).optional(),
   limit: z.number().int().min(1).max(100).optional(),
 };
+const environmentKey = z.string().regex(/^[a-z][a-z0-9-]{0,46}[a-z0-9]$/u);
+const environmentDisplayName = z.string().min(1).max(80).regex(/^\S(?:.*\S)?$/u);
 
 const readAnnotations = {
   readOnlyHint: true,
@@ -73,7 +75,7 @@ const outputSchema = z
 
 /** Creates one stdio-safe MCP server over the canonical Almira SDK client. */
 export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
-  const server = new McpServer({ name: "almira", version: "0.1.0-dev.9" });
+  const server = new McpServer({ name: "almira", version: "0.1.0-dev.10" });
 
   server.registerTool(
     "almira_project_bootstrap",
@@ -108,6 +110,88 @@ export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
     },
     async ({ tenant_id, project_id }) =>
       execute(() => client.listEnvironments({ tenantId: tenant_id, projectId: project_id })),
+  );
+
+  server.registerTool(
+    "almira_environment_create",
+    {
+      title: "Create Almira environment",
+      description: "Create one additional managed environment in an Almira project, up to the project ceiling.",
+      inputSchema: z.object({
+        ...scope,
+        environment_key: environmentKey,
+        display_name: environmentDisplayName,
+        operation_id: operationId,
+      }).strict(),
+      outputSchema,
+      annotations: mutationAnnotations,
+    },
+    async ({ tenant_id, project_id, environment_key, display_name, operation_id }) => {
+      const id = operation_id ?? createOperationId();
+      return execute(
+        () => client.createEnvironment(
+          { tenantId: tenant_id, projectId: project_id },
+          { environment_key, display_name },
+          { operationId: id },
+        ),
+        id,
+      );
+    },
+  );
+
+  server.registerTool(
+    "almira_environment_update",
+    {
+      title: "Update Almira environment",
+      description: "Rename one environment using optimistic revision control.",
+      inputSchema: z.object({
+        ...scope,
+        environment_id: uuid,
+        display_name: environmentDisplayName,
+        expected_revision: z.number().int().min(1),
+        operation_id: operationId,
+      }).strict(),
+      outputSchema,
+      annotations: mutationAnnotations,
+    },
+    async ({ tenant_id, project_id, environment_id, display_name, expected_revision, operation_id }) => {
+      const id = operation_id ?? createOperationId();
+      return execute(
+        () => client.updateEnvironment(
+          { tenantId: tenant_id, projectId: project_id, environmentId: environment_id },
+          { display_name, expected_revision },
+          { operationId: id },
+        ),
+        id,
+      );
+    },
+  );
+
+  server.registerTool(
+    "almira_environment_delete",
+    {
+      title: "Delete Almira environment",
+      description: "Mark a non-system environment for deletion using optimistic revision control.",
+      inputSchema: z.object({
+        ...scope,
+        environment_id: uuid,
+        expected_revision: z.number().int().min(1),
+        operation_id: operationId,
+      }).strict(),
+      outputSchema,
+      annotations: deleteAnnotations,
+    },
+    async ({ tenant_id, project_id, environment_id, expected_revision, operation_id }) => {
+      const id = operation_id ?? createOperationId();
+      return execute(
+        () => client.deleteEnvironment(
+          { tenantId: tenant_id, projectId: project_id, environmentId: environment_id },
+          expected_revision,
+          { operationId: id },
+        ),
+        id,
+      );
+    },
   );
 
   server.registerTool(

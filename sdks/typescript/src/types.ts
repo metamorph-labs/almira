@@ -7,8 +7,26 @@ export interface Environment {
   environment_key: string;
   display_name: string;
   system_key: "development" | "production" | null;
+  operating_model: "managed" | "hosted_customer_owned" | "connected_site";
+  lifecycle: "active" | "deletion_pending";
   revision: number;
   created_at: Timestamp;
+  updated_at: Timestamp;
+}
+
+export interface CreateEnvironmentRequest {
+  environment_key: string;
+  display_name: string;
+}
+
+export interface UpdateEnvironmentRequest {
+  display_name: string;
+  expected_revision: number;
+}
+
+export interface EnvironmentMutationOutcome {
+  disposition: "applied" | "exact_replay";
+  environment: Environment;
 }
 
 export interface BootstrapOutcome {

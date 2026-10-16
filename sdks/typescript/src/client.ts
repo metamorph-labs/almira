@@ -8,10 +8,12 @@ import type {
   CollectionReference,
   CreateCollectionOutcome,
   CreateCollectionRequest,
+  CreateEnvironmentRequest,
   CreateUploadOutcome,
   CreateUploadRequest,
   DeleteFileOutcome,
   EnvironmentList,
+  EnvironmentMutationOutcome,
   EnvironmentReference,
   FileEntry,
   FileEntryPage,
@@ -24,6 +26,7 @@ import type {
   ReadPrivateFileOptions,
   ReplaceBrowserOriginsOutcome,
   ReplaceBrowserOriginsRequest,
+  UpdateEnvironmentRequest,
   UuidV7,
 } from "./types.js";
 
@@ -61,7 +64,7 @@ export interface AlmiraClientOptions {
 interface JsonRequestOptions {
   body?: unknown;
   headers?: Record<string, string>;
-  method: "DELETE" | "GET" | "POST" | "PUT";
+  method: "DELETE" | "GET" | "PATCH" | "POST" | "PUT";
   signal?: AbortSignal | undefined;
 }
 
@@ -118,6 +121,48 @@ export class AlmiraClient {
   ): Promise<EnvironmentList> {
     return this.#json(projectPath(reference, "/environments"), {
       method: "GET",
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async createEnvironment(
+    reference: ProjectReference,
+    request: CreateEnvironmentRequest,
+    options: MutationOptions,
+  ): Promise<EnvironmentMutationOutcome> {
+    return this.#json(projectPath(reference, "/environments"), {
+      method: "POST",
+      headers: mutationHeaders(options.operationId),
+      body: request,
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async updateEnvironment(
+    reference: EnvironmentReference,
+    request: UpdateEnvironmentRequest,
+    options: MutationOptions,
+  ): Promise<EnvironmentMutationOutcome> {
+    return this.#json(environmentPath(reference), {
+      method: "PATCH",
+      headers: mutationHeaders(options.operationId),
+      body: request,
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async deleteEnvironment(
+    reference: EnvironmentReference,
+    expectedRevision: number,
+    options: MutationOptions,
+  ): Promise<EnvironmentMutationOutcome> {
+    if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 1) invalidInput();
+    return this.#json(environmentPath(reference), {
+      method: "DELETE",
+      headers: {
+        ...mutationHeaders(options.operationId),
+        "if-match": String(expectedRevision),
+      },
       signal: options.signal,
     }, reference.tenantId);
   }

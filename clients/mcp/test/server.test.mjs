@@ -53,7 +53,10 @@ test("tool catalog is closed and marks destructive behavior accurately", async (
       "almira_collection_create",
       "almira_collection_get",
       "almira_collection_list",
+      "almira_environment_create",
+      "almira_environment_delete",
       "almira_environment_list",
+      "almira_environment_update",
       "almira_file_delete",
       "almira_file_list",
       "almira_file_metadata_get",
@@ -65,9 +68,51 @@ test("tool catalog is closed and marks destructive behavior accurately", async (
     true,
   );
   assert.equal(
+    response.tools.find((tool) => tool.name === "almira_environment_delete").annotations.destructiveHint,
+    true,
+  );
+  assert.equal(
     response.tools.find((tool) => tool.name === "almira_environment_list").annotations.readOnlyHint,
     true,
   );
+});
+
+test("environment tools call the exact public lifecycle operations", async (context) => {
+  const requests = [];
+  const connection = await connected(async (input, init) => {
+    requests.push({ input, init });
+    return json({ disposition: "applied", environment: {} }, init.method === "POST" ? 201 : 200);
+  });
+  context.after(async () => {
+    await connection.client.close();
+    await connection.server.close();
+  });
+  const common = { tenant_id: tenantId, project_id: projectId, operation_id: "018f0000-0000-7000-8000-000000000007" };
+  const environmentId = "018f0000-0000-7000-8000-000000000004";
+
+  await connection.client.callTool({
+    name: "almira_environment_create",
+    arguments: { ...common, environment_key: "preview-one", display_name: "Preview one" },
+  });
+  await connection.client.callTool({
+    name: "almira_environment_update",
+    arguments: { ...common, environment_id: environmentId, display_name: "Preview renamed", expected_revision: 2 },
+  });
+  await connection.client.callTool({
+    name: "almira_environment_delete",
+    arguments: { ...common, environment_id: environmentId, expected_revision: 3 },
+  });
+
+  assert.deepEqual(requests.map(({ input, init }) => ({
+    input,
+    method: init.method,
+    ifMatch: init.headers.get("if-match"),
+    body: init.body === undefined ? undefined : JSON.parse(init.body),
+  })), [
+    { input: `https://almira.test/v1/projects/${projectId}/environments`, method: "POST", ifMatch: null, body: { environment_key: "preview-one", display_name: "Preview one" } },
+    { input: `https://almira.test/v1/projects/${projectId}/environments/${environmentId}`, method: "PATCH", ifMatch: null, body: { display_name: "Preview renamed", expected_revision: 2 } },
+    { input: `https://almira.test/v1/projects/${projectId}/environments/${environmentId}`, method: "DELETE", ifMatch: "3", body: undefined },
+  ]);
 });
 
 test("bootstrap tool uses SDK authorization and returns the generated operation ID", async (context) => {

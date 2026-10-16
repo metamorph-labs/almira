@@ -83,6 +83,60 @@ test("bearer management request is exact and omits browser credentials", async (
   });
 });
 
+test("environment mutations use the canonical methods, paths, and concurrency headers", async () => {
+  const calls = [];
+  const client = new AlmiraClient({
+    credential: "mm_pat_v1.test",
+    fetch: async (input, init) => {
+      calls.push({ input, init });
+      return json({ disposition: "applied", environment: {} }, { status: init.method === "POST" ? 201 : 200 });
+    },
+  });
+
+  await client.createEnvironment(
+    { tenantId, projectId },
+    { environment_key: "preview-one", display_name: "Preview one" },
+    { operationId },
+  );
+  await client.updateEnvironment(
+    { tenantId, projectId, environmentId },
+    { display_name: "Preview renamed", expected_revision: 2 },
+    { operationId },
+  );
+  await client.deleteEnvironment(
+    { tenantId, projectId, environmentId },
+    3,
+    { operationId },
+  );
+
+  assert.deepEqual(calls.map(({ input, init }) => ({
+    input,
+    method: init.method,
+    revision: init.headers.get("if-match"),
+    body: init.body === undefined ? undefined : JSON.parse(init.body),
+  })), [
+    {
+      input: `/v1/projects/${projectId}/environments`,
+      method: "POST",
+      revision: null,
+      body: { environment_key: "preview-one", display_name: "Preview one" },
+    },
+    {
+      input: `/v1/projects/${projectId}/environments/${environmentId}`,
+      method: "PATCH",
+      revision: null,
+      body: { display_name: "Preview renamed", expected_revision: 2 },
+    },
+    {
+      input: `/v1/projects/${projectId}/environments/${environmentId}`,
+      method: "DELETE",
+      revision: "3",
+      body: undefined,
+    },
+  ]);
+  assert.ok(calls.every(({ init }) => init.headers.get("idempotency-key") === operationId));
+});
+
 test("workload evidence uses its distinct framing and is resolved for every call", async () => {
   const evidence = ["eyJzY2hlbWFfdmVyc2lvbiI6MX0", "eyJzY2hlbWFfdmVyc2lvbiI6Mn0"];
   let calls = 0;

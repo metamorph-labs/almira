@@ -125,6 +125,39 @@ test("collection creation uses predictable noun/verb arguments", async () => {
   assert.equal(JSON.parse(stream.output.stdout.join("")).operation_id, operationId);
 });
 
+test("environment lifecycle commands preserve exact body and revision semantics", async () => {
+  const requests = [];
+  const invoke = async (arguments_) => {
+    const stream = io();
+    const exitCode = await runCli(arguments_, {
+      environment,
+      io: stream.value,
+      fetch: async (input, init) => {
+        requests.push({ input, init });
+        return json({ disposition: "applied", environment: {} }, init.method === "POST" ? 201 : 200);
+      },
+    });
+    assert.equal(exitCode, 0);
+    assert.equal(JSON.parse(stream.output.stdout.join("")).operation_id, operationId);
+  };
+
+  const common = ["--tenant", tenantId, "--project", projectId, "--operation-id", operationId];
+  await invoke(["environment", "create", ...common, "--key", "preview-one", "--display", "Preview one"]);
+  await invoke(["environment", "update", ...common, "--environment", environmentId, "--display", "Preview renamed", "--revision", "2"]);
+  await invoke(["environment", "delete", ...common, "--environment", environmentId, "--revision", "3"]);
+
+  assert.deepEqual(requests.map(({ input, init }) => ({
+    input,
+    method: init.method,
+    ifMatch: init.headers.get("if-match"),
+    body: init.body === undefined ? undefined : JSON.parse(init.body),
+  })), [
+    { input: `https://almira.test/v1/projects/${projectId}/environments`, method: "POST", ifMatch: null, body: { environment_key: "preview-one", display_name: "Preview one" } },
+    { input: `https://almira.test/v1/projects/${projectId}/environments/${environmentId}`, method: "PATCH", ifMatch: null, body: { display_name: "Preview renamed", expected_revision: 2 } },
+    { input: `https://almira.test/v1/projects/${projectId}/environments/${environmentId}`, method: "DELETE", ifMatch: "3", body: undefined },
+  ]);
+});
+
 test("credentials are not accepted as command-line options", async () => {
   const stream = io();
   const exitCode = await runCli(

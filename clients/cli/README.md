@@ -15,6 +15,10 @@ almira project bootstrap \
 almira environment list \
   --tenant 018f0000-0000-7000-8000-000000000002 \
   --project 018f0000-0000-7000-8000-000000000003
+almira environment create \
+  --tenant 018f0000-0000-7000-8000-000000000002 \
+  --project 018f0000-0000-7000-8000-000000000003 \
+  --key preview-one --display "Preview one"
 almira collection create \
   --tenant 018f0000-0000-7000-8000-000000000002 \
   --project 018f0000-0000-7000-8000-000000000003 \
@@ -27,6 +31,10 @@ project; Almira validates and reauthorizes that snapshot rather than creating an
 model. The CLI accepts only an `mm_pat_v1.` PAT or `mm_sak_v1.` SAK through `METAMORPH_TOKEN`, never
 a command-line flag. For a mutation, retain the emitted `operation_id`; retries after an ambiguous
 outcome must use that value with `--operation-id`.
+
+`environment update` requires `--environment`, `--display` and the current `--revision`.
+`environment delete` requires `--environment` and `--revision`; the managed `development` and
+`production` environments cannot be deleted.
 
 Exit codes are stable: `0` success, `2` usage, `3` authentication/authorization, `4` not found,
 `5` conflict, `6` retryable service response, `7` other API response, `8` local/network failure,
