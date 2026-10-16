@@ -1,0 +1,17 @@
+{
+  "name": "almira",
+  "version": "0.1.0-dev.8",
+  "description": "Configure and integrate Almira application file storage with scoped Metamorph access.",
+  "author": {
+    "name": "Metamorph Labs",
+    "url": "https://github.com/metamorph-labs/almira"
+  },
+  "homepage": "https://github.com/metamorph-labs/almira",
+  "repository": "https://github.com/metamorph-labs/almira",
+  "license": "Apache-2.0",
+  "keywords": [
+    "file-storage",
+    "media",
+    "developer-tools"
+  ]
+}

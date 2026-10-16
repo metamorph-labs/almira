@@ -1,0 +1,4 @@
+interface:
+  display_name: "Build with Almira"
+  short_description: "Add secure file storage to an application"
+  default_prompt: "Set up Almira storage for this application and verify the integration."

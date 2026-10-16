@@ -1,0 +1,32 @@
+{
+  "name": "almira",
+  "version": "0.1.0-dev.8",
+  "description": "Configure and integrate Almira application file storage with scoped Metamorph access.",
+  "author": {
+    "name": "Metamorph Labs",
+    "url": "https://github.com/metamorph-labs/almira"
+  },
+  "homepage": "https://github.com/metamorph-labs/almira",
+  "repository": "https://github.com/metamorph-labs/almira",
+  "license": "Apache-2.0",
+  "keywords": [
+    "file-storage",
+    "media",
+    "developer-tools"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Almira",
+    "shortDescription": "Add secure application file storage",
+    "longDescription": "Create and configure Almira storage resources, integrate the public SDK, and verify the application's file journey.",
+    "developerName": "Metamorph Labs",
+    "category": "Developer Tools",
+    "capabilities": [
+      "MCP management tools",
+      "Application integration guidance"
+    ],
+    "websiteURL": "https://github.com/metamorph-labs/almira",
+    "defaultPrompt": "Set up Almira storage for this application and verify the integration."
+  },
+  "mcpServers": "./.mcp.json"
+}

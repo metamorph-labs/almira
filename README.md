@@ -3,11 +3,10 @@
 This is the public developer repository for Almira, Metamorph's application file-storage and media
 delivery product.
 
-It contains the open-source application SDKs and released schemas; the CLI, MCP server, Codex and
-Claude Code plugins and examples will land here with their first working slices. Almira's backend,
-console, embedded helper, deployment assets, platform registrations, product architecture and
-private qualification evidence live in the private `almira-core` repository and are not mirrored
-here.
+It contains the open-source application SDKs, released schemas, CLI, MCP server, Codex and Claude
+Code plugins, and examples. Almira's backend, console, embedded helper, deployment assets, platform
+registrations, product architecture and private qualification evidence live in the private
+`almira-core` repository and are not mirrored here.
 
 The repository is licensed under [Apache-2.0](LICENSE). Packages are added only with an
 independently buildable client or contract slice; empty future SDK/client scaffolding is not kept
@@ -29,6 +28,11 @@ shares the SDK transport instead of implementing a second API client.
 The stdio MCP server is in [`clients/mcp`](clients/mcp). It presents the same bounded management
 slice to external coding agents, leaves approvals with the MCP host and deliberately keeps
 one-use transfer capabilities and file bytes out of model context.
+
+The installable agent integrations are in [`plugins/codex`](plugins/codex) and
+[`plugins/claude-code`](plugins/claude-code). Both use the public MCP package and the same
+application-integration guidance; they do not gain embedded-agent privileges or create another
+approval layer.
 
 [`examples/node-upload`](examples/node-upload) exercises the complete SDK upload path: create a
 transfer, PUT bytes using only the one-use descriptor, and finalize the resulting generation.

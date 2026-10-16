@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "almira": {
+      "command": "npx",
+      "args": [
+        "--yes",
+        "@metamorph-labs/almira-mcp@0.1.0-dev.8"
+      ],
+      "env_vars": [
+        "ALMIRA_BASE_URL",
+        "METAMORPH_TOKEN"
+      ]
+    }
+  }
+}
