@@ -19,6 +19,10 @@ almira environment create \
   --tenant 018f0000-0000-7000-8000-000000000002 \
   --project 018f0000-0000-7000-8000-000000000003 \
   --key preview-one --display "Preview one"
+almira storage capabilities \
+  --tenant 018f0000-0000-7000-8000-000000000002 \
+  --project 018f0000-0000-7000-8000-000000000003 \
+  --environment 018f0000-0000-7000-8000-000000000004
 almira collection create \
   --tenant 018f0000-0000-7000-8000-000000000002 \
   --project 018f0000-0000-7000-8000-000000000003 \
@@ -35,6 +39,11 @@ outcome must use that value with `--operation-id`.
 `environment update` requires `--environment`, `--display` and the current `--revision`.
 `environment delete` requires `--environment` and `--revision`; the managed `development` and
 `production` environments cannot be deleted.
+
+`storage capabilities` reads the fresh FileService realization catalog for the selected active
+environment. Provider family, location, health and supported `normal`/`express` classes are safe
+planning inputs; realization IDs are opaque and provider coordinates or credentials are never
+returned.
 
 Exit codes are stable: `0` success, `2` usage, `3` authentication/authorization, `4` not found,
 `5` conflict, `6` retryable service response, `7` other API response, `8` local/network failure,

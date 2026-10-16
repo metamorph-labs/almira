@@ -37,6 +37,7 @@ Commands:
   environment delete     Mark an additional environment for deletion
   origin get              Read an environment's browser-origin policy
   origin set              Replace an environment's browser-origin policy
+  storage capabilities    Discover storage realizations available to an environment
   collection list         List collections in an environment
   collection create       Create a private normal collection
   collection get          Read one collection
@@ -154,6 +155,11 @@ export async function runCli(arguments_: string[], dependencies: CliDependencies
         },
         { operationId },
       );
+    } else if (noun === "storage" && verb === "capabilities") {
+      result = await client.getStorageCapabilities({
+        ...reference,
+        environmentId: required(values, "environment"),
+      });
     } else if (noun === "collection" && verb === "list") {
       result = await client.listCollections(
         { ...reference, environmentId: required(values, "environment") },
@@ -220,6 +226,7 @@ const commandOptions = new Map<string, ReadonlySet<string>>([
   ["environment:delete", new Set(["base-url", "environment", "operation-id", "project", "revision", "tenant"])],
   ["origin:get", new Set(["base-url", "environment", "project", "tenant"])],
   ["origin:set", new Set(["base-url", "environment", "operation-id", "origin", "project", "revision", "tenant"])],
+  ["storage:capabilities", new Set(["base-url", "environment", "project", "tenant"])],
   ["collection:list", new Set(["base-url", "cursor", "environment", "limit", "project", "tenant"])],
   ["collection:create", new Set(["base-url", "display", "environment", "key", "operation-id", "project", "scan", "tenant"])],
   ["collection:get", new Set(["base-url", "collection", "environment", "project", "tenant"])],

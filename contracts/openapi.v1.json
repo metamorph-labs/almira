@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Almira API",
-    "version": "0.1.0-dev.10",
+    "version": "0.1.0-dev.11",
     "description": "Provider-neutral application file storage management and data API."
   },
   "servers": [
@@ -349,6 +349,54 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ReplaceBrowserOriginsOutcome"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/environments/{environment_id}/storage-capabilities": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "get": {
+        "operationId": "getStorageCapabilities",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fresh provider-neutral storage realizations available to the active environment.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageRealizationCatalog"
                 }
               }
             }
@@ -1509,6 +1557,183 @@
           },
           "policy": {
             "$ref": "#/components/schemas/BrowserOriginPolicy"
+          }
+        }
+      },
+      "StorageProviderFamily": {
+        "type": "string",
+        "enum": [
+          "aws_s3",
+          "google_cloud_storage",
+          "azure_blob"
+        ]
+      },
+      "StorageCapabilityHealth": {
+        "type": "string",
+        "enum": [
+          "ready",
+          "degraded",
+          "unavailable"
+        ]
+      },
+      "StorageProviderMatrix": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "hosted",
+          "connected_site"
+        ],
+        "properties": {
+          "hosted": {
+            "type": "array",
+            "const": [
+              "aws_s3",
+              "google_cloud_storage",
+              "azure_blob"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/StorageProviderFamily"
+            }
+          },
+          "connected_site": {
+            "type": "array",
+            "const": [
+              "aws_s3",
+              "google_cloud_storage",
+              "azure_blob"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/StorageProviderFamily"
+            }
+          }
+        }
+      },
+      "StorageRealizationCapability": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "realization_id",
+          "display_name",
+          "provider_family",
+          "operating_model",
+          "location_id",
+          "storage_classes",
+          "health",
+          "capability_generation",
+          "evidence_digest"
+        ],
+        "properties": {
+          "realization_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "display_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "pattern": "^\\S(?:.*\\S)?$"
+          },
+          "provider_family": {
+            "$ref": "#/components/schemas/StorageProviderFamily"
+          },
+          "operating_model": {
+            "type": "string",
+            "enum": [
+              "managed",
+              "hosted_customer_owned",
+              "connected_site"
+            ]
+          },
+          "location_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+          },
+          "storage_classes": {
+            "oneOf": [
+              {
+                "type": "array",
+                "const": [
+                  "normal"
+                ],
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "normal",
+                    "express"
+                  ]
+                }
+              },
+              {
+                "type": "array",
+                "const": [
+                  "normal",
+                  "express"
+                ],
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "normal",
+                    "express"
+                  ]
+                }
+              }
+            ]
+          },
+          "health": {
+            "$ref": "#/components/schemas/StorageCapabilityHealth"
+          },
+          "capability_generation": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "evidence_digest": {
+            "$ref": "#/components/schemas/ContentSha256"
+          }
+        }
+      },
+      "StorageRealizationCatalog": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "environment_id",
+          "deployment_profile",
+          "catalog_revision",
+          "catalog_digest",
+          "expires_at",
+          "provider_matrix",
+          "realizations"
+        ],
+        "properties": {
+          "environment_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "deployment_profile": {
+            "type": "string",
+            "enum": [
+              "hosted",
+              "connected_site"
+            ]
+          },
+          "catalog_revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "catalog_digest": {
+            "$ref": "#/components/schemas/ContentSha256"
+          },
+          "expires_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "provider_matrix": {
+            "$ref": "#/components/schemas/StorageProviderMatrix"
+          },
+          "realizations": {
+            "type": "array",
+            "maxItems": 64,
+            "items": {
+              "$ref": "#/components/schemas/StorageRealizationCapability"
+            }
           }
         }
       },

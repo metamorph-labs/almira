@@ -26,6 +26,7 @@ import type {
   ReadPrivateFileOptions,
   ReplaceBrowserOriginsOutcome,
   ReplaceBrowserOriginsRequest,
+  StorageRealizationCatalog,
   UpdateEnvironmentRequest,
   UuidV7,
 } from "./types.js";
@@ -186,6 +187,16 @@ export class AlmiraClient {
       method: "PUT",
       headers: mutationHeaders(options.operationId),
       body: request,
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async getStorageCapabilities(
+    reference: EnvironmentReference,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<StorageRealizationCatalog> {
+    return this.#json(environmentPath(reference, "/storage-capabilities"), {
+      method: "GET",
       signal: options.signal,
     }, reference.tenantId);
   }

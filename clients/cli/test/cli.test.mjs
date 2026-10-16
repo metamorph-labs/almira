@@ -158,6 +158,38 @@ test("environment lifecycle commands preserve exact body and revision semantics"
   ]);
 });
 
+test("storage capability discovery uses the selected environment and remains read-only", async () => {
+  const stream = io();
+  let request;
+  const exitCode = await runCli(
+    [
+      "storage", "capabilities",
+      "--tenant", tenantId,
+      "--project", projectId,
+      "--environment", environmentId,
+    ],
+    {
+      environment,
+      io: stream.value,
+      fetch: async (input, init) => {
+        request = { input, init };
+        return json({ environment_id: environmentId, realizations: [] });
+      },
+    },
+  );
+  assert.equal(exitCode, 0);
+  assert.equal(
+    request.input,
+    `https://almira.test/v1/projects/${projectId}/environments/${environmentId}/storage-capabilities`,
+  );
+  assert.equal(request.init.method, "GET");
+  assert.equal(request.init.headers.get("idempotency-key"), null);
+  assert.deepEqual(JSON.parse(stream.output.stdout.join("")), {
+    environment_id: environmentId,
+    realizations: [],
+  });
+});
+
 test("credentials are not accepted as command-line options", async () => {
   const stream = io();
   const exitCode = await runCli(

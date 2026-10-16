@@ -61,6 +61,7 @@ test("tool catalog is closed and marks destructive behavior accurately", async (
       "almira_file_list",
       "almira_file_metadata_get",
       "almira_project_bootstrap",
+      "almira_storage_capabilities_get",
     ],
   );
   assert.equal(
@@ -75,6 +76,31 @@ test("tool catalog is closed and marks destructive behavior accurately", async (
     response.tools.find((tool) => tool.name === "almira_environment_list").annotations.readOnlyHint,
     true,
   );
+});
+
+test("storage capability tool performs one exact read without mutation authority", async (context) => {
+  let request;
+  const environmentId = "018f0000-0000-7000-8000-000000000004";
+  const connection = await connected(async (input, init) => {
+    request = { input, init };
+    return json({ environment_id: environmentId, realizations: [] });
+  });
+  context.after(async () => {
+    await connection.client.close();
+    await connection.server.close();
+  });
+
+  const response = await connection.client.callTool({
+    name: "almira_storage_capabilities_get",
+    arguments: { tenant_id: tenantId, project_id: projectId, environment_id: environmentId },
+  });
+  assert.equal(response.isError, undefined);
+  assert.equal(
+    request.input,
+    `https://almira.test/v1/projects/${projectId}/environments/${environmentId}/storage-capabilities`,
+  );
+  assert.equal(request.init.method, "GET");
+  assert.equal(request.init.headers.get("idempotency-key"), null);
 });
 
 test("environment tools call the exact public lifecycle operations", async (context) => {

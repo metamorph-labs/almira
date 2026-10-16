@@ -12,6 +12,11 @@ const almira = new AlmiraClient({
 });
 
 const { environments } = await almira.listEnvironments({ tenantId, projectId });
+const capabilities = await almira.getStorageCapabilities({
+  tenantId,
+  projectId,
+  environmentId: environments[0].environment_id,
+});
 
 const preview = await almira.createEnvironment(
   { tenantId, projectId },
@@ -30,6 +35,11 @@ retrying an ambiguous outcome.
 Projects start with protected `development` and `production` environments and may have up to ten
 environments. Additional environments can be created, renamed and marked for deletion through the
 same scoped client; deleting either protected default is refused.
+
+`getStorageCapabilities` discovers the current FileService-backed AWS S3, Google Cloud Storage and
+Azure Blob realizations available to an active environment in one Almira request. It returns only
+opaque realization IDs and safe provider, location, health and `normal`/`express` capability
+evidence—never provider coordinates or credentials.
 
 Direct transfer URLs and headers returned by `createUpload` are sensitive, one-use capabilities.
 The SDK returns them only to the caller and never logs or persists them.

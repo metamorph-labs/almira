@@ -66,6 +66,82 @@
       "expected": "invalid"
     },
     {
+      "name": "storage_catalog_uses_exact_portable_provider_matrix",
+      "schema": "StorageRealizationCatalog",
+      "instance": {
+        "environment_id": "018f0000-0000-7000-8000-000000000010",
+        "deployment_profile": "hosted",
+        "catalog_revision": 1,
+        "catalog_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "expires_at": "2099-10-17T00:00:00Z",
+        "provider_matrix": {
+          "hosted": [
+            "aws_s3",
+            "google_cloud_storage",
+            "azure_blob"
+          ],
+          "connected_site": [
+            "aws_s3",
+            "google_cloud_storage",
+            "azure_blob"
+          ]
+        },
+        "realizations": [
+          {
+            "realization_id": "018f0000-0000-7000-8000-000000000011",
+            "display_name": "Managed storage",
+            "provider_family": "aws_s3",
+            "operating_model": "managed",
+            "location_id": "region.one",
+            "storage_classes": [
+              "normal",
+              "express"
+            ],
+            "health": "ready",
+            "capability_generation": 1,
+            "evidence_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          }
+        ]
+      },
+      "expected": "valid"
+    },
+    {
+      "name": "storage_catalog_provider_matrix_drift_refused",
+      "schema": "StorageProviderMatrix",
+      "instance": {
+        "hosted": [
+          "aws_s3",
+          "google_cloud_storage",
+          "azure_blob"
+        ],
+        "connected_site": [
+          "aws_s3",
+          "ceph",
+          "azure_blob"
+        ]
+      },
+      "expected": "invalid"
+    },
+    {
+      "name": "storage_realization_provider_coordinate_refused",
+      "schema": "StorageRealizationCapability",
+      "instance": {
+        "realization_id": "018f0000-0000-7000-8000-000000000011",
+        "display_name": "Managed storage",
+        "provider_family": "aws_s3",
+        "operating_model": "managed",
+        "location_id": "region.one",
+        "storage_classes": [
+          "normal"
+        ],
+        "health": "ready",
+        "capability_generation": 1,
+        "evidence_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "bucket": "customer-data"
+      },
+      "expected": "invalid"
+    },
+    {
       "name": "private_collection_with_optional_scan",
       "schema": "CreateCollectionRequest",
       "instance": {
@@ -279,6 +355,12 @@
       "condition": "deletion targets the managed development or production environment",
       "code": "ALMIRA_ENVIRONMENT_SYSTEM_PROTECTED",
       "http_status": 409
+    },
+    {
+      "name": "invalid_storage_owner_catalog_is_retryable",
+      "condition": "FileService returns stale, malformed, scope-mismatched, coordinate-bearing, or provider-matrix-drifted capability evidence",
+      "code": "ALMIRA_STORAGE_INTEGRITY_FAILURE",
+      "http_status": 503
     }
   ]
 }

@@ -84,6 +84,36 @@ export interface ReplaceBrowserOriginsOutcome {
   policy: BrowserOriginPolicy;
 }
 
+export type StorageProviderFamily = "aws_s3" | "google_cloud_storage" | "azure_blob";
+export type StorageCapabilityHealth = "ready" | "degraded" | "unavailable";
+
+export interface StorageProviderMatrix {
+  hosted: ["aws_s3", "google_cloud_storage", "azure_blob"];
+  connected_site: ["aws_s3", "google_cloud_storage", "azure_blob"];
+}
+
+export interface StorageRealizationCapability {
+  realization_id: UuidV7;
+  display_name: string;
+  provider_family: StorageProviderFamily;
+  operating_model: Environment["operating_model"];
+  location_id: string;
+  storage_classes: ["normal"] | ["normal", "express"];
+  health: StorageCapabilityHealth;
+  capability_generation: number;
+  evidence_digest: ContentSha256;
+}
+
+export interface StorageRealizationCatalog {
+  environment_id: UuidV7;
+  deployment_profile: "hosted" | "connected_site";
+  catalog_revision: number;
+  catalog_digest: ContentSha256;
+  expires_at: Timestamp;
+  provider_matrix: StorageProviderMatrix;
+  realizations: StorageRealizationCapability[];
+}
+
 export interface CreateCollectionRequest {
   collection_key: string;
   display_name: string;

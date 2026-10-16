@@ -75,7 +75,7 @@ const outputSchema = z
 
 /** Creates one stdio-safe MCP server over the canonical Almira SDK client. */
 export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
-  const server = new McpServer({ name: "almira", version: "0.1.0-dev.10" });
+  const server = new McpServer({ name: "almira", version: "0.1.0-dev.11" });
 
   server.registerTool(
     "almira_project_bootstrap",
@@ -236,6 +236,25 @@ export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
         id,
       );
     },
+  );
+
+  server.registerTool(
+    "almira_storage_capabilities_get",
+    {
+      title: "Get storage capabilities",
+      description: "Discover the current provider-neutral storage realizations and classes available to one active environment.",
+      inputSchema: z.object({ ...scope, environment_id: uuid }).strict(),
+      outputSchema,
+      annotations: readAnnotations,
+    },
+    async ({ tenant_id, project_id, environment_id }) =>
+      execute(() =>
+        client.getStorageCapabilities({
+          tenantId: tenant_id,
+          projectId: project_id,
+          environmentId: environment_id,
+        }),
+      ),
   );
 
   server.registerTool(

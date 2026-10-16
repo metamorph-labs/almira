@@ -137,6 +137,41 @@ test("environment mutations use the canonical methods, paths, and concurrency he
   assert.ok(calls.every(({ init }) => init.headers.get("idempotency-key") === operationId));
 });
 
+test("storage capability discovery is one exact environment-scoped read", async () => {
+  let call;
+  const catalog = {
+    environment_id: environmentId,
+    deployment_profile: "hosted",
+    catalog_revision: 1,
+    catalog_digest: `sha256:${"a".repeat(64)}`,
+    expires_at: "2099-10-17T00:00:00Z",
+    provider_matrix: {
+      hosted: ["aws_s3", "google_cloud_storage", "azure_blob"],
+      connected_site: ["aws_s3", "google_cloud_storage", "azure_blob"],
+    },
+    realizations: [],
+  };
+  const client = new AlmiraClient({
+    credential: "mm_pat_v1.test",
+    fetch: async (input, init) => {
+      call = { input, init };
+      return json(catalog);
+    },
+  });
+
+  assert.deepEqual(
+    await client.getStorageCapabilities({ tenantId, projectId, environmentId }),
+    catalog,
+  );
+  assert.equal(
+    call.input,
+    `/v1/projects/${projectId}/environments/${environmentId}/storage-capabilities`,
+  );
+  assert.equal(call.init.method, "GET");
+  assert.equal(call.init.headers.get("idempotency-key"), null);
+  assert.equal(call.init.headers.get("x-almira-tenant-id"), tenantId);
+});
+
 test("workload evidence uses its distinct framing and is resolved for every call", async () => {
   const evidence = ["eyJzY2hlbWFfdmVyc2lvbiI6MX0", "eyJzY2hlbWFfdmVyc2lvbiI6Mn0"];
   let calls = 0;
