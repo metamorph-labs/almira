@@ -13,10 +13,15 @@
     "pnpm": "11.0.9"
   },
   "scripts": {
-    "check": "pnpm check:foundation && pnpm contracts:verify && pnpm test:contracts",
+    "build": "pnpm --filter @metamorph-labs/almira-sdk build",
+    "check": "pnpm check:foundation && pnpm contracts:verify && pnpm build && pnpm test:contracts && pnpm test:sdk",
     "check:foundation": "node scripts/check-foundation.mjs",
     "contracts:accept": "node tools/contracts/bundle.mjs accept",
     "contracts:verify": "node tools/contracts/bundle.mjs verify",
-    "test:contracts": "node --test tools/contracts/bundle.test.mjs"
+    "test:contracts": "node --test tools/contracts/bundle.test.mjs",
+    "test:sdk": "pnpm --filter @metamorph-labs/almira-sdk test"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3"
   }
 }
