@@ -1,0 +1,35 @@
+{
+  "name": "@metamorph-labs/almira-mcp",
+  "version": "0.1.0-dev.6",
+  "description": "MCP management server for Almira",
+  "type": "module",
+  "license": "Apache-2.0",
+  "bin": {
+    "almira-mcp": "./dist/main.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "pnpm build && node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@metamorph-labs/almira-sdk": "workspace:*",
+    "@modelcontextprotocol/server": "2.3.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/client": "2.3.1",
+    "@types/node": "24.10.1",
+    "typescript": "5.9.3"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}
