@@ -6,6 +6,7 @@ import {
   AlmiraApiError,
   AlmiraClient,
   AlmiraClientError,
+  createOperationId,
 } from "../dist/index.js";
 
 const projectId = "018f0000-0000-7000-8000-000000000003";
@@ -14,6 +15,12 @@ const collectionInstanceId = "018f0000-0000-7000-8000-000000000005";
 const entryId = "018f0000-0000-7000-8000-000000000006";
 const operationId = "018f0000-0000-7000-8000-000000000007";
 const requestId = "018f0000-0000-7000-8000-000000000008";
+
+test("operation IDs are UUIDv7 values with the requested timestamp", () => {
+  const operationId = createOperationId(1_729_080_000_000);
+  assert.match(operationId, /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u);
+  assert.equal(BigInt(`0x${operationId.replaceAll("-", "").slice(0, 12)}`), 1_729_080_000_000n);
+});
 
 test("SDK version and methods cover the promoted contract exactly", async () => {
   const contract = JSON.parse(await readFile(new URL("../../../contracts/openapi.v1.json", import.meta.url)));

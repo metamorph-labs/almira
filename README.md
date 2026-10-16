@@ -21,3 +21,7 @@ The dependency-light TypeScript client is in [`sdks/typescript`](sdks/typescript
 operation in the promoted contract and supports same-origin browser sessions, PATs, SAKs and
 short-lived workload evidence through the standard Fetch API. Run `pnpm check` for the complete
 local repository gate.
+
+The first management commands are in [`clients/cli`](clients/cli). The CLI uses predictable
+noun/verb commands, JSON-only stdout, stable exit codes and environment-backed credentials; it
+shares the SDK transport instead of implementing a second API client.

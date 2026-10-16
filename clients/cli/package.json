@@ -1,0 +1,32 @@
+{
+  "name": "@metamorph-labs/almira-cli",
+  "version": "0.1.0-dev.6",
+  "description": "Composable management CLI for Almira",
+  "type": "module",
+  "license": "Apache-2.0",
+  "bin": {
+    "almira": "./dist/main.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "pnpm build && node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@metamorph-labs/almira-sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "typescript": "5.9.3"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}
