@@ -1,0 +1,282 @@
+{
+  "schema_id": "almira.public.error-catalog.v1",
+  "format_version": 1,
+  "envelope_schema": "openapi.v1.json#/components/schemas/Error",
+  "rules": {
+    "unknown_resource_disclosure": "not_found",
+    "dependency_details": "redacted",
+    "retry_after_seconds_maximum": 300
+  },
+  "errors": [
+    {
+      "code": "ALMIRA_AUTHENTICATION_REQUIRED",
+      "http_status": 401,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_AUTHORIZATION_REFUSED",
+      "http_status": 403,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_COLLECTION_AUTHORIZATION_EXPIRED",
+      "http_status": 403,
+      "retryable": true
+    },
+    {
+      "code": "ALMIRA_COLLECTION_AUTHORIZATION_MISMATCH",
+      "http_status": 403,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_COLLECTION_DEVELOPMENT_REQUIRED",
+      "http_status": 409,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_COLLECTION_ENVIRONMENT_NOT_ACTIVE",
+      "http_status": 409,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_COLLECTION_ENVIRONMENT_NOT_FOUND",
+      "http_status": 404,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_COLLECTION_ENVIRONMENT_NOT_MANAGED",
+      "http_status": 409,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_COLLECTION_INVALID",
+      "http_status": 400,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_COLLECTION_KEY_CONFLICT",
+      "http_status": 409,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_COLLECTION_OPERATION_CONFLICT",
+      "http_status": 409,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_COLLECTION_OUTCOME_UNKNOWN",
+      "http_status": 503,
+      "retryable": true
+    },
+    {
+      "code": "ALMIRA_COLLECTION_SCOPE_MISMATCH",
+      "http_status": 403,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_COLLECTION_UNAVAILABLE",
+      "http_status": 503,
+      "retryable": true
+    },
+    {
+      "code": "ALMIRA_ENVIRONMENT_AUTHORIZATION_EXPIRED",
+      "http_status": 403,
+      "retryable": true
+    },
+    {
+      "code": "ALMIRA_ENVIRONMENT_AUTHORIZATION_MISMATCH",
+      "http_status": 403,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_ENVIRONMENT_INVALID",
+      "http_status": 400,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_ENVIRONMENT_NOT_ACTIVE",
+      "http_status": 409,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_ENVIRONMENT_NOT_FOUND",
+      "http_status": 404,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_ENVIRONMENT_OPERATION_CONFLICT",
+      "http_status": 409,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_ENVIRONMENT_OUTCOME_UNKNOWN",
+      "http_status": 503,
+      "retryable": true
+    },
+    {
+      "code": "ALMIRA_ENVIRONMENT_REVISION_CONFLICT",
+      "http_status": 409,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_ENVIRONMENT_SCOPE_MISMATCH",
+      "http_status": 403,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_ENVIRONMENT_UNAVAILABLE",
+      "http_status": 503,
+      "retryable": true
+    },
+    {
+      "code": "ALMIRA_FILESERVICE_RESPONSE_INVALID",
+      "http_status": 503,
+      "retryable": true
+    },
+    {
+      "code": "ALMIRA_FILESERVICE_UNAVAILABLE",
+      "http_status": 503,
+      "retryable": true
+    },
+    {
+      "code": "ALMIRA_FILE_AUTHORIZATION_EXPIRED",
+      "http_status": 403,
+      "retryable": true
+    },
+    {
+      "code": "ALMIRA_FILE_AUTHORIZATION_MISMATCH",
+      "http_status": 403,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_FILE_COLLECTION_NOT_FOUND",
+      "http_status": 404,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_FILE_ENTRY_LIFECYCLE_CONFLICT",
+      "http_status": 409,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_FILE_INVALID",
+      "http_status": 400,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_FILE_NOT_AVAILABLE",
+      "http_status": 404,
+      "retryable": true
+    },
+    {
+      "code": "ALMIRA_FILE_NOT_FOUND",
+      "http_status": 404,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_FILE_OPERATION_CONFLICT",
+      "http_status": 409,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_FILE_OUTCOME_UNKNOWN",
+      "http_status": 503,
+      "retryable": true
+    },
+    {
+      "code": "ALMIRA_FILE_PATH_CONFLICT",
+      "http_status": 409,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_FILE_REVISION_CONFLICT",
+      "http_status": 409,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_FILE_SCOPE_MISMATCH",
+      "http_status": 403,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_FILE_STORAGE_UNAVAILABLE",
+      "http_status": 503,
+      "retryable": true
+    },
+    {
+      "code": "ALMIRA_FILE_TRANSFER_CONFLICT",
+      "http_status": 409,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_FILE_TRANSFER_EXPIRED",
+      "http_status": 410,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_FILE_TRANSFER_NOT_READY",
+      "http_status": 409,
+      "retryable": true
+    },
+    {
+      "code": "ALMIRA_FILE_UNAVAILABLE",
+      "http_status": 503,
+      "retryable": true
+    },
+    {
+      "code": "ALMIRA_PROJECT_AUTHORIZATION_EXPIRED",
+      "http_status": 403,
+      "retryable": true
+    },
+    {
+      "code": "ALMIRA_PROJECT_AUTHORIZATION_MISMATCH",
+      "http_status": 403,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_PROJECT_INVALID",
+      "http_status": 400,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_PROJECT_NOT_ACTIVE",
+      "http_status": 409,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_PROJECT_OPERATION_CONFLICT",
+      "http_status": 409,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_PROJECT_OUTCOME_UNKNOWN",
+      "http_status": 503,
+      "retryable": true
+    },
+    {
+      "code": "ALMIRA_PROJECT_SCOPE_MISMATCH",
+      "http_status": 403,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_PROJECT_TENANCY_CONFLICT",
+      "http_status": 409,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_PROJECT_TENANCY_STALE",
+      "http_status": 409,
+      "retryable": true
+    },
+    {
+      "code": "ALMIRA_PROJECT_UNAVAILABLE",
+      "http_status": 503,
+      "retryable": true
+    },
+    {
+      "code": "ALMIRA_RATE_LIMITED",
+      "http_status": 429,
+      "retryable": true
+    }
+  ]
+}

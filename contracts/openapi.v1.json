@@ -1,0 +1,1630 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Almira API",
+    "version": "0.1.0-dev.5",
+    "description": "Provider-neutral application file storage management and data API."
+  },
+  "servers": [
+    {
+      "url": "/platform/almira"
+    }
+  ],
+  "security": [
+    {
+      "bearerCredential": []
+    },
+    {
+      "productSession": []
+    }
+  ],
+  "paths": {
+    "/v1/projects/{project_id}/bootstrap": {
+      "post": {
+        "operationId": "bootstrapProject",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/OperationId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Project state converged.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BootstrapOutcome"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/environments": {
+      "get": {
+        "operationId": "listEnvironments",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "All project environments, ordered by key and identity.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnvironmentList"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/environments/{environment_id}/browser-origins": {
+      "get": {
+        "operationId": "getBrowserOrigins",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current environment browser-origin policy.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrowserOriginPolicy"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      },
+      "put": {
+        "operationId": "replaceBrowserOrigins",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/OperationId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplaceBrowserOriginsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Origin policy replaced or exactly replayed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReplaceBrowserOriginsOutcome"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/environments/{environment_id}/collections": {
+      "get": {
+        "operationId": "listCollections",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deterministic collection page.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectionPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createCollection",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/OperationId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCollectionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Private normal collection created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateCollectionOutcome"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}": {
+      "get": {
+        "operationId": "getCollection",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current safe collection configuration and storage readiness.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Collection"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/uploads": {
+      "post": {
+        "operationId": "createUpload",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/OperationId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUploadRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Durable transfer prepared with bounded one-use requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateUploadOutcome"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/uploads/{transfer_session_id}/finalize": {
+      "post": {
+        "operationId": "finalizeUpload",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/TransferSessionId"
+          },
+          {
+            "$ref": "#/components/parameters/OperationId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FinalizeUploadRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Upload finalized or exactly replayed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileGeneration"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/Gone"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/files": {
+      "get": {
+        "operationId": "listFiles",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "name": "path_prefix",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/LogicalPath"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deterministic keyset page.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileEntryPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/files/{entry_id}": {
+      "get": {
+        "operationId": "getFileMetadata",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/EntryId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Safe file metadata.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileEntry"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteFile",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/EntryId"
+          },
+          {
+            "$ref": "#/components/parameters/OperationId"
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "File soft-deleted or exactly replayed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteFileOutcome"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/files/{entry_id}/content": {
+      "get": {
+        "operationId": "readPrivateFile",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/EntryId"
+          },
+          {
+            "name": "generation_id",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/UuidV7"
+            }
+          },
+          {
+            "name": "Range",
+            "in": "header",
+            "schema": {
+              "type": "string",
+              "pattern": "^bytes=[0-9]+-[0-9]*$",
+              "maxLength": 64
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized private content.",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "contentEncoding": "binary"
+                }
+              }
+            }
+          },
+          "206": {
+            "description": "Authorized private byte range.",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "contentEncoding": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "416": {
+            "$ref": "#/components/responses/RangeNotSatisfiable"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerCredential": {
+        "type": "http",
+        "scheme": "bearer"
+      },
+      "productSession": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "metamorph_session"
+      }
+    },
+    "parameters": {
+      "ProjectId": {
+        "name": "project_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/UuidV7"
+        }
+      },
+      "EnvironmentId": {
+        "name": "environment_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/UuidV7"
+        }
+      },
+      "CollectionInstanceId": {
+        "name": "collection_instance_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/UuidV7"
+        }
+      },
+      "TransferSessionId": {
+        "name": "transfer_session_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/UuidV7"
+        }
+      },
+      "EntryId": {
+        "name": "entry_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/UuidV7"
+        }
+      },
+      "OperationId": {
+        "name": "Idempotency-Key",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/UuidV7"
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Malformed or non-canonical request.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Unauthenticated": {
+        "description": "Authentication is absent or invalid.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "Exact operation or scope is not authorized.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Resource is absent or not revealable.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Conflict": {
+        "description": "Idempotency, revision, path, or lifecycle conflict.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Gone": {
+        "description": "Transfer is expired or definitively aborted.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "RangeNotSatisfiable": {
+        "description": "Requested byte range is invalid.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Unavailable": {
+        "description": "A required dependency or storage binding is unavailable.",
+        "headers": {
+          "Retry-After": {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 300
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "UuidV7": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+      },
+      "Timestamp": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "Error": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "request_id"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^ALMIRA_[A-Z0-9_]{1,120}$"
+          },
+          "request_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          }
+        }
+      },
+      "Environment": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "environment_id",
+          "environment_key",
+          "display_name",
+          "system_key",
+          "revision",
+          "created_at"
+        ],
+        "properties": {
+          "environment_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "environment_key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{0,46}[a-z0-9]$"
+          },
+          "display_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "system_key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "development",
+              "production",
+              null
+            ]
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        }
+      },
+      "BootstrapOutcome": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "disposition",
+          "project_revision",
+          "environments"
+        ],
+        "properties": {
+          "disposition": {
+            "type": "string",
+            "enum": [
+              "applied",
+              "converged",
+              "exact_replay"
+            ]
+          },
+          "project_revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "environments": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 10,
+            "items": {
+              "$ref": "#/components/schemas/Environment"
+            }
+          }
+        }
+      },
+      "EnvironmentList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "environments"
+        ],
+        "properties": {
+          "environments": {
+            "type": "array",
+            "maxItems": 10,
+            "items": {
+              "$ref": "#/components/schemas/Environment"
+            }
+          }
+        }
+      },
+      "BrowserOrigin": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 255,
+        "pattern": "^(https://[a-z0-9][a-z0-9.-]*(:[0-9]{1,5})?|http://(localhost|127[.]0[.]0[.]1)(:[0-9]{1,5})?)$",
+        "x-almira-canonical-origin": true
+      },
+      "ReplaceBrowserOriginsRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "expected_revision",
+          "origins"
+        ],
+        "properties": {
+          "expected_revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "origins": {
+            "type": "array",
+            "maxItems": 32,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/components/schemas/BrowserOrigin"
+            }
+          }
+        }
+      },
+      "BrowserOriginPolicy": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "environment_id",
+          "origins",
+          "revision"
+        ],
+        "properties": {
+          "environment_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "origins": {
+            "type": "array",
+            "maxItems": 32,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/components/schemas/BrowserOrigin"
+            }
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "ReplaceBrowserOriginsOutcome": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "disposition",
+          "policy"
+        ],
+        "properties": {
+          "disposition": {
+            "type": "string",
+            "enum": [
+              "applied",
+              "exact_replay"
+            ]
+          },
+          "policy": {
+            "$ref": "#/components/schemas/BrowserOriginPolicy"
+          }
+        }
+      },
+      "CreateCollectionRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "collection_key",
+          "display_name",
+          "malware_scan_required"
+        ],
+        "properties": {
+          "collection_key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z]([a-z0-9_-]{0,62}[a-z0-9])?$"
+          },
+          "display_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "malware_scan_required": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Collection": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "collection_id",
+          "collection_instance_id",
+          "environment_id",
+          "collection_key",
+          "display_name",
+          "access_template",
+          "storage_class",
+          "storage_binding_state",
+          "technical_metadata_extraction",
+          "malware_scan_required",
+          "content_extraction",
+          "vector_indexing",
+          "delivery_mode",
+          "revision",
+          "created_at"
+        ],
+        "properties": {
+          "collection_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "collection_instance_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "environment_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "collection_key": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "access_template": {
+            "const": "private"
+          },
+          "storage_class": {
+            "const": "normal"
+          },
+          "storage_binding_state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "ready",
+              "migrating",
+              "failed"
+            ]
+          },
+          "technical_metadata_extraction": {
+            "const": true
+          },
+          "malware_scan_required": {
+            "type": "boolean"
+          },
+          "content_extraction": {
+            "const": false
+          },
+          "vector_indexing": {
+            "const": false
+          },
+          "delivery_mode": {
+            "const": "off"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        }
+      },
+      "CreateCollectionOutcome": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "disposition",
+          "collection"
+        ],
+        "properties": {
+          "disposition": {
+            "type": "string",
+            "enum": [
+              "applied",
+              "exact_replay"
+            ]
+          },
+          "collection": {
+            "$ref": "#/components/schemas/Collection"
+          }
+        }
+      },
+      "CollectionPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "collections",
+          "next_cursor"
+        ],
+        "properties": {
+          "collections": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/Collection"
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2048
+          }
+        }
+      },
+      "LogicalPath": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1024,
+        "pattern": "^(?![.]{1,2}(?:/|$))(?!.*/[.]{1,2}(?:/|$))[A-Za-z0-9._~-]{1,255}(?:/[A-Za-z0-9._~-]{1,255})*$"
+      },
+      "ContentSha256": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "ProviderToken": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256,
+        "pattern": "^(?!.*[/?#])(?!.*\\\\)[!-~]+$"
+      },
+      "MediaType": {
+        "type": "string",
+        "minLength": 3,
+        "maxLength": 127,
+        "pattern": "^[a-z0-9!#$&^_.+-]+/[a-z0-9!#$&^_.+-]+$"
+      },
+      "CreateUploadRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "expected_size_bytes",
+          "content_sha256",
+          "declared_media_type"
+        ],
+        "properties": {
+          "path": {
+            "$ref": "#/components/schemas/LogicalPath"
+          },
+          "expected_size_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10737418240
+          },
+          "content_sha256": {
+            "$ref": "#/components/schemas/ContentSha256"
+          },
+          "declared_media_type": {
+            "$ref": "#/components/schemas/MediaType"
+          },
+          "browser_origin": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/BrowserOrigin"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "DirectUploadHeader": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "value"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]{1,128}$"
+          },
+          "value": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096,
+            "x-sensitive": true
+          }
+        }
+      },
+      "DirectUploadPart": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "part_number",
+          "offset_bytes",
+          "length_bytes",
+          "method",
+          "url",
+          "headers",
+          "one_use"
+        ],
+        "properties": {
+          "part_number": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 256
+          },
+          "offset_bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "length_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10737418240
+          },
+          "method": {
+            "const": "PUT"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 8192,
+            "pattern": "^https://",
+            "x-sensitive": true
+          },
+          "headers": {
+            "type": "array",
+            "maxItems": 32,
+            "items": {
+              "$ref": "#/components/schemas/DirectUploadHeader"
+            }
+          },
+          "one_use": {
+            "const": true
+          }
+        }
+      },
+      "DirectUploadDescriptor": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "descriptor_id",
+          "protocol",
+          "requests",
+          "expected_size_bytes",
+          "content_sha256",
+          "one_use",
+          "expires_at"
+        ],
+        "properties": {
+          "descriptor_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "protocol": {
+            "type": "string",
+            "enum": [
+              "single_put",
+              "multipart"
+            ]
+          },
+          "requests": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 256,
+            "items": {
+              "$ref": "#/components/schemas/DirectUploadPart"
+            }
+          },
+          "expected_size_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10737418240
+          },
+          "content_sha256": {
+            "$ref": "#/components/schemas/ContentSha256"
+          },
+          "one_use": {
+            "const": true
+          },
+          "expires_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        }
+      },
+      "CreateUploadOutcome": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "transfer_session_id",
+          "entry_id",
+          "generation_id",
+          "descriptor"
+        ],
+        "properties": {
+          "transfer_session_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "entry_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "generation_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "descriptor": {
+            "$ref": "#/components/schemas/DirectUploadDescriptor"
+          }
+        }
+      },
+      "DirectUploadPartCompletion": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "part_number",
+          "etag"
+        ],
+        "properties": {
+          "part_number": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 256
+          },
+          "etag": {
+            "$ref": "#/components/schemas/ProviderToken"
+          }
+        }
+      },
+      "FinalizeUploadRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "descriptor_id",
+          "protocol",
+          "etag",
+          "provider_version",
+          "parts",
+          "size_bytes",
+          "content_sha256"
+        ],
+        "properties": {
+          "descriptor_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "protocol": {
+            "type": "string",
+            "enum": [
+              "single_put",
+              "multipart"
+            ]
+          },
+          "etag": {
+            "$ref": "#/components/schemas/ProviderToken"
+          },
+          "provider_version": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ProviderToken"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "parts": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 256,
+            "items": {
+              "$ref": "#/components/schemas/DirectUploadPartCompletion"
+            }
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10737418240
+          },
+          "content_sha256": {
+            "$ref": "#/components/schemas/ContentSha256"
+          }
+        }
+      },
+      "FileGeneration": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "entry_id",
+          "generation_id",
+          "generation_number",
+          "state",
+          "expected_size_bytes",
+          "content_sha256",
+          "declared_media_type",
+          "malware_scan_requirement",
+          "safety_state",
+          "revision",
+          "created_at"
+        ],
+        "properties": {
+          "entry_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "generation_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "generation_number": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending_transfer",
+              "aborted",
+              "safety_pending",
+              "available",
+              "unavailable"
+            ]
+          },
+          "expected_size_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10737418240
+          },
+          "content_sha256": {
+            "$ref": "#/components/schemas/ContentSha256"
+          },
+          "declared_media_type": {
+            "$ref": "#/components/schemas/MediaType"
+          },
+          "malware_scan_requirement": {
+            "type": "string",
+            "enum": [
+              "not_required",
+              "required"
+            ]
+          },
+          "safety_state": {
+            "type": "string",
+            "enum": [
+              "not_required",
+              "scan_pending",
+              "clean",
+              "blocked"
+            ]
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        }
+      },
+      "FileEntry": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "entry_id",
+          "logical_path",
+          "lifecycle",
+          "revision",
+          "latest_generation",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "entry_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "logical_path": {
+            "$ref": "#/components/schemas/LogicalPath"
+          },
+          "lifecycle": {
+            "type": "string",
+            "enum": [
+              "active",
+              "restricted",
+              "deleted"
+            ]
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "latest_generation": {
+            "$ref": "#/components/schemas/FileGeneration"
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "updated_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        }
+      },
+      "FileEntryPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "entries",
+          "next_cursor"
+        ],
+        "properties": {
+          "entries": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/FileEntry"
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2048
+          }
+        }
+      },
+      "DeleteFileOutcome": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "disposition",
+          "entry"
+        ],
+        "properties": {
+          "disposition": {
+            "type": "string",
+            "enum": [
+              "applied",
+              "exact_replay"
+            ]
+          },
+          "entry": {
+            "$ref": "#/components/schemas/FileEntry"
+          }
+        }
+      }
+    }
+  }
+}

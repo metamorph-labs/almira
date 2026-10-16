@@ -1,17 +1,26 @@
 # Almira public contract bundle
 
-This directory is the canonical private-repository source for artifacts that may be promoted to
-the public `metamorph-labs/almira` repository. `manifest.json` is generated deterministically from
-every other file in this directory.
+This directory is the canonical Almira public contract bundle. It is authored in
+`metamorph-labs/almira-core` and promoted byte-for-byte to `metamorph-labs/almira`.
+`manifest.json` is generated deterministically from every other file in this directory.
 
-Run `pnpm contracts:generate` after changing a public artifact and `pnpm check` before review. To
-prepare a promotion candidate, export into a new empty directory with:
+The first API slice contains:
+
+- `openapi.v1.json`: the provider-neutral management and file data contract;
+- `errors.v1.json`: stable, redacted public error/status mappings; and
+- `conformance/vectors.v1.json`: executable closed-schema and error vectors.
+
+Direct-transfer URLs and header values are short-lived bearer material. Clients must never log,
+persist or send them anywhere except the exact HTTPS requests in their descriptor. The API never
+accepts a provider, bucket, endpoint or object key from ordinary callers.
+
+In `almira-core`, run `pnpm contracts:generate` after changing a public artifact and `pnpm check`
+before review. Export a promotion candidate into a new empty directory with:
 
 ```sh
-pnpm contracts:export -- /absolute/path/to/empty-directory
+pnpm contracts:export /absolute/path/to/empty-directory
 ```
 
-The public repository must accept that directory with its own verifier. Nothing under
-`contracts/internal`, `registrations`, deployment assets, private fixtures or qualification
-evidence belongs in this bundle.
-
+In `almira`, accept that directory with `pnpm contracts:accept /absolute/path/to/candidate` and run
+`pnpm check`. Nothing under `contracts/internal`, `registrations`, deployment assets, private
+fixtures or qualification evidence belongs in this bundle.

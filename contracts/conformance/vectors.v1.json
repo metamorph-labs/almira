@@ -1,0 +1,208 @@
+{
+  "schema_id": "almira.public.api-conformance-vectors.v1",
+  "format_version": 1,
+  "openapi": "../openapi.v1.json",
+  "schema_vectors": [
+    {
+      "name": "browser_origins_https_and_localhost",
+      "schema": "ReplaceBrowserOriginsRequest",
+      "instance": {
+        "expected_revision": 1,
+        "origins": [
+          "http://localhost:3000",
+          "https://app.example.com"
+        ]
+      },
+      "expected": "valid"
+    },
+    {
+      "name": "browser_origin_wildcard_refused",
+      "schema": "ReplaceBrowserOriginsRequest",
+      "instance": {
+        "expected_revision": 1,
+        "origins": [
+          "https://*.example.com"
+        ]
+      },
+      "expected": "invalid"
+    },
+    {
+      "name": "browser_origin_port_out_of_range_refused",
+      "schema": "ReplaceBrowserOriginsRequest",
+      "instance": {
+        "expected_revision": 1,
+        "origins": [
+          "https://app.example.com:65536"
+        ]
+      },
+      "expected": "invalid"
+    },
+    {
+      "name": "browser_origin_unknown_field_refused",
+      "schema": "ReplaceBrowserOriginsRequest",
+      "instance": {
+        "expected_revision": 1,
+        "origins": [],
+        "provider_cors": true
+      },
+      "expected": "invalid"
+    },
+    {
+      "name": "private_collection_with_optional_scan",
+      "schema": "CreateCollectionRequest",
+      "instance": {
+        "collection_key": "user-uploads",
+        "display_name": "User uploads",
+        "malware_scan_required": true
+      },
+      "expected": "valid"
+    },
+    {
+      "name": "collection_cannot_select_provider",
+      "schema": "CreateCollectionRequest",
+      "instance": {
+        "collection_key": "user-uploads",
+        "display_name": "User uploads",
+        "malware_scan_required": true,
+        "provider": "s3"
+      },
+      "expected": "invalid"
+    },
+    {
+      "name": "server_upload_request",
+      "schema": "CreateUploadRequest",
+      "instance": {
+        "path": "avatars/user-1/profile.png",
+        "expected_size_bytes": 42,
+        "content_sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "declared_media_type": "image/png"
+      },
+      "expected": "valid"
+    },
+    {
+      "name": "browser_upload_request",
+      "schema": "CreateUploadRequest",
+      "instance": {
+        "path": "documents/one.txt",
+        "expected_size_bytes": 11,
+        "content_sha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "declared_media_type": "text/plain",
+        "browser_origin": "https://app.example.com"
+      },
+      "expected": "valid"
+    },
+    {
+      "name": "upload_path_traversal_refused",
+      "schema": "CreateUploadRequest",
+      "instance": {
+        "path": "documents/../secret.txt",
+        "expected_size_bytes": 11,
+        "content_sha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "declared_media_type": "text/plain"
+      },
+      "expected": "invalid"
+    },
+    {
+      "name": "upload_cannot_select_bucket",
+      "schema": "CreateUploadRequest",
+      "instance": {
+        "path": "documents/one.txt",
+        "expected_size_bytes": 11,
+        "content_sha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "declared_media_type": "text/plain",
+        "bucket": "customer-data"
+      },
+      "expected": "invalid"
+    },
+    {
+      "name": "single_put_completion",
+      "schema": "FinalizeUploadRequest",
+      "instance": {
+        "descriptor_id": "018f0000-0000-7000-8000-000000000001",
+        "protocol": "single_put",
+        "etag": "etag-one",
+        "provider_version": null,
+        "parts": [
+          {
+            "part_number": 1,
+            "etag": "etag-one"
+          }
+        ],
+        "size_bytes": 11,
+        "content_sha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "expected": "valid"
+    },
+    {
+      "name": "completion_unknown_coordinates_refused",
+      "schema": "FinalizeUploadRequest",
+      "instance": {
+        "descriptor_id": "018f0000-0000-7000-8000-000000000001",
+        "protocol": "single_put",
+        "etag": "etag-one",
+        "provider_version": null,
+        "parts": [
+          {
+            "part_number": 1,
+            "etag": "etag-one"
+          }
+        ],
+        "size_bytes": 11,
+        "content_sha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "object_key": "private/provider/key"
+      },
+      "expected": "invalid"
+    },
+    {
+      "name": "safe_error_envelope",
+      "schema": "Error",
+      "instance": {
+        "code": "ALMIRA_FILE_NOT_FOUND",
+        "request_id": "018f0000-0000-7000-8000-000000000002"
+      },
+      "expected": "valid"
+    },
+    {
+      "name": "error_details_refused",
+      "schema": "Error",
+      "instance": {
+        "code": "ALMIRA_FILESERVICE_UNAVAILABLE",
+        "request_id": "018f0000-0000-7000-8000-000000000002",
+        "details": "provider endpoint timed out"
+      },
+      "expected": "invalid"
+    }
+  ],
+  "error_vectors": [
+    {
+      "name": "cross_project_is_forbidden",
+      "condition": "authenticated scope does not equal the requested project",
+      "code": "ALMIRA_FILE_SCOPE_MISMATCH",
+      "http_status": 403
+    },
+    {
+      "name": "expired_transfer_is_gone",
+      "condition": "finalization occurs after the durable transfer expiry",
+      "code": "ALMIRA_FILE_TRANSFER_EXPIRED",
+      "http_status": 410
+    },
+    {
+      "name": "required_scan_blocks_read",
+      "condition": "the current generation safety state is scan_pending or blocked",
+      "code": "ALMIRA_FILE_NOT_AVAILABLE",
+      "http_status": 404
+    },
+    {
+      "name": "changed_idempotent_input_conflicts",
+      "condition": "an operation id is replayed with a different request digest",
+      "code": "ALMIRA_FILE_OPERATION_CONFLICT",
+      "http_status": 409
+    },
+    {
+      "name": "ambiguous_fileservice_effect_is_retryable",
+      "condition": "the FileService result cannot be determined safely",
+      "code": "ALMIRA_FILE_OUTCOME_UNKNOWN",
+      "http_status": 503
+    }
+  ]
+}
