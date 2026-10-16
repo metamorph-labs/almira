@@ -98,7 +98,7 @@ const outputSchema = z
 
 /** Creates one stdio-safe MCP server over the canonical Almira SDK client. */
 export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
-  const server = new McpServer({ name: "almira", version: "0.1.0-dev.16" });
+  const server = new McpServer({ name: "almira", version: "0.1.0-dev.17" });
 
   server.registerTool(
     "almira_project_bootstrap",
@@ -405,6 +405,72 @@ export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
           collectionInstanceId: collection_instance_id,
         }),
       ),
+  );
+
+  server.registerTool(
+    "almira_storage_migration_start",
+    {
+      title: "Start storage-class migration",
+      description: "Start a governed collection migration to an available normal or express storage class and return its durable receipt.",
+      inputSchema: z.object({
+        ...scope,
+        environment_id: uuid,
+        collection_instance_id: uuid,
+        target_storage_class: z.enum(["normal", "express"]),
+        expected_collection_revision: z.number().int().min(1),
+        operation_id: operationId,
+      }).strict(),
+      outputSchema,
+      annotations: mutationAnnotations,
+    },
+    async ({
+      tenant_id,
+      project_id,
+      environment_id,
+      collection_instance_id,
+      target_storage_class,
+      expected_collection_revision,
+      operation_id,
+    }) => {
+      const id = operation_id ?? createOperationId();
+      return execute(
+        () => client.startStorageMigration(
+          {
+            tenantId: tenant_id,
+            projectId: project_id,
+            environmentId: environment_id,
+            collectionInstanceId: collection_instance_id,
+          },
+          { target_storage_class, expected_collection_revision },
+          { operationId: id },
+        ),
+        id,
+      );
+    },
+  );
+
+  server.registerTool(
+    "almira_storage_migration_get",
+    {
+      title: "Get storage-migration status",
+      description: "Read the durable inventory, copy, verification, cutover, cleanup, or terminal migration receipt.",
+      inputSchema: z.object({
+        ...scope,
+        environment_id: uuid,
+        collection_instance_id: uuid,
+        migration_id: uuid,
+      }).strict(),
+      outputSchema,
+      annotations: readAnnotations,
+    },
+    async ({ tenant_id, project_id, environment_id, collection_instance_id, migration_id }) =>
+      execute(() => client.getStorageMigration({
+        tenantId: tenant_id,
+        projectId: project_id,
+        environmentId: environment_id,
+        collectionInstanceId: collection_instance_id,
+        migrationId: migration_id,
+      })),
   );
 
   server.registerTool(

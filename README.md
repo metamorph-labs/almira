@@ -18,7 +18,8 @@ bundle independently; see [`AGENTS.md`](AGENTS.md) before proposing a contract c
 
 Declarative setup uses the closed [`almira.yaml`](examples/almira.yaml) v1 format. Preview is
 read-only and additive; apply preserves unlisted resources and executes the same scoped operations
-available individually through the SDK, CLI, MCP server, and console.
+available individually through the SDK, CLI, MCP server, and console. A class-only collection
+change starts the same governed, resumable storage migration exposed by those surfaces.
 
 The dependency-light TypeScript client is in [`sdks/typescript`](sdks/typescript). It covers every
 operation in the promoted contract and supports same-origin browser sessions, PATs, SAKs and

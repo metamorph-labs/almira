@@ -178,6 +178,52 @@ test("storage capability discovery is one exact environment-scoped read", async 
   assert.equal(call.init.headers.get("x-almira-tenant-id"), tenantId);
 });
 
+test("storage migration start and status use the collection-scoped contract", async () => {
+  const calls = [];
+  const migration = {
+    migration_id: operationId,
+    environment_id: environmentId,
+    collection_instance_id: collectionInstanceId,
+    phase: "inventory",
+  };
+  const client = new AlmiraClient({
+    credential: "mm_pat_v1.test",
+    fetch: async (input, init) => {
+      calls.push({ input, init });
+      return json(init.method === "POST" ? { disposition: "applied", migration } : migration, {
+        status: init.method === "POST" ? 201 : 200,
+      });
+    },
+  });
+  const reference = { tenantId, projectId, environmentId, collectionInstanceId };
+  await client.startStorageMigration(
+    reference,
+    { target_storage_class: "express", expected_collection_revision: 3 },
+    { operationId },
+  );
+  await client.getStorageMigration({ ...reference, migrationId: operationId });
+  const base = `/v1/projects/${projectId}/environments/${environmentId}/collections/${collectionInstanceId}/storage-migrations`;
+  assert.deepEqual(calls.map(({ input, init }) => ({
+    input,
+    method: init.method,
+    operation: init.headers.get("idempotency-key"),
+    body: init.body === undefined ? undefined : JSON.parse(init.body),
+  })), [
+    {
+      input: base,
+      method: "POST",
+      operation: operationId,
+      body: { target_storage_class: "express", expected_collection_revision: 3 },
+    },
+    {
+      input: `${base}/${operationId}`,
+      method: "GET",
+      operation: null,
+      body: undefined,
+    },
+  ]);
+});
+
 test("workload evidence uses its distinct framing and is resolved for every call", async () => {
   const evidence = ["eyJzY2hlbWFfdmVyc2lvbiI6MX0", "eyJzY2hlbWFfdmVyc2lvbiI6Mn0"];
   let calls = 0;

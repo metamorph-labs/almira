@@ -51,6 +51,16 @@ export type AlmiraConfigurationAction =
     }
   | {
       readonly action_id: string;
+      readonly operation: "storage_migration.start";
+      readonly environment_id: UuidV7;
+      readonly environment_key: string;
+      readonly collection_instance_id: UuidV7;
+      readonly collection_key: string;
+      readonly target_storage_class: "normal" | "express";
+      readonly expected_collection_revision: number;
+    }
+  | {
+      readonly action_id: string;
       readonly operation: "collection.create";
       readonly environment_id: UuidV7 | null;
       readonly environment_key: string;
@@ -67,6 +77,7 @@ export interface AlmiraConfigurationConflict {
     | "ALMIRA_CONFIGURATION_ENVIRONMENT_LIMIT_EXCEEDED"
     | "ALMIRA_CONFIGURATION_ENVIRONMENT_NOT_ACTIVE"
     | "ALMIRA_CONFIGURATION_ENVIRONMENT_NOT_MANAGED"
+    | "ALMIRA_CONFIGURATION_COLLECTION_NOT_READY"
     | "ALMIRA_CONFIGURATION_STORAGE_CLASS_UNAVAILABLE";
   readonly environment_key: string;
   readonly collection_key: string | null;
@@ -184,19 +195,47 @@ export async function previewConfiguration(
 
     const collections = await listAllCollections(client, reference, environment, options.signal);
     const collectionByKey = new Map(collections.map((collection) => [collection.collection_key, collection]));
-    const missing = desired.collections.filter((collection) => !collectionByKey.has(collection.key));
-    const capabilities = missing.length === 0
+    const requiresCapabilities = desired.collections.some((collection) => {
+      const existing = collectionByKey.get(collection.key);
+      return existing === undefined || existing.storage_class !== collection.storage_class;
+    });
+    const capabilities = !requiresCapabilities
       ? null
       : await client.getStorageCapabilities(environmentReference(reference, environment), options);
     for (const collection of desired.collections) {
       const existing = collectionByKey.get(collection.key);
       if (existing !== undefined) {
-        if (!collectionMatches(existing, collection)) {
+        if (!collectionSettingsMatch(existing, collection)) {
           conflicts.push(conflict(
             "ALMIRA_CONFIGURATION_COLLECTION_CHANGE_UNSUPPORTED",
             desired.key,
             collection.key,
           ));
+        } else if (existing.storage_class !== collection.storage_class) {
+          if (existing.storage_binding_state !== "ready" && existing.storage_binding_state !== "migrating") {
+            conflicts.push(conflict(
+              "ALMIRA_CONFIGURATION_COLLECTION_NOT_READY",
+              desired.key,
+              collection.key,
+            ));
+          } else if (!classAvailable(capabilities, collection.storage_class)) {
+            conflicts.push(conflict(
+              "ALMIRA_CONFIGURATION_STORAGE_CLASS_UNAVAILABLE",
+              desired.key,
+              collection.key,
+            ));
+          } else {
+            actions.push({
+              action_id: `storage_migration.start:${desired.key}:${collection.key}`,
+              operation: "storage_migration.start",
+              environment_id: environment.environment_id,
+              environment_key: desired.key,
+              collection_instance_id: existing.collection_instance_id,
+              collection_key: collection.key,
+              target_storage_class: collection.storage_class,
+              expected_collection_revision: existing.revision,
+            });
+          }
         }
         continue;
       }
@@ -276,6 +315,16 @@ export async function applyConfiguration(
         {
           expected_revision: action.expected_revision ?? policy?.revision ?? 1,
           origins: [...action.origins],
+        },
+        { operationId, ...signalOptions },
+      );
+      receipts.push(receipt(action, operationId, outcome.disposition));
+    } else if (action.operation === "storage_migration.start") {
+      const outcome = await client.startStorageMigration(
+        { ...environment, collectionInstanceId: action.collection_instance_id },
+        {
+          target_storage_class: action.target_storage_class,
+          expected_collection_revision: action.expected_collection_revision,
         },
         { operationId, ...signalOptions },
       );
@@ -416,9 +465,8 @@ async function listAllCollections(
   return collections;
 }
 
-function collectionMatches(existing: Collection, desired: AlmiraConfigurationCollectionV1): boolean {
+function collectionSettingsMatch(existing: Collection, desired: AlmiraConfigurationCollectionV1): boolean {
   return existing.display_name === desired.display_name &&
-    existing.storage_class === desired.storage_class &&
     existing.malware_scan_required === desired.malware_scan_required;
 }
 

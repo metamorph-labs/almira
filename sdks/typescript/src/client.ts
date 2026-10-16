@@ -27,6 +27,10 @@ import type {
   ReplaceBrowserOriginsOutcome,
   ReplaceBrowserOriginsRequest,
   StorageRealizationCatalog,
+  StartStorageMigrationOutcome,
+  StartStorageMigrationRequest,
+  StorageMigration,
+  StorageMigrationReference,
   UpdateEnvironmentRequest,
   UuidV7,
 } from "./types.js";
@@ -229,6 +233,30 @@ export class AlmiraClient {
     options: { signal?: AbortSignal } = {},
   ): Promise<Collection> {
     return this.#json(collectionPath(reference), { method: "GET", signal: options.signal }, reference.tenantId);
+  }
+
+  async startStorageMigration(
+    reference: CollectionReference,
+    request: StartStorageMigrationRequest,
+    options: MutationOptions,
+  ): Promise<StartStorageMigrationOutcome> {
+    return this.#json(collectionPath(reference, "/storage-migrations"), {
+      method: "POST",
+      headers: mutationHeaders(options.operationId),
+      body: request,
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async getStorageMigration(
+    reference: StorageMigrationReference,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<StorageMigration> {
+    return this.#json(
+      collectionPath(reference, `/storage-migrations/${uuid(reference.migrationId)}`),
+      { method: "GET", signal: options.signal },
+      reference.tenantId,
+    );
   }
 
   async createUpload(

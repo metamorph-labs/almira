@@ -36,6 +36,18 @@ almira collection create \
   --project 018f0000-0000-7000-8000-000000000003 \
   --environment 018f0000-0000-7000-8000-000000000004 \
   --key assets --display Assets --scan required --class normal
+almira collection migrate \
+  --tenant 018f0000-0000-7000-8000-000000000002 \
+  --project 018f0000-0000-7000-8000-000000000003 \
+  --environment 018f0000-0000-7000-8000-000000000004 \
+  --collection 018f0000-0000-7000-8000-000000000012 \
+  --class express --revision 1
+almira migration get \
+  --tenant 018f0000-0000-7000-8000-000000000002 \
+  --project 018f0000-0000-7000-8000-000000000003 \
+  --environment 018f0000-0000-7000-8000-000000000004 \
+  --collection 018f0000-0000-7000-8000-000000000012 \
+  --migration 018f0000-0000-7000-8000-000000000013
 ```
 
 `tenancy-project.json` is the exact successful Tenancy `project.get` result for the selected
@@ -56,10 +68,17 @@ returned.
 `collection create` defaults `--class` to `normal`. Select `express` only when the environment's
 fresh storage-capability result advertises it.
 
+`collection migrate` starts a governed class change using the current collection `--revision`;
+the provider target remains opaque. Uploads pause while that collection is migrating. Retain the
+emitted operation ID after an ambiguous start and use `migration get` until the durable receipt is
+`succeeded` or `failed`; retrying the start with that same ID exactly replays even after the
+collection reports `migrating`.
+
 `config preview` reads current state without mutation and returns a digest-bound deterministic
 diff. `config apply` is additive: omitted environments, origins, and collections are preserved.
 It returns a root `operation_id` plus deterministic child operation IDs; reuse the root ID after an
-ambiguous outcome. Unsupported existing collection changes are conflicts, never silent no-ops.
+ambiguous outcome. A class-only collection change starts the same governed migration; other
+unsupported existing collection changes are conflicts, never silent no-ops.
 
 Exit codes are stable: `0` success, `2` usage, `3` authentication/authorization, `4` not found,
 `5` conflict, `6` retryable service response, `7` other API response, `8` local/network failure,

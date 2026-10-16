@@ -185,6 +185,61 @@
       "expected": "invalid"
     },
     {
+      "name": "collection_storage_migration_request",
+      "schema": "StartStorageMigrationRequest",
+      "instance": {
+        "target_storage_class": "express",
+        "expected_collection_revision": 1
+      },
+      "expected": "valid"
+    },
+    {
+      "name": "migration_request_cannot_select_provider_target",
+      "schema": "StartStorageMigrationRequest",
+      "instance": {
+        "target_storage_class": "express",
+        "expected_collection_revision": 1,
+        "bucket": "customer-data"
+      },
+      "expected": "invalid"
+    },
+    {
+      "name": "storage_migration_copy_receipt",
+      "schema": "StorageMigration",
+      "instance": {
+        "migration_id": "018f0000-0000-7000-8000-000000000020",
+        "environment_id": "018f0000-0000-7000-8000-000000000010",
+        "collection_instance_id": "018f0000-0000-7000-8000-000000000012",
+        "source_storage_class": "normal",
+        "target_storage_class": "express",
+        "source_binding": {
+          "realization_id": "018f0000-0000-7000-8000-000000000011",
+          "capability_generation": 1
+        },
+        "target_binding": {
+          "realization_id": "018f0000-0000-7000-8000-000000000013",
+          "capability_generation": 2
+        },
+        "inventory_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "phase": "copying",
+        "progress": {
+          "objects_total": 2,
+          "bytes_total": 20,
+          "objects_copied": 1,
+          "bytes_copied": 10,
+          "objects_verified": 0,
+          "source_objects_cleaned": 0
+        },
+        "failure": null,
+        "expected_collection_revision": 1,
+        "revision": 2,
+        "created_at": "2026-10-17T00:00:00Z",
+        "updated_at": "2026-10-17T00:01:00Z",
+        "completed_at": null
+      },
+      "expected": "valid"
+    },
+    {
       "name": "server_upload_request",
       "schema": "CreateUploadRequest",
       "instance": {
@@ -382,6 +437,18 @@
       "name": "invalid_storage_owner_catalog_is_retryable",
       "condition": "FileService returns stale, malformed, scope-mismatched, coordinate-bearing, or provider-matrix-drifted capability evidence",
       "code": "ALMIRA_STORAGE_INTEGRITY_FAILURE",
+      "http_status": 503
+    },
+    {
+      "name": "active_transfer_blocks_storage_migration",
+      "condition": "the collection has a prepared, uploading, finalizing, or ambiguous transfer",
+      "code": "ALMIRA_STORAGE_MIGRATION_ACTIVE_TRANSFER",
+      "http_status": 409
+    },
+    {
+      "name": "ambiguous_storage_migration_start_is_retryable",
+      "condition": "FileService may have accepted the migration but its response was not received",
+      "code": "ALMIRA_STORAGE_MIGRATION_OUTCOME_UNKNOWN",
       "http_status": 503
     }
   ]

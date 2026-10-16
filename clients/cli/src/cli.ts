@@ -47,6 +47,8 @@ Commands:
   collection list         List collections in an environment
   collection create       Create a private normal or express collection
   collection get          Read one collection
+  collection migrate      Migrate a collection to another storage class
+  migration get           Read durable storage-migration progress
   file list               List file metadata
   file get                Read one file's metadata
   file delete             Soft-delete one file
@@ -60,6 +62,7 @@ Common identifiers:
   --project UUID          Metamorph project UUIDv7
   --environment UUID      Almira environment UUIDv7
   --collection UUID       Almira collection-instance UUIDv7
+  --migration UUID        Almira storage-migration UUIDv7
   --entry UUID            Almira file-entry UUIDv7
   --file PATH             almira.yaml path for config preview/apply
 
@@ -84,6 +87,7 @@ const options = {
   help: { type: "boolean", short: "h" },
   key: { type: "string" },
   limit: { type: "string" },
+  migration: { type: "string" },
   "operation-id": { type: "string" },
   origin: { type: "string", multiple: true },
   "path-prefix": { type: "string" },
@@ -208,6 +212,24 @@ export async function runCli(arguments_: string[], dependencies: CliDependencies
       );
     } else if (noun === "collection" && verb === "get") {
       result = await client.getCollection(collectionReference(values, tenantId, projectId));
+    } else if (noun === "collection" && verb === "migrate") {
+      operationId = mutationId(values);
+      mutation = true;
+      const targetStorageClass = required(values, "class");
+      if (targetStorageClass !== "normal" && targetStorageClass !== "express") throw new CliUsageError();
+      result = await client.startStorageMigration(
+        collectionReference(values, tenantId, projectId),
+        {
+          target_storage_class: targetStorageClass,
+          expected_collection_revision: positiveInteger(values, "revision"),
+        },
+        { operationId },
+      );
+    } else if (noun === "migration" && verb === "get") {
+      result = await client.getStorageMigration({
+        ...collectionReference(values, tenantId, projectId),
+        migrationId: required(values, "migration"),
+      });
     } else if (noun === "file" && verb === "list") {
       const pathPrefix = stringValue(values, "path-prefix");
       result = await client.listFiles(collectionReference(values, tenantId, projectId), {
@@ -259,6 +281,8 @@ const commandOptions = new Map<string, ReadonlySet<string>>([
   ["collection:list", new Set(["base-url", "cursor", "environment", "limit", "project", "tenant"])],
   ["collection:create", new Set(["base-url", "class", "display", "environment", "key", "operation-id", "project", "scan", "tenant"])],
   ["collection:get", new Set(["base-url", "collection", "environment", "project", "tenant"])],
+  ["collection:migrate", new Set(["base-url", "class", "collection", "environment", "operation-id", "project", "revision", "tenant"])],
+  ["migration:get", new Set(["base-url", "collection", "environment", "migration", "project", "tenant"])],
   ["file:list", new Set(["base-url", "collection", "cursor", "environment", "limit", "path-prefix", "project", "tenant"])],
   ["file:get", new Set(["base-url", "collection", "entry", "environment", "project", "tenant"])],
   ["file:delete", new Set(["base-url", "collection", "entry", "environment", "operation-id", "project", "revision", "tenant"])],

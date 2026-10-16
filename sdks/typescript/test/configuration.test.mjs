@@ -298,3 +298,117 @@ test("existing collection changes are reported as conflicts", async () => {
     collection_key: "sessions",
   }]);
 });
+
+test("existing collection class changes plan and apply a governed migration", async () => {
+  const calls = [];
+  let bindingState = "ready";
+  const client = new AlmiraClient({
+    credential: "mm_sak_v1.test",
+    fetch: async (input, init) => {
+      calls.push({ input, init });
+      if (input.endsWith("/environments") && init.method === "GET") {
+        return response({ environments: [{
+          environment_id: environmentId,
+          environment_key: "development",
+          display_name: "Development",
+          system_key: "development",
+          operating_model: "managed",
+          lifecycle: "active",
+          revision: 1,
+          created_at: "2026-10-17T00:00:00Z",
+          updated_at: "2026-10-17T00:00:00Z",
+        }] });
+      }
+      if (input.includes("/collections?") && init.method === "GET") {
+        return response({ collections: [{
+          collection_id: "018f0000-0000-7000-8000-000000000060",
+          collection_instance_id: "018f0000-0000-7000-8000-000000000061",
+          environment_id: environmentId,
+          collection_key: "sessions",
+          display_name: "Sessions",
+          access_template: "private",
+          storage_class: "normal",
+          storage_binding_state: bindingState,
+          technical_metadata_extraction: true,
+          malware_scan_required: false,
+          content_extraction: false,
+          vector_indexing: false,
+          delivery_mode: "off",
+          revision: 4,
+          created_at: "2026-10-17T00:00:00Z",
+        }], next_cursor: null });
+      }
+      if (input.endsWith("/browser-origins") && init.method === "GET") {
+        return response({ environment_id: environmentId, origins: ["https://app.example"], revision: 1 });
+      }
+      if (input.endsWith("/storage-capabilities") && init.method === "GET") {
+        return response({
+          environment_id: environmentId,
+          deployment_profile: "hosted",
+          catalog_revision: 1,
+          catalog_digest: `sha256:${"a".repeat(64)}`,
+          expires_at: "2099-10-17T00:00:00Z",
+          provider_matrix: {
+            hosted: ["aws_s3", "google_cloud_storage", "azure_blob"],
+            connected_site: ["aws_s3", "google_cloud_storage", "azure_blob"],
+          },
+          realizations: [{
+            realization_id: "018f0000-0000-7000-8000-000000000040",
+            display_name: "Managed storage",
+            provider_family: "aws_s3",
+            operating_model: "managed",
+            location_id: "region.one",
+            storage_classes: ["normal", "express"],
+            health: "ready",
+            capability_generation: 1,
+            evidence_digest: `sha256:${"b".repeat(64)}`,
+          }],
+        });
+      }
+      if (input.endsWith("/storage-migrations") && init.method === "POST") {
+        return response({ disposition: bindingState === "ready" ? "applied" : "exact_replay", migration: { migration_id: operationId } }, 201);
+      }
+      assert.fail(`unexpected request: ${init.method} ${input}`);
+    },
+  });
+  const plan = await previewConfiguration(client, { tenantId, projectId }, configuration);
+  assert.deepEqual(plan.conflicts, []);
+  assert.deepEqual(plan.actions, [{
+    action_id: "storage_migration.start:development:sessions",
+    operation: "storage_migration.start",
+    environment_id: environmentId,
+    environment_key: "development",
+    collection_instance_id: "018f0000-0000-7000-8000-000000000061",
+    collection_key: "sessions",
+    target_storage_class: "express",
+    expected_collection_revision: 4,
+  }]);
+  const receipt = await applyConfiguration(
+    client,
+    { tenantId, projectId },
+    configuration,
+    { operationId },
+  );
+  assert.equal(receipt.actions[0].disposition, "applied");
+  const mutation = calls.find(({ input, init }) => input.endsWith("/storage-migrations") && init.method === "POST");
+  assert.deepEqual(JSON.parse(mutation.init.body), {
+    target_storage_class: "express",
+    expected_collection_revision: 4,
+  });
+  assert.equal(mutation.init.headers.get("idempotency-key"), receipt.actions[0].operation_id);
+
+  bindingState = "migrating";
+  calls.length = 0;
+  const resumed = await applyConfiguration(
+    client,
+    { tenantId, projectId },
+    configuration,
+    { operationId },
+  );
+  assert.equal(resumed.actions[0].disposition, "exact_replay");
+  assert.equal(
+    calls.find(({ input, init }) => input.endsWith("/storage-migrations") && init.method === "POST")
+      .init.headers.get("idempotency-key"),
+    receipt.actions[0].operation_id,
+  );
+});

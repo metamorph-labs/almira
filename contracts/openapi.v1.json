@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Almira API",
-    "version": "0.1.0-dev.16",
+    "version": "0.1.0-dev.17",
     "description": "Provider-neutral application file storage management and data API."
   },
   "servers": [
@@ -585,6 +585,121 @@
         }
       }
     },
+    "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/storage-migrations": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "post": {
+        "operationId": "startStorageMigration",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/OperationId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartStorageMigrationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "FileService-owned storage migration started or exactly replayed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartStorageMigrationOutcome"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/storage-migrations/{migration_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "get": {
+        "operationId": "getStorageMigration",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/MigrationId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Durable inventory, copy, verification, cutover and cleanup receipt.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageMigration"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
     "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/uploads": {
       "parameters": [
         {
@@ -1026,6 +1141,14 @@
       },
       "CollectionInstanceId": {
         "name": "collection_instance_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/UuidV7"
+        }
+      },
+      "MigrationId": {
+        "name": "migration_id",
         "in": "path",
         "required": true,
         "schema": {
@@ -1866,6 +1989,217 @@
           },
           "collection": {
             "$ref": "#/components/schemas/Collection"
+          }
+        }
+      },
+      "StartStorageMigrationRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target_storage_class",
+          "expected_collection_revision"
+        ],
+        "properties": {
+          "target_storage_class": {
+            "type": "string",
+            "enum": [
+              "normal",
+              "express"
+            ]
+          },
+          "expected_collection_revision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "StorageMigrationBinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "realization_id",
+          "capability_generation"
+        ],
+        "properties": {
+          "realization_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "capability_generation": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "StorageMigrationProgress": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "objects_total",
+          "bytes_total",
+          "objects_copied",
+          "bytes_copied",
+          "objects_verified",
+          "source_objects_cleaned"
+        ],
+        "properties": {
+          "objects_total": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "bytes_total": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "objects_copied": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "bytes_copied": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "objects_verified": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "source_objects_cleaned": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        }
+      },
+      "StorageMigration": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "migration_id",
+          "environment_id",
+          "collection_instance_id",
+          "source_storage_class",
+          "target_storage_class",
+          "source_binding",
+          "target_binding",
+          "inventory_digest",
+          "phase",
+          "progress",
+          "failure",
+          "expected_collection_revision",
+          "revision",
+          "created_at",
+          "updated_at",
+          "completed_at"
+        ],
+        "properties": {
+          "migration_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "environment_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "collection_instance_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "source_storage_class": {
+            "type": "string",
+            "enum": [
+              "normal",
+              "express"
+            ]
+          },
+          "target_storage_class": {
+            "type": "string",
+            "enum": [
+              "normal",
+              "express"
+            ]
+          },
+          "source_binding": {
+            "$ref": "#/components/schemas/StorageMigrationBinding"
+          },
+          "target_binding": {
+            "$ref": "#/components/schemas/StorageMigrationBinding"
+          },
+          "inventory_digest": {
+            "$ref": "#/components/schemas/ContentSha256"
+          },
+          "phase": {
+            "type": "string",
+            "enum": [
+              "starting",
+              "inventory",
+              "copying",
+              "verifying",
+              "cutover",
+              "cleanup",
+              "succeeded",
+              "failed"
+            ]
+          },
+          "progress": {
+            "$ref": "#/components/schemas/StorageMigrationProgress"
+          },
+          "failure": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "target_unavailable",
+              "source_changed",
+              "verification_failed",
+              "owner_failed",
+              null
+            ]
+          },
+          "expected_collection_revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "updated_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "completed_at": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Timestamp"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "StartStorageMigrationOutcome": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "disposition",
+          "migration"
+        ],
+        "properties": {
+          "disposition": {
+            "type": "string",
+            "enum": [
+              "applied",
+              "exact_replay"
+            ]
+          },
+          "migration": {
+            "$ref": "#/components/schemas/StorageMigration"
           }
         }
       },

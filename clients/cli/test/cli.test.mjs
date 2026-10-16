@@ -127,6 +127,64 @@ test("collection creation uses predictable noun/verb arguments", async () => {
   assert.equal(JSON.parse(stream.output.stdout.join("")).operation_id, operationId);
 });
 
+test("storage migration start and status preserve exact scope, revision, and operation identity", async () => {
+  const collectionId = "018f0000-0000-7000-8000-000000000012";
+  const migrationId = "018f0000-0000-7000-8000-000000000013";
+  const requests = [];
+  const invoke = async (arguments_) => {
+    const stream = io();
+    const exitCode = await runCli(arguments_, {
+      environment,
+      io: stream.value,
+      fetch: async (input, init) => {
+        requests.push({ input, init });
+        return json(init.method === "POST"
+          ? { disposition: "applied", migration: { migration_id: migrationId } }
+          : { migration_id: migrationId }, init.method === "POST" ? 201 : 200);
+      },
+    });
+    assert.equal(exitCode, 0);
+    return JSON.parse(stream.output.stdout.join(""));
+  };
+  const common = [
+    "--tenant", tenantId,
+    "--project", projectId,
+    "--environment", environmentId,
+    "--collection", collectionId,
+  ];
+
+  const started = await invoke([
+    "collection", "migrate", ...common,
+    "--class", "express",
+    "--revision", "4",
+    "--operation-id", operationId,
+  ]);
+  const status = await invoke(["migration", "get", ...common, "--migration", migrationId]);
+
+  assert.equal(started.operation_id, operationId);
+  assert.equal(status.migration_id, migrationId);
+  const path = `https://almira.test/v1/projects/${projectId}/environments/${environmentId}/collections/${collectionId}/storage-migrations`;
+  assert.deepEqual(requests.map(({ input, init }) => ({
+    input,
+    method: init.method,
+    operationId: init.headers.get("idempotency-key"),
+    body: init.body === undefined ? undefined : JSON.parse(init.body),
+  })), [
+    {
+      input: path,
+      method: "POST",
+      operationId,
+      body: { target_storage_class: "express", expected_collection_revision: 4 },
+    },
+    {
+      input: `${path}/${migrationId}`,
+      method: "GET",
+      operationId: null,
+      body: undefined,
+    },
+  ]);
+});
+
 test("configuration preview and apply consume almira.yaml without a second API", async (context) => {
   const directory = await mkdtemp(join(tmpdir(), "almira-config-"));
   context.after(() => rm(directory, { recursive: true, force: true }));

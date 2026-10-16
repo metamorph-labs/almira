@@ -64,6 +64,8 @@ test("tool catalog is closed and marks destructive behavior accurately", async (
       "almira_file_metadata_get",
       "almira_project_bootstrap",
       "almira_storage_capabilities_get",
+      "almira_storage_migration_get",
+      "almira_storage_migration_start",
     ],
   );
   assert.equal(
@@ -169,6 +171,68 @@ test("collection creation forwards the selected storage class", async (context) 
     malware_scan_required: false,
     storage_class: "express",
   });
+});
+
+test("storage migration tools preserve exact scope, revision, and replay identity", async (context) => {
+  const requests = [];
+  const environmentId = "018f0000-0000-7000-8000-000000000004";
+  const collectionId = "018f0000-0000-7000-8000-000000000012";
+  const migrationId = "018f0000-0000-7000-8000-000000000013";
+  const operationId = "018f0000-0000-7000-8000-000000000007";
+  const connection = await connected(async (input, init) => {
+    requests.push({ input, init });
+    return json(init.method === "POST"
+      ? { disposition: "applied", migration: { migration_id: migrationId } }
+      : { migration_id: migrationId }, init.method === "POST" ? 201 : 200);
+  });
+  context.after(async () => {
+    await connection.client.close();
+    await connection.server.close();
+  });
+  const common = {
+    tenant_id: tenantId,
+    project_id: projectId,
+    environment_id: environmentId,
+    collection_instance_id: collectionId,
+  };
+
+  const started = await connection.client.callTool({
+    name: "almira_storage_migration_start",
+    arguments: {
+      ...common,
+      target_storage_class: "express",
+      expected_collection_revision: 4,
+      operation_id: operationId,
+    },
+  });
+  const status = await connection.client.callTool({
+    name: "almira_storage_migration_get",
+    arguments: { ...common, migration_id: migrationId },
+  });
+
+  assert.equal(started.isError, undefined);
+  assert.equal(started.structuredContent.operation_id, operationId);
+  assert.equal(status.isError, undefined);
+  const path = `https://almira.test/v1/projects/${projectId}/environments/${environmentId}/collections/${collectionId}/storage-migrations`;
+  assert.deepEqual(requests.map(({ input, init }) => ({
+    input,
+    method: init.method,
+    operationId: init.headers.get("idempotency-key"),
+    body: init.body === undefined ? undefined : JSON.parse(init.body),
+  })), [
+    {
+      input: path,
+      method: "POST",
+      operationId,
+      body: { target_storage_class: "express", expected_collection_revision: 4 },
+    },
+    {
+      input: `${path}/${migrationId}`,
+      method: "GET",
+      operationId: null,
+      body: undefined,
+    },
+  ]);
 });
 
 test("environment tools call the exact public lifecycle operations", async (context) => {

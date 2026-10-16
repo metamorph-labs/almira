@@ -144,6 +144,49 @@ export interface CreateCollectionOutcome {
   collection: Collection;
 }
 
+export interface StartStorageMigrationRequest {
+  target_storage_class: "normal" | "express";
+  expected_collection_revision: number;
+}
+
+export interface StorageMigrationBinding {
+  realization_id: UuidV7;
+  capability_generation: number;
+}
+
+export interface StorageMigrationProgress {
+  objects_total: number;
+  bytes_total: number;
+  objects_copied: number;
+  bytes_copied: number;
+  objects_verified: number;
+  source_objects_cleaned: number;
+}
+
+export interface StorageMigration {
+  migration_id: UuidV7;
+  environment_id: UuidV7;
+  collection_instance_id: UuidV7;
+  source_storage_class: "normal" | "express";
+  target_storage_class: "normal" | "express";
+  source_binding: StorageMigrationBinding;
+  target_binding: StorageMigrationBinding;
+  inventory_digest: ContentSha256;
+  phase: "starting" | "inventory" | "copying" | "verifying" | "cutover" | "cleanup" | "succeeded" | "failed";
+  progress: StorageMigrationProgress;
+  failure: "target_unavailable" | "source_changed" | "verification_failed" | "owner_failed" | null;
+  expected_collection_revision: number;
+  revision: number;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+  completed_at: Timestamp | null;
+}
+
+export interface StartStorageMigrationOutcome {
+  disposition: "applied" | "exact_replay";
+  migration: StorageMigration;
+}
+
 export interface CollectionPage {
   collections: Collection[];
   next_cursor: string | null;
@@ -249,6 +292,10 @@ export interface EnvironmentReference extends ProjectReference {
 
 export interface CollectionReference extends EnvironmentReference {
   collectionInstanceId: UuidV7;
+}
+
+export interface StorageMigrationReference extends CollectionReference {
+  migrationId: UuidV7;
 }
 
 export interface FileReference extends CollectionReference {

@@ -28,9 +28,15 @@ placed in model context; application integration uses the SDK. Mutating tools ac
 Collection creation accepts `storage_class` as `normal` (the default) or `express`; agents should
 first verify that the selected environment advertises the requested class.
 
+`almira_storage_migration_start` changes an existing collection between advertised classes using
+its current revision and returns a durable receipt; it never accepts a provider target. Uploads to
+that collection pause while migration is active. Retain the returned operation ID after an
+ambiguous start and poll `almira_storage_migration_get` until `succeeded` or `failed`.
+
 `almira_configuration_preview` and `almira_configuration_apply` accept the structured form of the
 public `almira.yaml` v1 schema. Preview is read-only; apply preserves unlisted resources and uses
-deterministic child operation IDs beneath its reusable root `operation_id`.
+deterministic child operation IDs beneath its reusable root `operation_id`. Class-only changes use
+the same storage-migration operation.
 
 The server uses the official MCP TypeScript SDK v2 and the 2026-07-28 protocol over stdio. Stdout is
 reserved exclusively for MCP; safe startup diagnostics use stderr.
