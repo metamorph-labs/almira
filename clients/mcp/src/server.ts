@@ -11,6 +11,33 @@ const uuid = z
   .string()
   .regex(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u);
 const operationId = uuid.optional().describe("UUIDv7 to reuse after an ambiguous mutation outcome");
+const scope = { tenant_id: uuid, project_id: uuid };
+const tenancyProject = z
+  .object({
+    schema_version: z.literal(1),
+    operation_id: uuid,
+    operation: z.literal("project.get"),
+    disposition: z.enum(["succeeded", "exact_replay"]),
+    result: z.object({
+      project: z.object({
+        tenant_id: uuid,
+        project_id: uuid,
+        space_id: uuid,
+        product_id: z.literal("almira"),
+        product_section_id: z.null(),
+        project_kind_id: z.literal("almira.storage"),
+        owner_region_id: z.string().regex(/^[a-z][a-z0-9._-]{0,63}$/u),
+        name: z.string().min(1).max(200),
+        visibility: z.enum(["private", "public"]),
+        lifecycle: z.literal("active"),
+        route_epoch: z.number().int().min(1),
+        revision: z.number().int().min(3),
+        restrictive_revision: z.number().int().min(1),
+        activated_at: z.string().min(1).max(64),
+      }).strict(),
+    }).strict(),
+  })
+  .strict();
 const page = {
   cursor: z.string().min(1).max(2048).optional(),
   limit: z.number().int().min(1).max(100).optional(),
@@ -46,20 +73,27 @@ const outputSchema = z
 
 /** Creates one stdio-safe MCP server over the canonical Almira SDK client. */
 export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
-  const server = new McpServer({ name: "almira", version: "0.1.0-dev.8" });
+  const server = new McpServer({ name: "almira", version: "0.1.0-dev.9" });
 
   server.registerTool(
     "almira_project_bootstrap",
     {
       title: "Bootstrap Almira project",
       description: "Converge Almira's default development and production environments for one existing Metamorph project.",
-      inputSchema: z.object({ project_id: uuid, operation_id: operationId }).strict(),
+      inputSchema: z.object({ ...scope, tenancy_project: tenancyProject, operation_id: operationId }).strict(),
       outputSchema,
       annotations: mutationAnnotations,
     },
-    async ({ project_id, operation_id }) => {
+    async ({ tenant_id, project_id, tenancy_project, operation_id }) => {
       const id = operation_id ?? createOperationId();
-      return execute(() => client.bootstrapProject({ projectId: project_id }, { operationId: id }), id);
+      return execute(
+        () => client.bootstrapProject(
+          { tenantId: tenant_id, projectId: project_id },
+          { tenancy_project },
+          { operationId: id },
+        ),
+        id,
+      );
     },
   );
 
@@ -68,11 +102,12 @@ export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
     {
       title: "List Almira environments",
       description: "List the complete bounded environment set for one Almira project.",
-      inputSchema: z.object({ project_id: uuid }).strict(),
+      inputSchema: z.object(scope).strict(),
       outputSchema,
       annotations: readAnnotations,
     },
-    async ({ project_id }) => execute(() => client.listEnvironments({ projectId: project_id })),
+    async ({ tenant_id, project_id }) =>
+      execute(() => client.listEnvironments({ tenantId: tenant_id, projectId: project_id })),
   );
 
   server.registerTool(
@@ -80,12 +115,12 @@ export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
     {
       title: "Get browser origins",
       description: "Read the canonical browser-origin policy for one environment.",
-      inputSchema: z.object({ project_id: uuid, environment_id: uuid }).strict(),
+      inputSchema: z.object({ ...scope, environment_id: uuid }).strict(),
       outputSchema,
       annotations: readAnnotations,
     },
-    async ({ project_id, environment_id }) =>
-      execute(() => client.getBrowserOrigins({ projectId: project_id, environmentId: environment_id })),
+    async ({ tenant_id, project_id, environment_id }) =>
+      execute(() => client.getBrowserOrigins({ tenantId: tenant_id, projectId: project_id, environmentId: environment_id })),
   );
 
   server.registerTool(
@@ -95,7 +130,7 @@ export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
       description: "Replace an environment's complete browser-origin policy using optimistic revision control.",
       inputSchema: z
         .object({
-          project_id: uuid,
+          ...scope,
           environment_id: uuid,
           expected_revision: z.number().int().min(1),
           origins: z.array(z.string().min(1).max(255)).max(32),
@@ -105,12 +140,12 @@ export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
       outputSchema,
       annotations: mutationAnnotations,
     },
-    async ({ project_id, environment_id, expected_revision, origins, operation_id }) => {
+    async ({ tenant_id, project_id, environment_id, expected_revision, origins, operation_id }) => {
       const id = operation_id ?? createOperationId();
       return execute(
         () =>
           client.replaceBrowserOrigins(
-            { projectId: project_id, environmentId: environment_id },
+            { tenantId: tenant_id, projectId: project_id, environmentId: environment_id },
             { expected_revision, origins },
             { operationId: id },
           ),
@@ -124,14 +159,14 @@ export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
     {
       title: "List Almira collections",
       description: "List a deterministic page of collections in one environment.",
-      inputSchema: z.object({ project_id: uuid, environment_id: uuid, ...page }).strict(),
+      inputSchema: z.object({ ...scope, environment_id: uuid, ...page }).strict(),
       outputSchema,
       annotations: readAnnotations,
     },
-    async ({ project_id, environment_id, limit, cursor }) =>
+    async ({ tenant_id, project_id, environment_id, limit, cursor }) =>
       execute(() =>
         client.listCollections(
-          { projectId: project_id, environmentId: environment_id },
+          { tenantId: tenant_id, projectId: project_id, environmentId: environment_id },
           {
             ...(limit === undefined ? {} : { limit }),
             ...(cursor === undefined ? {} : { cursor }),
@@ -147,7 +182,7 @@ export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
       description: "Create one private normal collection with explicit malware-scanning policy.",
       inputSchema: z
         .object({
-          project_id: uuid,
+          ...scope,
           environment_id: uuid,
           collection_key: z.string().min(1).max(64),
           display_name: z.string().min(1).max(80),
@@ -160,6 +195,7 @@ export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
     },
     async ({
       project_id,
+      tenant_id,
       environment_id,
       collection_key,
       display_name,
@@ -170,7 +206,7 @@ export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
       return execute(
         () =>
           client.createCollection(
-            { projectId: project_id, environmentId: environment_id },
+            { tenantId: tenant_id, projectId: project_id, environmentId: environment_id },
             { collection_key, display_name, malware_scan_required },
             { operationId: id },
           ),
@@ -185,14 +221,15 @@ export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
       title: "Get Almira collection",
       description: "Read one exact environment-owned collection instance.",
       inputSchema: z
-        .object({ project_id: uuid, environment_id: uuid, collection_instance_id: uuid })
+        .object({ ...scope, environment_id: uuid, collection_instance_id: uuid })
         .strict(),
       outputSchema,
       annotations: readAnnotations,
     },
-    async ({ project_id, environment_id, collection_instance_id }) =>
+    async ({ tenant_id, project_id, environment_id, collection_instance_id }) =>
       execute(() =>
         client.getCollection({
+          tenantId: tenant_id,
           projectId: project_id,
           environmentId: environment_id,
           collectionInstanceId: collection_instance_id,
@@ -207,7 +244,7 @@ export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
       description: "List a deterministic metadata page in one collection; no file bytes or transfer secrets are returned.",
       inputSchema: z
         .object({
-          project_id: uuid,
+          ...scope,
           environment_id: uuid,
           collection_instance_id: uuid,
           path_prefix: z.string().min(1).max(1024).optional(),
@@ -217,10 +254,11 @@ export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
       outputSchema,
       annotations: readAnnotations,
     },
-    async ({ project_id, environment_id, collection_instance_id, path_prefix, limit, cursor }) =>
+    async ({ tenant_id, project_id, environment_id, collection_instance_id, path_prefix, limit, cursor }) =>
       execute(() =>
         client.listFiles(
           {
+            tenantId: tenant_id,
             projectId: project_id,
             environmentId: environment_id,
             collectionInstanceId: collection_instance_id,
@@ -241,7 +279,7 @@ export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
       description: "Read safe metadata for one file entry.",
       inputSchema: z
         .object({
-          project_id: uuid,
+          ...scope,
           environment_id: uuid,
           collection_instance_id: uuid,
           entry_id: uuid,
@@ -250,9 +288,10 @@ export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
       outputSchema,
       annotations: readAnnotations,
     },
-    async ({ project_id, environment_id, collection_instance_id, entry_id }) =>
+    async ({ tenant_id, project_id, environment_id, collection_instance_id, entry_id }) =>
       execute(() =>
         client.getFileMetadata({
+          tenantId: tenant_id,
           projectId: project_id,
           environmentId: environment_id,
           collectionInstanceId: collection_instance_id,
@@ -268,7 +307,7 @@ export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
       description: "Soft-delete one file entry using optimistic revision control.",
       inputSchema: z
         .object({
-          project_id: uuid,
+          ...scope,
           environment_id: uuid,
           collection_instance_id: uuid,
           entry_id: uuid,
@@ -281,6 +320,7 @@ export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
     },
     async ({
       project_id,
+      tenant_id,
       environment_id,
       collection_instance_id,
       entry_id,
@@ -292,6 +332,7 @@ export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
         () =>
           client.deleteFile(
             {
+              tenantId: tenant_id,
               projectId: project_id,
               environmentId: environment_id,
               collectionInstanceId: collection_instance_id,

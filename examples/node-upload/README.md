@@ -5,10 +5,10 @@ execute its one-use provider request without forwarding Metamorph credentials, a
 immutable generation.
 
 ```sh
-export ALMIRA_BASE_URL=https://almira.example/platform/almira
-export METAMORPH_TOKEN=...
+export ALMIRA_BASE_URL=https://almira.example
+export METAMORPH_TOKEN=mm_pat_v1...
 pnpm build
-node dist/main.js ./photo.jpg PROJECT_ID ENVIRONMENT_ID COLLECTION_INSTANCE_ID images/photo.jpg
+node dist/main.js ./photo.jpg TENANT_ID PROJECT_ID ENVIRONMENT_ID COLLECTION_INSTANCE_ID images/photo.jpg
 ```
 
 The small example reads one file into memory to keep the integration clear. Production callers can

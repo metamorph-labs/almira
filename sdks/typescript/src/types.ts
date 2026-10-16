@@ -17,6 +17,35 @@ export interface BootstrapOutcome {
   environments: Environment[];
 }
 
+export interface TenancyProject {
+  tenant_id: UuidV7;
+  project_id: UuidV7;
+  space_id: UuidV7;
+  product_id: "almira";
+  product_section_id: null;
+  project_kind_id: "almira.storage";
+  owner_region_id: string;
+  name: string;
+  visibility: "private" | "public";
+  lifecycle: "active";
+  route_epoch: number;
+  revision: number;
+  restrictive_revision: number;
+  activated_at: Timestamp;
+}
+
+export interface TenancyProjectGetResponse {
+  schema_version: 1;
+  operation_id: UuidV7;
+  operation: "project.get";
+  disposition: "succeeded" | "exact_replay";
+  result: { project: TenancyProject };
+}
+
+export interface BootstrapProjectRequest {
+  tenancy_project: TenancyProjectGetResponse;
+}
+
 export interface EnvironmentList {
   environments: Environment[];
 }
@@ -161,6 +190,7 @@ export interface DeleteFileOutcome {
 }
 
 export interface ProjectReference {
+  tenantId: UuidV7;
   projectId: UuidV7;
 }
 

@@ -6,6 +6,7 @@ import { AlmiraClient } from "@metamorph-labs/almira-sdk";
 import { uploadFile } from "../dist/upload.js";
 
 const projectId = "018f0000-0000-7000-8000-000000000003";
+const tenantId = "018f0000-0000-7000-8000-000000000002";
 const environmentId = "018f0000-0000-7000-8000-000000000004";
 const collectionInstanceId = "018f0000-0000-7000-8000-000000000005";
 const transferSessionId = "018f0000-0000-7000-8000-000000000006";
@@ -23,8 +24,8 @@ function json(value, status = 200) {
 test("example performs create, direct PUT and finalize without credential crossover", async () => {
   const controlCalls = [];
   const client = new AlmiraClient({
-    baseUrl: "https://almira.test/platform/almira",
-    credential: "sak_secret",
+    baseUrl: "https://almira.test",
+    credential: "mm_sak_v1.test",
     fetch: async (input, init) => {
       controlCalls.push({ input, init });
       if (controlCalls.length === 1) {
@@ -63,6 +64,7 @@ test("example performs create, direct PUT and finalize without credential crosso
   let directAuthorization;
   const entry = await uploadFile({
     client,
+    tenantId,
     projectId,
     environmentId,
     collectionInstanceId,
@@ -76,8 +78,9 @@ test("example performs create, direct PUT and finalize without credential crosso
     },
   });
   assert.equal(controlCalls.length, 2);
-  assert.equal(controlCalls[0].init.headers.get("authorization"), "Bearer sak_secret");
-  assert.equal(controlCalls[1].init.headers.get("authorization"), "Bearer sak_secret");
+  assert.equal(controlCalls[0].init.headers.get("authorization"), "Bearer mm_sak_v1.test");
+  assert.equal(controlCalls[1].init.headers.get("authorization"), "Bearer mm_sak_v1.test");
+  assert.equal(controlCalls[0].init.headers.get("x-almira-tenant-id"), tenantId);
   assert.equal(directAuthorization, null);
   assert.equal(entry.entry_id, entryId);
 });

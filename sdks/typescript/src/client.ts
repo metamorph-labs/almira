@@ -1,6 +1,7 @@
 import { AlmiraApiError, AlmiraClientError } from "./errors.js";
 import type {
   BootstrapOutcome,
+  BootstrapProjectRequest,
   BrowserOriginPolicy,
   Collection,
   CollectionPage,
@@ -31,7 +32,7 @@ const API_ERROR = /^ALMIRA_[A-Z0-9_]{1,120}$/u;
 const BYTE_RANGE = /^bytes=[0-9]+-[0-9]*$/u;
 const MAXIMUM_JSON_RESPONSE_BYTES = 2 * 1024 * 1024;
 
-type CredentialProvider = () => string | Promise<string>;
+type EvidenceProvider = () => string | Promise<string>;
 
 /** Creates a UUIDv7 suitable for one new idempotent Almira mutation. */
 export function createOperationId(now = Date.now()): UuidV7 {
@@ -51,7 +52,9 @@ export function createOperationId(now = Date.now()): UuidV7 {
 
 export interface AlmiraClientOptions {
   baseUrl?: string;
-  credential?: string | CredentialProvider;
+  credential?: string | EvidenceProvider;
+  workloadSession?: string | EvidenceProvider;
+  productSelection?: string;
   fetch?: typeof globalThis.fetch;
 }
 
@@ -64,15 +67,17 @@ interface JsonRequestOptions {
 
 export class AlmiraClient {
   readonly #baseUrl: string;
-  readonly #credential: CredentialProvider | null;
+  readonly #authentication:
+    | { readonly kind: "bearer" | "workload"; readonly provider: EvidenceProvider }
+    | null;
+  readonly #productSelection: string | null;
   readonly #fetch: typeof globalThis.fetch;
 
   constructor(options: AlmiraClientOptions = {}) {
-    const baseUrl = options.baseUrl ?? "/platform/almira";
+    const baseUrl = options.baseUrl ?? "";
     if (
-      baseUrl.length === 0 ||
       /[?#\\\u0000-\u0020\u007f]/u.test(baseUrl) ||
-      (!baseUrl.startsWith("/") && !/^https?:\/\//u.test(baseUrl))
+      (baseUrl.length > 0 && !baseUrl.startsWith("/") && !/^https?:\/\//u.test(baseUrl))
     ) {
       throw new AlmiraClientError("ALMIRA_CLIENT_INPUT_INVALID");
     }
@@ -81,18 +86,30 @@ export class AlmiraClient {
     if (typeof this.#fetch !== "function") {
       throw new AlmiraClientError("ALMIRA_CLIENT_INPUT_INVALID");
     }
-    this.#credential = credentialProvider(options.credential);
+    if (options.credential !== undefined && options.workloadSession !== undefined) invalidInput();
+    this.#authentication = options.credential !== undefined
+      ? { kind: "bearer", provider: evidenceProvider(options.credential) }
+      : options.workloadSession !== undefined
+        ? { kind: "workload", provider: evidenceProvider(options.workloadSession) }
+        : null;
+    if (
+      options.productSelection !== undefined &&
+      (this.#authentication !== null || !validProductSelection(options.productSelection))
+    ) invalidInput();
+    this.#productSelection = options.productSelection ?? null;
   }
 
   async bootstrapProject(
     reference: ProjectReference,
+    request: BootstrapProjectRequest,
     options: MutationOptions,
   ): Promise<BootstrapOutcome> {
     return this.#json(projectPath(reference, "/bootstrap"), {
       method: "POST",
       headers: mutationHeaders(options.operationId),
+      body: request,
       signal: options.signal,
-    });
+    }, reference.tenantId);
   }
 
   async listEnvironments(
@@ -102,7 +119,7 @@ export class AlmiraClient {
     return this.#json(projectPath(reference, "/environments"), {
       method: "GET",
       signal: options.signal,
-    });
+    }, reference.tenantId);
   }
 
   async getBrowserOrigins(
@@ -112,7 +129,7 @@ export class AlmiraClient {
     return this.#json(environmentPath(reference, "/browser-origins"), {
       method: "GET",
       signal: options.signal,
-    });
+    }, reference.tenantId);
   }
 
   async replaceBrowserOrigins(
@@ -125,7 +142,7 @@ export class AlmiraClient {
       headers: mutationHeaders(options.operationId),
       body: request,
       signal: options.signal,
-    });
+    }, reference.tenantId);
   }
 
   async listCollections(
@@ -135,7 +152,7 @@ export class AlmiraClient {
     return this.#json(withPage(environmentPath(reference, "/collections"), options), {
       method: "GET",
       signal: options.signal,
-    });
+    }, reference.tenantId);
   }
 
   async createCollection(
@@ -148,14 +165,14 @@ export class AlmiraClient {
       headers: mutationHeaders(options.operationId),
       body: request,
       signal: options.signal,
-    });
+    }, reference.tenantId);
   }
 
   async getCollection(
     reference: CollectionReference,
     options: { signal?: AbortSignal } = {},
   ): Promise<Collection> {
-    return this.#json(collectionPath(reference), { method: "GET", signal: options.signal });
+    return this.#json(collectionPath(reference), { method: "GET", signal: options.signal }, reference.tenantId);
   }
 
   async createUpload(
@@ -168,7 +185,7 @@ export class AlmiraClient {
       headers: mutationHeaders(options.operationId),
       body: request,
       signal: options.signal,
-    });
+    }, reference.tenantId);
   }
 
   async finalizeUpload(
@@ -184,6 +201,7 @@ export class AlmiraClient {
         body: request,
         signal: options.signal,
       },
+      reference.tenantId,
     );
   }
 
@@ -197,14 +215,14 @@ export class AlmiraClient {
     return this.#json(withQuery(collectionPath(reference, "/files"), query), {
       method: "GET",
       signal: options.signal,
-    });
+    }, reference.tenantId);
   }
 
   async getFileMetadata(
     reference: FileReference,
     options: { signal?: AbortSignal } = {},
   ): Promise<FileEntry> {
-    return this.#json(filePath(reference), { method: "GET", signal: options.signal });
+    return this.#json(filePath(reference), { method: "GET", signal: options.signal }, reference.tenantId);
   }
 
   async deleteFile(
@@ -220,7 +238,7 @@ export class AlmiraClient {
         "if-match": String(expectedRevision),
       },
       signal: options.signal,
-    });
+    }, reference.tenantId);
   }
 
   async readPrivateFile(options: ReadPrivateFileOptions): Promise<PrivateFileResponse> {
@@ -235,7 +253,7 @@ export class AlmiraClient {
       method: "GET",
       headers,
       signal: options.signal,
-    });
+    }, options.tenantId);
     if (response.status !== 200 && response.status !== 206) {
       await throwApiError(response);
     }
@@ -249,8 +267,8 @@ export class AlmiraClient {
     } as PrivateFileResponse;
   }
 
-  async #json<T>(path: string, options: JsonRequestOptions): Promise<T> {
-    const response = await this.#request(path, options);
+  async #json<T>(path: string, options: JsonRequestOptions, tenantId: UuidV7): Promise<T> {
+    const response = await this.#request(path, options, tenantId);
     if (!response.ok) await throwApiError(response);
     const contentType = response.headers.get("content-type")?.split(";", 1)[0]?.trim();
     if (contentType !== "application/json") invalidResponse();
@@ -263,9 +281,10 @@ export class AlmiraClient {
     }
   }
 
-  async #request(path: string, options: JsonRequestOptions): Promise<Response> {
+  async #request(path: string, options: JsonRequestOptions, tenantId: UuidV7): Promise<Response> {
     const headers = new Headers(options.headers);
     if (!headers.has("accept")) headers.set("accept", "application/json");
+    headers.set("x-almira-tenant-id", uuid(tenantId));
     let body: string | undefined;
     if (options.body !== undefined) {
       headers.set("content-type", "application/json");
@@ -275,22 +294,30 @@ export class AlmiraClient {
         invalidInput();
       }
     }
-    if (this.#credential !== null) {
-      let credential: string;
+    if (this.#authentication !== null) {
+      let evidence: string;
       try {
-        credential = await this.#credential();
+        evidence = await this.#authentication.provider();
       } catch {
         throw new AlmiraClientError("ALMIRA_CLIENT_CREDENTIAL_UNAVAILABLE");
       }
-      if (!validCredential(credential)) invalidInput();
-      headers.set("authorization", `Bearer ${credential}`);
+      if (this.#authentication.kind === "bearer") {
+        if (!validCredential(evidence)) invalidInput();
+        headers.set("authorization", `Bearer ${evidence}`);
+      } else {
+        if (!validWorkloadSession(evidence)) invalidInput();
+        headers.set("authorization", `MetamorphWorkload ${evidence}`);
+      }
+    }
+    if (this.#productSelection !== null) {
+      headers.set("x-metamorph-product-selection", this.#productSelection);
     }
     try {
       return await this.#fetch(`${this.#baseUrl}${path}`, {
         method: options.method,
         headers,
         ...(body === undefined ? {} : { body }),
-        credentials: this.#credential === null ? "include" : "omit",
+        credentials: this.#authentication === null ? "include" : "omit",
         redirect: "error",
         ...(options.signal === undefined ? {} : { signal: options.signal }),
       });
@@ -303,15 +330,20 @@ export class AlmiraClient {
   }
 }
 
-function credentialProvider(
-  credential: AlmiraClientOptions["credential"],
-): CredentialProvider | null {
-  if (credential === undefined) return null;
-  return typeof credential === "function" ? credential : () => credential;
+function evidenceProvider(evidence: string | EvidenceProvider): EvidenceProvider {
+  return typeof evidence === "function" ? evidence : () => evidence;
 }
 
 function validCredential(value: string): boolean {
-  return value.length > 0 && value.length <= 16_384 && !/[\u0000-\u0020\u007f]/u.test(value);
+  return /^(?:mm_pat_v1|mm_sak_v1)\.[!-~]{1,8176}$/u.test(value);
+}
+
+function validWorkloadSession(value: string): boolean {
+  return value.length >= 2 && value.length <= 48 * 1024 && /^[A-Za-z0-9_-]+$/u.test(value);
+}
+
+function validProductSelection(value: string): boolean {
+  return value.length >= 16 && value.length <= 512 && /^[A-Za-z0-9._~-]+$/u.test(value);
 }
 
 function mutationHeaders(operationId: UuidV7): Record<string, string> {

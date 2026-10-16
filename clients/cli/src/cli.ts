@@ -1,10 +1,12 @@
 import { parseArgs } from "node:util";
+import { readFile } from "node:fs/promises";
 
 import {
   AlmiraApiError,
   AlmiraClient,
   AlmiraClientError,
   createOperationId,
+  type TenancyProjectGetResponse,
 } from "@metamorph-labs/almira-sdk";
 
 export interface CliEnvironment {
@@ -44,12 +46,14 @@ Connection:
   METAMORPH_TOKEN         PAT or SAK, read only from the environment
 
 Common identifiers:
+  --tenant UUID           Metamorph tenant UUIDv7
   --project UUID          Metamorph project UUIDv7
   --environment UUID      Almira environment UUIDv7
   --collection UUID       Almira collection-instance UUIDv7
   --entry UUID            Almira file-entry UUIDv7
 
 Mutations accept --operation-id UUID. If omitted, the CLI creates one and includes it in output.
+Project bootstrap also requires --tenancy-project FILE containing the exact project.get response.
 All stdout is JSON. Diagnostics are stable JSON on stderr; credentials are never accepted as flags.
 `;
 
@@ -69,6 +73,8 @@ const options = {
   project: { type: "string" },
   revision: { type: "string" },
   scan: { type: "string" },
+  tenant: { type: "string" },
+  "tenancy-project": { type: "string" },
 } as const;
 
 /** Runs one CLI invocation and returns its stable process exit code. */
@@ -96,14 +102,16 @@ export async function runCli(arguments_: string[], dependencies: CliDependencies
       ...(dependencies.fetch === undefined ? {} : { fetch: dependencies.fetch }),
     });
     const projectId = required(values, "project");
-    const reference = { projectId };
+    const tenantId = required(values, "tenant");
+    const reference = { tenantId, projectId };
     let result: unknown;
     let mutation = false;
 
     if (noun === "project" && verb === "bootstrap") {
       operationId = mutationId(values);
       mutation = true;
-      result = await client.bootstrapProject(reference, { operationId });
+      const tenancyProject = await readTenancyProject(required(values, "tenancy-project"));
+      result = await client.bootstrapProject(reference, { tenancy_project: tenancyProject }, { operationId });
     } else if (noun === "environment" && verb === "list") {
       result = await client.listEnvironments(reference);
     } else if (noun === "origin" && verb === "get") {
@@ -139,20 +147,20 @@ export async function runCli(arguments_: string[], dependencies: CliDependencies
         { operationId },
       );
     } else if (noun === "collection" && verb === "get") {
-      result = await client.getCollection(collectionReference(values, projectId));
+      result = await client.getCollection(collectionReference(values, tenantId, projectId));
     } else if (noun === "file" && verb === "list") {
       const pathPrefix = stringValue(values, "path-prefix");
-      result = await client.listFiles(collectionReference(values, projectId), {
+      result = await client.listFiles(collectionReference(values, tenantId, projectId), {
         ...page(values),
         ...(pathPrefix === undefined ? {} : { pathPrefix }),
       });
     } else if (noun === "file" && verb === "get") {
-      result = await client.getFileMetadata(fileReference(values, projectId));
+      result = await client.getFileMetadata(fileReference(values, tenantId, projectId));
     } else if (noun === "file" && verb === "delete") {
       operationId = mutationId(values);
       mutation = true;
       result = await client.deleteFile(
-        fileReference(values, projectId),
+        fileReference(values, tenantId, projectId),
         positiveInteger(values, "revision"),
         { operationId },
       );
@@ -178,16 +186,16 @@ class CliConfigError extends Error {
 }
 
 const commandOptions = new Map<string, ReadonlySet<string>>([
-  ["project:bootstrap", new Set(["base-url", "operation-id", "project"])],
-  ["environment:list", new Set(["base-url", "project"])],
-  ["origin:get", new Set(["base-url", "environment", "project"])],
-  ["origin:set", new Set(["base-url", "environment", "operation-id", "origin", "project", "revision"])],
-  ["collection:list", new Set(["base-url", "cursor", "environment", "limit", "project"])],
-  ["collection:create", new Set(["base-url", "display", "environment", "key", "operation-id", "project", "scan"])],
-  ["collection:get", new Set(["base-url", "collection", "environment", "project"])],
-  ["file:list", new Set(["base-url", "collection", "cursor", "environment", "limit", "path-prefix", "project"])],
-  ["file:get", new Set(["base-url", "collection", "entry", "environment", "project"])],
-  ["file:delete", new Set(["base-url", "collection", "entry", "environment", "operation-id", "project", "revision"])],
+  ["project:bootstrap", new Set(["base-url", "operation-id", "project", "tenant", "tenancy-project"])],
+  ["environment:list", new Set(["base-url", "project", "tenant"])],
+  ["origin:get", new Set(["base-url", "environment", "project", "tenant"])],
+  ["origin:set", new Set(["base-url", "environment", "operation-id", "origin", "project", "revision", "tenant"])],
+  ["collection:list", new Set(["base-url", "cursor", "environment", "limit", "project", "tenant"])],
+  ["collection:create", new Set(["base-url", "display", "environment", "key", "operation-id", "project", "scan", "tenant"])],
+  ["collection:get", new Set(["base-url", "collection", "environment", "project", "tenant"])],
+  ["file:list", new Set(["base-url", "collection", "cursor", "environment", "limit", "path-prefix", "project", "tenant"])],
+  ["file:get", new Set(["base-url", "collection", "entry", "environment", "project", "tenant"])],
+  ["file:delete", new Set(["base-url", "collection", "entry", "environment", "operation-id", "project", "revision", "tenant"])],
 ]);
 
 function assertCommandOptions(noun: string, verb: string, values: Values): void {
@@ -245,16 +253,28 @@ function mutationId(values: Values): string {
   return stringValue(values, "operation-id") ?? createOperationId();
 }
 
-function collectionReference(values: Values, projectId: string) {
+function collectionReference(values: Values, tenantId: string, projectId: string) {
   return {
+    tenantId,
     projectId,
     environmentId: required(values, "environment"),
     collectionInstanceId: required(values, "collection"),
   };
 }
 
-function fileReference(values: Values, projectId: string) {
-  return { ...collectionReference(values, projectId), entryId: required(values, "entry") };
+function fileReference(values: Values, tenantId: string, projectId: string) {
+  return { ...collectionReference(values, tenantId, projectId), entryId: required(values, "entry") };
+}
+
+async function readTenancyProject(path: string): Promise<TenancyProjectGetResponse> {
+  try {
+    const bytes = await readFile(path);
+    if (bytes.length === 0 || bytes.length > 256 * 1024) throw new CliUsageError();
+    return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)) as TenancyProjectGetResponse;
+  } catch (error) {
+    if (error instanceof CliUsageError) throw error;
+    throw new CliUsageError();
+  }
 }
 
 function writeJson(output: { write(value: string): unknown }, value: unknown): void {

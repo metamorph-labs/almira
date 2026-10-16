@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 
 import { runCli } from "../dist/cli.js";
 
 const projectId = "018f0000-0000-7000-8000-000000000003";
+const tenantId = "018f0000-0000-7000-8000-000000000002";
 const environmentId = "018f0000-0000-7000-8000-000000000004";
 const operationId = "018f0000-0000-7000-8000-000000000007";
 const requestId = "018f0000-0000-7000-8000-000000000008";
@@ -22,8 +25,31 @@ function io() {
 }
 
 const environment = {
-  ALMIRA_BASE_URL: "https://almira.test/platform/almira",
-  METAMORPH_TOKEN: "pat_secret",
+  ALMIRA_BASE_URL: "https://almira.test",
+  METAMORPH_TOKEN: "mm_pat_v1.test",
+};
+
+const tenancyProject = {
+  schema_version: 1,
+  operation_id: "018f0000-0000-7000-8000-000000000010",
+  operation: "project.get",
+  disposition: "succeeded",
+  result: { project: {
+    tenant_id: tenantId,
+    project_id: projectId,
+    space_id: "018f0000-0000-7000-8000-000000000011",
+    product_id: "almira",
+    product_section_id: null,
+    project_kind_id: "almira.storage",
+    owner_region_id: "region.one",
+    name: "Files",
+    visibility: "private",
+    lifecycle: "active",
+    route_epoch: 1,
+    revision: 3,
+    restrictive_revision: 1,
+    activated_at: "2026-10-17T00:00:00Z",
+  } },
 };
 
 function json(value, status = 200, headers = {}) {
@@ -39,10 +65,19 @@ test("CLI package version matches the promoted API", async () => {
   assert.equal(packageManifest.version, contract.info.version);
 });
 
-test("project bootstrap generates a replayable operation ID and JSON only", async () => {
+test("project bootstrap generates a replayable operation ID and JSON only", async (context) => {
   const stream = io();
+  const directory = await mkdtemp(join(tmpdir(), "almira-cli-"));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const snapshotPath = join(directory, "project.json");
+  await writeFile(snapshotPath, JSON.stringify(tenancyProject));
   let request;
-  const exitCode = await runCli(["project", "bootstrap", "--project", projectId], {
+  const exitCode = await runCli([
+    "project", "bootstrap",
+    "--tenant", tenantId,
+    "--project", projectId,
+    "--tenancy-project", snapshotPath,
+  ], {
     environment,
     io: stream.value,
     fetch: async (input, init) => {
@@ -55,7 +90,9 @@ test("project bootstrap generates a replayable operation ID and JSON only", asyn
   const output = JSON.parse(stream.output.stdout.join(""));
   assert.match(output.operation_id, /^[0-9a-f]{8}-[0-9a-f]{4}-7/u);
   assert.equal(request.init.headers.get("idempotency-key"), output.operation_id);
-  assert.equal(request.init.headers.get("authorization"), "Bearer pat_secret");
+  assert.equal(request.init.headers.get("authorization"), "Bearer mm_pat_v1.test");
+  assert.equal(request.init.headers.get("x-almira-tenant-id"), tenantId);
+  assert.deepEqual(JSON.parse(request.init.body), { tenancy_project: tenancyProject });
 });
 
 test("collection creation uses predictable noun/verb arguments", async () => {
@@ -63,6 +100,7 @@ test("collection creation uses predictable noun/verb arguments", async () => {
   const exitCode = await runCli(
     [
       "collection", "create",
+      "--tenant", tenantId,
       "--project", projectId,
       "--environment", environmentId,
       "--key", "assets",
@@ -90,7 +128,7 @@ test("collection creation uses predictable noun/verb arguments", async () => {
 test("credentials are not accepted as command-line options", async () => {
   const stream = io();
   const exitCode = await runCli(
-    ["environment", "list", "--project", projectId, "--token", "secret"],
+    ["environment", "list", "--tenant", tenantId, "--project", projectId, "--token", "secret"],
     { environment, io: stream.value, fetch: async () => assert.fail("no request") },
   );
   assert.equal(exitCode, 2);
@@ -105,7 +143,7 @@ test("credentials are not accepted as command-line options", async () => {
 test("options from another command are rejected instead of ignored", async () => {
   const stream = io();
   const exitCode = await runCli(
-    ["environment", "list", "--project", projectId, "--entry", operationId],
+    ["environment", "list", "--tenant", tenantId, "--project", projectId, "--entry", operationId],
     { environment, io: stream.value, fetch: async () => assert.fail("no request") },
   );
   assert.equal(exitCode, 2);
@@ -114,8 +152,8 @@ test("options from another command are rejected instead of ignored", async () =>
 
 test("missing connection configuration is actionable and distinct from usage", async () => {
   const stream = io();
-  const exitCode = await runCli(["environment", "list", "--project", projectId], {
-    environment: { METAMORPH_TOKEN: "pat_secret" },
+  const exitCode = await runCli(["environment", "list", "--tenant", tenantId, "--project", projectId], {
+    environment: { METAMORPH_TOKEN: "mm_pat_v1.test" },
     io: stream.value,
     fetch: async () => assert.fail("no request"),
   });
@@ -128,7 +166,7 @@ test("missing connection configuration is actionable and distinct from usage", a
 
 test("API refusal uses stable exit code and safe diagnostics", async () => {
   const stream = io();
-  const exitCode = await runCli(["environment", "list", "--project", projectId], {
+  const exitCode = await runCli(["environment", "list", "--tenant", tenantId, "--project", projectId], {
     environment,
     io: stream.value,
     fetch: async () =>
@@ -153,6 +191,7 @@ test("ambiguous mutation diagnostics retain the generated operation ID", async (
   const exitCode = await runCli(
     [
       "origin", "set",
+      "--tenant", tenantId,
       "--project", projectId,
       "--environment", environmentId,
       "--revision", "1",

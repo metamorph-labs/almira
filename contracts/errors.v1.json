@@ -9,6 +9,11 @@
   },
   "errors": [
     {
+      "code": "ALMIRA_ACCESS_FORBIDDEN",
+      "http_status": 403,
+      "retryable": false
+    },
+    {
       "code": "ALMIRA_AUTHENTICATION_REQUIRED",
       "http_status": 401,
       "retryable": false
@@ -229,6 +234,11 @@
       "retryable": true
     },
     {
+      "code": "ALMIRA_METHOD_NOT_ALLOWED",
+      "http_status": 405,
+      "retryable": false
+    },
+    {
       "code": "ALMIRA_PROJECT_AUTHORIZATION_EXPIRED",
       "http_status": 403,
       "retryable": true
@@ -281,6 +291,21 @@
     {
       "code": "ALMIRA_RATE_LIMITED",
       "http_status": 429,
+      "retryable": true
+    },
+    {
+      "code": "ALMIRA_REQUEST_INVALID",
+      "http_status": 400,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_ROUTE_NOT_FOUND",
+      "http_status": 404,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_UNAVAILABLE",
+      "http_status": 503,
       "retryable": true
     }
   ]

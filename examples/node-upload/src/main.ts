@@ -5,12 +5,13 @@ import { AlmiraClient } from "@metamorph-labs/almira-sdk";
 
 import { uploadFile } from "./upload.js";
 
-const [filePath, projectId, environmentId, collectionInstanceId, logicalPath] = process.argv.slice(2);
+const [filePath, tenantId, projectId, environmentId, collectionInstanceId, logicalPath] = process.argv.slice(2);
 const baseUrl = process.env.ALMIRA_BASE_URL;
 const credential = process.env.METAMORPH_TOKEN;
 
 if (
   filePath === undefined ||
+  tenantId === undefined ||
   projectId === undefined ||
   environmentId === undefined ||
   collectionInstanceId === undefined ||
@@ -18,7 +19,7 @@ if (
   credential === undefined
 ) {
   console.error(
-    "usage: node dist/main.js <file> <project-id> <environment-id> <collection-id> [logical-path]",
+    "usage: node dist/main.js <file> <tenant-id> <project-id> <environment-id> <collection-id> [logical-path]",
   );
   process.exitCode = 2;
 } else {
@@ -26,6 +27,7 @@ if (
     const bytes = await readFile(filePath);
     const entry = await uploadFile({
       client: new AlmiraClient({ baseUrl, credential }),
+      tenantId,
       projectId,
       environmentId,
       collectionInstanceId,

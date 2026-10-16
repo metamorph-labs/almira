@@ -10,6 +10,7 @@ import {
 } from "../dist/index.js";
 
 const projectId = "018f0000-0000-7000-8000-000000000003";
+const tenantId = "018f0000-0000-7000-8000-000000000002";
 const environmentId = "018f0000-0000-7000-8000-000000000004";
 const collectionInstanceId = "018f0000-0000-7000-8000-000000000005";
 const entryId = "018f0000-0000-7000-8000-000000000006";
@@ -27,6 +28,7 @@ test("SDK version and methods cover the promoted contract exactly", async () => 
   const packageManifest = JSON.parse(await readFile(new URL("../package.json", import.meta.url)));
   const operations = Object.values(contract.paths)
     .flatMap((path) => Object.values(path))
+    .filter((operation) => !Array.isArray(operation) && typeof operation?.operationId === "string")
     .map((operation) => operation.operationId)
     .sort();
   const methods = Object.getOwnPropertyNames(AlmiraClient.prototype)
@@ -46,8 +48,8 @@ function json(value, init = {}) {
 test("bearer management request is exact and omits browser credentials", async () => {
   const calls = [];
   const client = new AlmiraClient({
-    baseUrl: "https://almira.test/platform/almira/",
-    credential: async () => "sak_secret",
+    baseUrl: "https://almira.test/",
+    credential: async () => "mm_sak_v1.test",
     fetch: async (input, init) => {
       calls.push({ input, init });
       return json({
@@ -58,7 +60,7 @@ test("bearer management request is exact and omits browser credentials", async (
   });
 
   await client.createCollection(
-    { projectId, environmentId },
+    { tenantId, projectId, environmentId },
     { collection_key: "assets", display_name: "Assets", malware_scan_required: true },
     { operationId },
   );
@@ -66,12 +68,13 @@ test("bearer management request is exact and omits browser credentials", async (
   assert.equal(calls.length, 1);
   assert.equal(
     calls[0].input,
-    `https://almira.test/platform/almira/v1/projects/${projectId}/environments/${environmentId}/collections`,
+    `https://almira.test/v1/projects/${projectId}/environments/${environmentId}/collections`,
   );
   assert.equal(calls[0].init.method, "POST");
   assert.equal(calls[0].init.credentials, "omit");
   assert.equal(calls[0].init.redirect, "error");
-  assert.equal(calls[0].init.headers.get("authorization"), "Bearer sak_secret");
+  assert.equal(calls[0].init.headers.get("authorization"), "Bearer mm_sak_v1.test");
+  assert.equal(calls[0].init.headers.get("x-almira-tenant-id"), tenantId);
   assert.equal(calls[0].init.headers.get("idempotency-key"), operationId);
   assert.deepEqual(JSON.parse(calls[0].init.body), {
     collection_key: "assets",
@@ -80,17 +83,62 @@ test("bearer management request is exact and omits browser credentials", async (
   });
 });
 
+test("workload evidence uses its distinct framing and is resolved for every call", async () => {
+  const evidence = ["eyJzY2hlbWFfdmVyc2lvbiI6MX0", "eyJzY2hlbWFfdmVyc2lvbiI6Mn0"];
+  let calls = 0;
+  const client = new AlmiraClient({
+    baseUrl: "https://almira.test",
+    workloadSession: () => evidence[calls],
+    fetch: async (input, init) => {
+      assert.equal(input, `https://almira.test/v1/projects/${projectId}/environments`);
+      assert.equal(init.credentials, "omit");
+      assert.equal(init.headers.get("authorization"), `MetamorphWorkload ${evidence[calls]}`);
+      assert.equal(init.headers.get("x-almira-tenant-id"), tenantId);
+      calls += 1;
+      return json({ environments: [] });
+    },
+  });
+
+  await client.listEnvironments({ tenantId, projectId });
+  await client.listEnvironments({ tenantId, projectId });
+  assert.equal(calls, 2);
+});
+
+test("authentication modes and PAT or SAK framing fail closed", async () => {
+  assert.throws(
+    () => new AlmiraClient({ credential: "mm_pat_v1.test", workloadSession: "e30" }),
+    (error) => error instanceof AlmiraClientError && error.code === "ALMIRA_CLIENT_INPUT_INVALID",
+  );
+  assert.throws(
+    () => new AlmiraClient({ credential: "mm_pat_v1.test", productSelection: "selection_reference_1234567890" }),
+    (error) => error instanceof AlmiraClientError && error.code === "ALMIRA_CLIENT_INPUT_INVALID",
+  );
+  for (const credential of ["Bearer secret", "pat_secret", "mm_pat_v2.secret", "mm_sak_v1."]) {
+    const client = new AlmiraClient({
+      credential,
+      fetch: async () => assert.fail("must reject malformed evidence before fetch"),
+    });
+    await assert.rejects(
+      client.listEnvironments({ tenantId, projectId }),
+      (error) => error instanceof AlmiraClientError && error.code === "ALMIRA_CLIENT_INPUT_INVALID",
+    );
+  }
+});
+
 test("browser reads are one Almira call and include same-origin credentials", async () => {
   let count = 0;
   const client = new AlmiraClient({
+    productSelection: "selection_reference_1234567890",
     fetch: async (input, init) => {
       count += 1;
       assert.equal(
         input,
-        `/platform/almira/v1/projects/${projectId}/environments/${environmentId}/collections/${collectionInstanceId}/files/${entryId}/content?generation_id=${operationId}`,
+        `/v1/projects/${projectId}/environments/${environmentId}/collections/${collectionInstanceId}/files/${entryId}/content?generation_id=${operationId}`,
       );
       assert.equal(init.credentials, "include");
       assert.equal(init.headers.get("authorization"), null);
+      assert.equal(init.headers.get("x-metamorph-product-selection"), "selection_reference_1234567890");
+      assert.equal(init.headers.get("x-almira-tenant-id"), tenantId);
       assert.equal(init.headers.get("range"), "bytes=10-19");
       return new Response(new Uint8Array([1, 2]), {
         status: 206,
@@ -105,6 +153,7 @@ test("browser reads are one Almira call and include same-origin credentials", as
   });
 
   const response = await client.readPrivateFile({
+    tenantId,
     projectId,
     environmentId,
     collectionInstanceId,
@@ -123,13 +172,13 @@ test("list query encoding cannot change the request path", async () => {
     fetch: async (input) => {
       assert.equal(
         input,
-        `/platform/almira/v1/projects/${projectId}/environments/${environmentId}/collections/${collectionInstanceId}/files?limit=25&cursor=a%26admin%3Dtrue&path_prefix=images%2Fcover.png`,
+        `/v1/projects/${projectId}/environments/${environmentId}/collections/${collectionInstanceId}/files?limit=25&cursor=a%26admin%3Dtrue&path_prefix=images%2Fcover.png`,
       );
       return json({ entries: [], next_cursor: null });
     },
   });
   await client.listFiles(
-    { projectId, environmentId, collectionInstanceId },
+    { tenantId, projectId, environmentId, collectionInstanceId },
     { limit: 25, cursor: "a&admin=true", pathPrefix: "images/cover.png" },
   );
 });
@@ -144,7 +193,7 @@ test("typed API errors expose no response body", async () => {
   });
 
   await assert.rejects(
-    client.listEnvironments({ projectId }),
+    client.listEnvironments({ tenantId, projectId }),
     (error) => {
       assert.ok(error instanceof AlmiraApiError);
       assert.equal(error.code, "ALMIRA_AUTHORIZATION_REFUSED");
@@ -162,13 +211,13 @@ test("malformed errors and invalid identifiers fail closed", async () => {
     fetch: async () => json({ code: "forbidden", detail: "secret" }, { status: 403 }),
   });
   await assert.rejects(
-    malformed.listEnvironments({ projectId }),
+    malformed.listEnvironments({ tenantId, projectId }),
     (error) => error instanceof AlmiraClientError && error.code === "ALMIRA_CLIENT_RESPONSE_INVALID",
   );
 
   const client = new AlmiraClient({ fetch: async () => assert.fail("must not call fetch") });
   await assert.rejects(
-    client.listEnvironments({ projectId: "not-a-uuid" }),
+    client.listEnvironments({ tenantId, projectId: "not-a-uuid" }),
     (error) => error instanceof AlmiraClientError && error.code === "ALMIRA_CLIENT_INPUT_INVALID",
   );
 });
@@ -182,7 +231,7 @@ test("abort and network failure have distinct safe client errors", async () => {
     },
   });
   await assert.rejects(
-    aborted.listEnvironments({ projectId }, { signal: controller.signal }),
+    aborted.listEnvironments({ tenantId, projectId }, { signal: controller.signal }),
     (error) => error instanceof AlmiraClientError && error.code === "ALMIRA_CLIENT_ABORTED",
   );
 
@@ -192,7 +241,7 @@ test("abort and network failure have distinct safe client errors", async () => {
     },
   });
   await assert.rejects(
-    failed.listEnvironments({ projectId }),
+    failed.listEnvironments({ tenantId, projectId }),
     (error) => error instanceof AlmiraClientError && error.code === "ALMIRA_CLIENT_NETWORK",
   );
 });
@@ -205,7 +254,7 @@ test("credential-provider failures do not expose provider errors", async () => {
     fetch: async () => assert.fail("must not call fetch"),
   });
   await assert.rejects(
-    client.listEnvironments({ projectId }),
+    client.listEnvironments({ tenantId, projectId }),
     (error) =>
       error instanceof AlmiraClientError &&
       error.code === "ALMIRA_CLIENT_CREDENTIAL_UNAVAILABLE" &&

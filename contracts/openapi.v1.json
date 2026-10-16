@@ -2,12 +2,12 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Almira API",
-    "version": "0.1.0-dev.8",
+    "version": "0.1.0-dev.9",
     "description": "Provider-neutral application file storage management and data API."
   },
   "servers": [
     {
-      "url": "/platform/almira"
+      "url": "/"
     }
   ],
   "security": [
@@ -16,10 +16,18 @@
     },
     {
       "productSession": []
+    },
+    {
+      "customerWorkload": []
     }
   ],
   "paths": {
     "/v1/projects/{project_id}/bootstrap": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
       "post": {
         "operationId": "bootstrapProject",
         "parameters": [
@@ -30,6 +38,16 @@
             "$ref": "#/components/parameters/OperationId"
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BootstrapProjectRequest"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Project state converged.",
@@ -60,6 +78,11 @@
       }
     },
     "/v1/projects/{project_id}/environments": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
       "get": {
         "operationId": "listEnvironments",
         "parameters": [
@@ -94,6 +117,11 @@
       }
     },
     "/v1/projects/{project_id}/environments/{environment_id}/browser-origins": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
       "get": {
         "operationId": "getBrowserOrigins",
         "parameters": [
@@ -185,6 +213,11 @@
       }
     },
     "/v1/projects/{project_id}/environments/{environment_id}/collections": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
       "get": {
         "operationId": "listCollections",
         "parameters": [
@@ -298,6 +331,11 @@
       }
     },
     "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
       "get": {
         "operationId": "getCollection",
         "parameters": [
@@ -338,6 +376,11 @@
       }
     },
     "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/uploads": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
       "post": {
         "operationId": "createUpload",
         "parameters": [
@@ -397,6 +440,11 @@
       }
     },
     "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/uploads/{transfer_session_id}/finalize": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
       "post": {
         "operationId": "finalizeUpload",
         "parameters": [
@@ -462,6 +510,11 @@
       }
     },
     "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/files": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
       "get": {
         "operationId": "listFiles",
         "parameters": [
@@ -531,6 +584,11 @@
       }
     },
     "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/files/{entry_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
       "get": {
         "operationId": "getFileMetadata",
         "parameters": [
@@ -633,6 +691,11 @@
       }
     },
     "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/files/{entry_id}/content": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
       "get": {
         "operationId": "readPrivateFile",
         "parameters": [
@@ -716,10 +779,25 @@
       "productSession": {
         "type": "apiKey",
         "in": "cookie",
-        "name": "metamorph_session"
+        "name": "__Host-metamorph-product-session"
+      },
+      "customerWorkload": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Authorization",
+        "description": "MetamorphWorkload followed by the canonical base64url workload-session artifact."
       }
     },
     "parameters": {
+      "TenantId": {
+        "name": "x-almira-tenant-id",
+        "in": "header",
+        "required": true,
+        "description": "Routing scope only; never authority without authenticated actor evidence and an Authorization decision.",
+        "schema": {
+          "$ref": "#/components/schemas/UuidV7"
+        }
+      },
       "ProjectId": {
         "name": "project_id",
         "in": "path",
@@ -926,6 +1004,138 @@
             "minimum": 1
           },
           "created_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        }
+      },
+      "BootstrapProjectRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "tenancy_project"
+        ],
+        "properties": {
+          "tenancy_project": {
+            "$ref": "#/components/schemas/TenancyProjectGetResponse"
+          }
+        }
+      },
+      "TenancyProjectGetResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "operation_id",
+          "operation",
+          "disposition",
+          "result"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": 1
+          },
+          "operation_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "operation": {
+            "const": "project.get"
+          },
+          "disposition": {
+            "type": "string",
+            "enum": [
+              "succeeded",
+              "exact_replay"
+            ]
+          },
+          "result": {
+            "$ref": "#/components/schemas/TenancyProjectGetResult"
+          }
+        }
+      },
+      "TenancyProjectGetResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "project"
+        ],
+        "properties": {
+          "project": {
+            "$ref": "#/components/schemas/TenancyProject"
+          }
+        }
+      },
+      "TenancyProject": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "tenant_id",
+          "project_id",
+          "space_id",
+          "product_id",
+          "product_section_id",
+          "project_kind_id",
+          "owner_region_id",
+          "name",
+          "visibility",
+          "lifecycle",
+          "route_epoch",
+          "revision",
+          "restrictive_revision",
+          "activated_at"
+        ],
+        "properties": {
+          "tenant_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "project_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "space_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "product_id": {
+            "const": "almira"
+          },
+          "product_section_id": {
+            "type": "null"
+          },
+          "project_kind_id": {
+            "const": "almira.storage"
+          },
+          "owner_region_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9._-]{0,63}$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "private",
+              "public"
+            ]
+          },
+          "lifecycle": {
+            "const": "active"
+          },
+          "route_epoch": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 3
+          },
+          "restrictive_revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "activated_at": {
             "$ref": "#/components/schemas/Timestamp"
           }
         }

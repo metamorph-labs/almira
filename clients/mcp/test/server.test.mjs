@@ -8,6 +8,7 @@ import { AlmiraClient } from "@metamorph-labs/almira-sdk";
 import { createAlmiraMcpServer } from "../dist/server.js";
 
 const projectId = "018f0000-0000-7000-8000-000000000003";
+const tenantId = "018f0000-0000-7000-8000-000000000002";
 const requestId = "018f0000-0000-7000-8000-000000000008";
 
 function json(value, status = 200) {
@@ -20,8 +21,8 @@ function json(value, status = 200) {
 async function connected(fetch) {
   const server = createAlmiraMcpServer(
     new AlmiraClient({
-      baseUrl: "https://almira.test/platform/almira",
-      credential: "sak_secret",
+      baseUrl: "https://almira.test",
+      credential: "mm_sak_v1.test",
       fetch,
     }),
   );
@@ -73,7 +74,8 @@ test("bootstrap tool uses SDK authorization and returns the generated operation 
   let operationId;
   const connection = await connected(async (_input, init) => {
     operationId = init.headers.get("idempotency-key");
-    assert.equal(init.headers.get("authorization"), "Bearer sak_secret");
+    assert.equal(init.headers.get("authorization"), "Bearer mm_sak_v1.test");
+    assert.equal(init.headers.get("x-almira-tenant-id"), tenantId);
     return json({ disposition: "converged", project_revision: 1, environments: [] });
   });
   context.after(async () => {
@@ -82,7 +84,32 @@ test("bootstrap tool uses SDK authorization and returns the generated operation 
   });
   const response = await connection.client.callTool({
     name: "almira_project_bootstrap",
-    arguments: { project_id: projectId },
+    arguments: {
+      tenant_id: tenantId,
+      project_id: projectId,
+      tenancy_project: {
+        schema_version: 1,
+        operation_id: "018f0000-0000-7000-8000-000000000010",
+        operation: "project.get",
+        disposition: "succeeded",
+        result: { project: {
+          tenant_id: tenantId,
+          project_id: projectId,
+          space_id: "018f0000-0000-7000-8000-000000000011",
+          product_id: "almira",
+          product_section_id: null,
+          project_kind_id: "almira.storage",
+          owner_region_id: "region.one",
+          name: "Files",
+          visibility: "private",
+          lifecycle: "active",
+          route_epoch: 1,
+          revision: 3,
+          restrictive_revision: 1,
+          activated_at: "2026-10-17T00:00:00Z",
+        } },
+      },
+    },
   });
   assert.equal(response.isError, undefined);
   assert.match(operationId, /^[0-9a-f]{8}-[0-9a-f]{4}-7/u);
@@ -100,7 +127,7 @@ test("API refusals become safe tool errors without exception detail", async (con
   });
   const response = await connection.client.callTool({
     name: "almira_environment_list",
-    arguments: { project_id: projectId },
+    arguments: { tenant_id: tenantId, project_id: projectId },
   });
   assert.equal(response.isError, true);
   assert.deepEqual(JSON.parse(response.content[0].text), {
@@ -109,7 +136,7 @@ test("API refusals become safe tool errors without exception detail", async (con
     status: 403,
     retry_after_milliseconds: null,
   });
-  assert.doesNotMatch(response.content[0].text, /sak_secret/u);
+  assert.doesNotMatch(response.content[0].text, /mm_sak_v1[.]test/u);
 });
 
 test("invalid tool inputs are refused before any Almira request", async (context) => {
@@ -120,7 +147,7 @@ test("invalid tool inputs are refused before any Almira request", async (context
   });
   const response = await connection.client.callTool({
     name: "almira_environment_list",
-    arguments: { project_id: "wrong", unexpected: true },
+    arguments: { tenant_id: tenantId, project_id: "wrong", unexpected: true },
   });
   assert.equal(response.isError, true);
 });
