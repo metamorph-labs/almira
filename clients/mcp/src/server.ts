@@ -67,6 +67,79 @@ const configuration = z.object({
     collections: z.array(configurationCollection),
   }).strict()).max(10),
 }).strict();
+const collectionScope = {
+  ...scope,
+  environment_id: uuid,
+  collection_instance_id: uuid,
+};
+const builderSubject = z.object({
+  subject_id: z.string().min(1).max(255),
+  organization_id: z.string().min(1).max(255).nullable().optional(),
+  roles: z.array(z.string().regex(/^[a-z][a-z0-9._:-]{0,63}$/u)).max(16).optional(),
+  attributes: z.record(z.string().regex(/^[a-z][a-z0-9._:-]{0,63}$/u), z.string().min(1).max(255)).optional(),
+}).strict();
+const accessOperation = z.enum(["list", "metadata_read", "content_read", "search", "upload", "delete", "share"]);
+const readAccessOperation = z.enum(["list", "metadata_read", "content_read", "search"]);
+const accessResource = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("collection") }).strict(),
+  z.object({ kind: z.literal("prefix"), path_prefix: z.string().min(1).max(1024) }).strict(),
+  z.object({ kind: z.literal("entry"), entry_id: uuid }).strict(),
+]);
+const accessSubject = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("public") }).strict(),
+  z.object({ kind: z.literal("server") }).strict(),
+  z.object({ kind: z.literal("authenticated") }).strict(),
+  z.object({ kind: z.literal("subject"), subject_id: z.string().min(1).max(255) }).strict(),
+  z.object({ kind: z.literal("organization"), organization_id: z.string().min(1).max(255) }).strict(),
+  z.object({ kind: z.literal("role"), role: z.string().regex(/^[a-z][a-z0-9._:-]{0,63}$/u) }).strict(),
+  z.object({
+    kind: z.literal("attribute"),
+    key: z.string().regex(/^[a-z][a-z0-9._:-]{0,63}$/u),
+    value: z.string().min(1).max(255),
+  }).strict(),
+]);
+const accessPolicyDocument = z.object({
+  template: z.enum(["server_only", "private", "public_read"]),
+  rules: z.array(z.object({
+    rule_id: z.string().regex(/^[a-z][a-z0-9._:-]{0,63}$/u),
+    effect: z.enum(["allow", "deny"]),
+    subject: accessSubject,
+    operations: z.array(accessOperation).min(1).max(7),
+    resource: accessResource,
+  }).strict()).max(64),
+}).strict();
+const accessSimulation = z.object({
+  principal: z.discriminatedUnion("kind", [
+    z.object({ kind: z.literal("public") }).strict(),
+    z.object({ kind: z.literal("server") }).strict(),
+    z.object({ kind: z.literal("end_user"), subject: builderSubject }).strict(),
+  ]),
+  operation: accessOperation,
+  target: z.discriminatedUnion("kind", [
+    z.object({ kind: z.literal("collection") }).strict(),
+    z.object({ kind: z.literal("entry"), entry_id: uuid, logical_path: z.string().min(1).max(1024) }).strict(),
+  ]),
+}).strict();
+const deliveryConfig = z.discriminatedUnion("mode", [
+  z.object({
+    mode: z.literal("off"), cache_preset: z.literal("no_store"),
+    logical_aliases: z.literal(false), direct_provider_private_downloads: z.literal(false),
+  }).strict(),
+  z.object({
+    mode: z.literal("public"), cache_preset: z.literal("revalidate"),
+    logical_aliases: z.literal(false), direct_provider_private_downloads: z.literal(false),
+  }).strict(),
+  z.object({
+    mode: z.literal("private"), cache_preset: z.enum(["no_store", "private_session"]),
+    logical_aliases: z.literal(false), direct_provider_private_downloads: z.literal(false),
+  }).strict(),
+]);
+const localIssuerCeiling = z.object({
+  operations: z.array(readAccessOperation).min(1).max(4),
+  resource: accessResource,
+  audiences: z.array(z.url().max(2048)).min(1).max(16),
+  maximum_lifetime_seconds: z.number().int().min(60).max(900),
+}).strict();
 
 const readAnnotations = {
   readOnlyHint: true,
@@ -98,7 +171,7 @@ const outputSchema = z
 
 /** Creates one stdio-safe MCP server over the canonical Almira SDK client. */
 export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
-  const server = new McpServer({ name: "almira", version: "0.1.0-dev.17" });
+  const server = new McpServer({ name: "almira", version: "0.1.0-dev.18" });
 
   server.registerTool(
     "almira_project_bootstrap",
@@ -582,7 +655,254 @@ export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
     },
   );
 
+  server.registerTool(
+    "almira_policy_get",
+    {
+      title: "Get collection access policy",
+      description: "Read the effective versioned access policy for one collection.",
+      inputSchema: z.object(collectionScope).strict(),
+      outputSchema,
+      annotations: readAnnotations,
+    },
+    async ({ tenant_id, project_id, environment_id, collection_instance_id }) => execute(() =>
+      client.getCollectionPolicy(collectionReference(tenant_id, project_id, environment_id, collection_instance_id))),
+  );
+
+  server.registerTool(
+    "almira_policy_replace",
+    {
+      title: "Replace collection access policy",
+      description: "Replace the complete versioned access policy for one collection.",
+      inputSchema: z.object({
+        ...collectionScope,
+        expected_revision: z.number().int().min(1),
+        document: accessPolicyDocument,
+        operation_id: operationId,
+      }).strict(),
+      outputSchema,
+      annotations: mutationAnnotations,
+    },
+    async ({ tenant_id, project_id, environment_id, collection_instance_id, expected_revision, document, operation_id }) => {
+      const id = operation_id ?? createOperationId();
+      return execute(() => client.replaceCollectionPolicy(
+        collectionReference(tenant_id, project_id, environment_id, collection_instance_id),
+        { expected_revision, document },
+        { operationId: id },
+      ), id);
+    },
+  );
+
+  server.registerTool(
+    "almira_policy_simulate",
+    {
+      title: "Simulate collection access",
+      description: "Evaluate one proposed principal, operation, and target against the active policy without changing it.",
+      inputSchema: z.object({ ...collectionScope, simulation: accessSimulation, operation_id: operationId }).strict(),
+      outputSchema,
+      annotations: readAnnotations,
+    },
+    async ({ tenant_id, project_id, environment_id, collection_instance_id, simulation, operation_id }) => {
+      const id = operation_id ?? createOperationId();
+      return execute(() => client.simulateCollectionPolicy(
+        collectionReference(tenant_id, project_id, environment_id, collection_instance_id),
+        simulation,
+        { operationId: id },
+      ), id);
+    },
+  );
+
+  server.registerTool(
+    "almira_delivery_get",
+    {
+      title: "Get CDN delivery configuration",
+      description: "Read the collection's effective CDN delivery, cache, and domain configuration.",
+      inputSchema: z.object(collectionScope).strict(),
+      outputSchema,
+      annotations: readAnnotations,
+    },
+    async ({ tenant_id, project_id, environment_id, collection_instance_id }) => execute(() =>
+      client.getDeliveryConfig(collectionReference(tenant_id, project_id, environment_id, collection_instance_id))),
+  );
+
+  server.registerTool(
+    "almira_delivery_replace",
+    {
+      title: "Replace CDN delivery configuration",
+      description: "Replace a collection's governed CDN mode and cache preset.",
+      inputSchema: z.object({
+        ...collectionScope,
+        expected_revision: z.number().int().min(1),
+        config: deliveryConfig,
+        operation_id: operationId,
+      }).strict(),
+      outputSchema,
+      annotations: mutationAnnotations,
+    },
+    async ({ tenant_id, project_id, environment_id, collection_instance_id, expected_revision, config, operation_id }) => {
+      const id = operation_id ?? createOperationId();
+      return execute(() => client.replaceDeliveryConfig(
+        collectionReference(tenant_id, project_id, environment_id, collection_instance_id),
+        { expected_revision, config },
+        { operationId: id },
+      ), id);
+    },
+  );
+
+  server.registerTool(
+    "almira_share_create",
+    {
+      title: "Create file share",
+      description: "Create one bounded, revocable URL for an immutable file generation.",
+      inputSchema: z.object({
+        ...collectionScope,
+        entry_id: uuid,
+        generation_id: uuid,
+        lifetime_seconds: z.number().int().min(60).max(604800),
+        subject: builderSubject.nullable().optional(),
+        operation_id: operationId,
+      }).strict(),
+      outputSchema,
+      annotations: mutationAnnotations,
+    },
+    async ({ tenant_id, project_id, environment_id, collection_instance_id, entry_id, generation_id, lifetime_seconds, subject, operation_id }) => {
+      const id = operation_id ?? createOperationId();
+      return execute(() => client.createShare(
+        collectionReference(tenant_id, project_id, environment_id, collection_instance_id),
+        { entry_id, generation_id, lifetime_seconds, ...(subject === undefined ? {} : { subject }) },
+        { operationId: id },
+      ), id);
+    },
+  );
+
+  server.registerTool(
+    "almira_share_revoke",
+    {
+      title: "Revoke file share",
+      description: "Immediately revoke one share URL.",
+      inputSchema: z.object({ ...collectionScope, share_id: uuid, operation_id: operationId }).strict(),
+      outputSchema,
+      annotations: deleteAnnotations,
+    },
+    async ({ tenant_id, project_id, environment_id, collection_instance_id, share_id, operation_id }) => {
+      const id = operation_id ?? createOperationId();
+      return execute(() => client.revokeShare({
+        ...collectionReference(tenant_id, project_id, environment_id, collection_instance_id),
+        shareId: share_id,
+      }, { operationId: id }), id);
+    },
+  );
+
+  server.registerTool(
+    "almira_local_issuer_list",
+    {
+      title: "List local capability issuers",
+      description: "List the registered public keys and ceilings for one collection.",
+      inputSchema: z.object(collectionScope).strict(),
+      outputSchema,
+      annotations: readAnnotations,
+    },
+    async ({ tenant_id, project_id, environment_id, collection_instance_id }) => execute(() =>
+      client.listLocalIssuers(collectionReference(tenant_id, project_id, environment_id, collection_instance_id))),
+  );
+
+  server.registerTool(
+    "almira_local_issuer_register",
+    {
+      title: "Register local capability issuer",
+      description: "Register an Ed25519 public key and bounded capability ceiling; private key material never enters Almira.",
+      inputSchema: z.object({
+        ...collectionScope,
+        issuer_key: z.string().regex(/^[a-z][a-z0-9._-]{0,63}$/u),
+        display_name: z.string().min(1).max(120),
+        public_key: z.string().regex(/^[A-Za-z0-9_-]{43}$/u),
+        key_protection: z.enum(["cloud_kms", "hardware_backed"]),
+        ceiling: localIssuerCeiling,
+        operation_id: operationId,
+      }).strict(),
+      outputSchema,
+      annotations: mutationAnnotations,
+    },
+    async ({ tenant_id, project_id, environment_id, collection_instance_id, operation_id, ...request }) => {
+      const id = operation_id ?? createOperationId();
+      return execute(() => client.registerLocalIssuer(
+        collectionReference(tenant_id, project_id, environment_id, collection_instance_id),
+        request,
+        { operationId: id },
+      ), id);
+    },
+  );
+
+  server.registerTool(
+    "almira_local_issuer_rotate",
+    {
+      title: "Rotate local issuer key",
+      description: "Replace a local issuer public key using optimistic revision control.",
+      inputSchema: z.object({
+        ...collectionScope,
+        issuer_id: uuid,
+        expected_revision: z.number().int().min(1),
+        public_key: z.string().regex(/^[A-Za-z0-9_-]{43}$/u),
+        key_protection: z.enum(["cloud_kms", "hardware_backed"]),
+        operation_id: operationId,
+      }).strict(),
+      outputSchema,
+      annotations: mutationAnnotations,
+    },
+    async ({ tenant_id, project_id, environment_id, collection_instance_id, issuer_id, operation_id, ...request }) => {
+      const id = operation_id ?? createOperationId();
+      return execute(() => client.rotateLocalIssuerKey({
+        ...collectionReference(tenant_id, project_id, environment_id, collection_instance_id), issuerId: issuer_id,
+      }, request, { operationId: id }), id);
+    },
+  );
+
+  server.registerTool(
+    "almira_local_issuer_revoke",
+    {
+      title: "Revoke local capability issuer",
+      description: "Revoke a local issuer and all future use of its signing authority.",
+      inputSchema: z.object({
+        ...collectionScope,
+        issuer_id: uuid,
+        expected_revision: z.number().int().min(1),
+        operation_id: operationId,
+      }).strict(),
+      outputSchema,
+      annotations: deleteAnnotations,
+    },
+    async ({ tenant_id, project_id, environment_id, collection_instance_id, issuer_id, expected_revision, operation_id }) => {
+      const id = operation_id ?? createOperationId();
+      return execute(() => client.revokeLocalIssuer({
+        ...collectionReference(tenant_id, project_id, environment_id, collection_instance_id), issuerId: issuer_id,
+      }, expected_revision, { operationId: id }), id);
+    },
+  );
+
+  server.registerTool(
+    "almira_local_issuer_signing_configuration_get",
+    {
+      title: "Get local issuer signing configuration",
+      description: "Read the non-secret, revision-bound inputs needed to construct local capability claims.",
+      inputSchema: z.object({ ...collectionScope, issuer_id: uuid }).strict(),
+      outputSchema,
+      annotations: readAnnotations,
+    },
+    async ({ tenant_id, project_id, environment_id, collection_instance_id, issuer_id }) => execute(() =>
+      client.getLocalIssuerSigningConfiguration({
+        ...collectionReference(tenant_id, project_id, environment_id, collection_instance_id), issuerId: issuer_id,
+      })),
+  );
+
   return server;
+}
+
+function collectionReference(
+  tenantId: string,
+  projectId: string,
+  environmentId: string,
+  collectionInstanceId: string,
+) {
+  return { tenantId, projectId, environmentId, collectionInstanceId };
 }
 
 async function execute(call: () => Promise<unknown>, operationId?: string) {

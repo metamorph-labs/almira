@@ -10,6 +10,12 @@ import {
   applyConfiguration,
   createOperationId,
   previewConfiguration,
+  type AccessSimulation,
+  type CreateShareRequest,
+  type RegisterLocalIssuerRequest,
+  type ReplaceAccessPolicyRequest,
+  type ReplaceDeliveryConfigRequest,
+  type RotateLocalIssuerKeyRequest,
   type TenancyProjectGetResponse,
 } from "@metamorph-labs/almira-sdk";
 
@@ -52,6 +58,18 @@ Commands:
   file list               List file metadata
   file get                Read one file's metadata
   file delete             Soft-delete one file
+  policy get              Read a collection access policy
+  policy set              Replace a collection access policy from --input JSON
+  policy simulate         Evaluate an access decision from --input JSON
+  delivery get            Read a collection CDN/delivery configuration
+  delivery set            Replace CDN/delivery configuration from --input JSON
+  share create            Create a revocable share from --input JSON
+  share revoke            Revoke a share
+  issuer list             List registered local capability issuers
+  issuer register         Register an issuer from --input JSON
+  issuer rotate           Rotate an issuer key from --input JSON
+  issuer revoke           Revoke an issuer
+  issuer signing-config   Read public local-signing configuration
 
 Connection:
   --base-url URL          Almira API base; or set ALMIRA_BASE_URL
@@ -64,6 +82,9 @@ Common identifiers:
   --collection UUID       Almira collection-instance UUIDv7
   --migration UUID        Almira storage-migration UUIDv7
   --entry UUID            Almira file-entry UUIDv7
+  --share UUID            Almira share UUIDv7
+  --issuer UUID           Almira local-issuer UUIDv7
+  --input PATH            Exact JSON request body for structured operations
   --file PATH             almira.yaml path for config preview/apply
 
 Collection creation:
@@ -85,6 +106,8 @@ const options = {
   environment: { type: "string" },
   file: { type: "string" },
   help: { type: "boolean", short: "h" },
+  input: { type: "string" },
+  issuer: { type: "string" },
   key: { type: "string" },
   limit: { type: "string" },
   migration: { type: "string" },
@@ -94,6 +117,7 @@ const options = {
   project: { type: "string" },
   revision: { type: "string" },
   scan: { type: "string" },
+  share: { type: "string" },
   tenant: { type: "string" },
   "tenancy-project": { type: "string" },
 } as const;
@@ -246,6 +270,79 @@ export async function runCli(arguments_: string[], dependencies: CliDependencies
         positiveInteger(values, "revision"),
         { operationId },
       );
+    } else if (noun === "policy" && verb === "get") {
+      result = await client.getCollectionPolicy(collectionReference(values, tenantId, projectId));
+    } else if (noun === "policy" && verb === "set") {
+      operationId = mutationId(values);
+      mutation = true;
+      result = await client.replaceCollectionPolicy(
+        collectionReference(values, tenantId, projectId),
+        await readJson<ReplaceAccessPolicyRequest>(required(values, "input")),
+        { operationId },
+      );
+    } else if (noun === "policy" && verb === "simulate") {
+      operationId = mutationId(values);
+      mutation = true;
+      result = await client.simulateCollectionPolicy(
+        collectionReference(values, tenantId, projectId),
+        await readJson<AccessSimulation>(required(values, "input")),
+        { operationId },
+      );
+    } else if (noun === "delivery" && verb === "get") {
+      result = await client.getDeliveryConfig(collectionReference(values, tenantId, projectId));
+    } else if (noun === "delivery" && verb === "set") {
+      operationId = mutationId(values);
+      mutation = true;
+      result = await client.replaceDeliveryConfig(
+        collectionReference(values, tenantId, projectId),
+        await readJson<ReplaceDeliveryConfigRequest>(required(values, "input")),
+        { operationId },
+      );
+    } else if (noun === "share" && verb === "create") {
+      operationId = mutationId(values);
+      mutation = true;
+      result = await client.createShare(
+        collectionReference(values, tenantId, projectId),
+        await readJson<CreateShareRequest>(required(values, "input")),
+        { operationId },
+      );
+    } else if (noun === "share" && verb === "revoke") {
+      operationId = mutationId(values);
+      mutation = true;
+      result = await client.revokeShare(
+        { ...collectionReference(values, tenantId, projectId), shareId: required(values, "share") },
+        { operationId },
+      );
+    } else if (noun === "issuer" && verb === "list") {
+      result = await client.listLocalIssuers(collectionReference(values, tenantId, projectId));
+    } else if (noun === "issuer" && verb === "register") {
+      operationId = mutationId(values);
+      mutation = true;
+      result = await client.registerLocalIssuer(
+        collectionReference(values, tenantId, projectId),
+        await readJson<RegisterLocalIssuerRequest>(required(values, "input")),
+        { operationId },
+      );
+    } else if (noun === "issuer" && verb === "rotate") {
+      operationId = mutationId(values);
+      mutation = true;
+      result = await client.rotateLocalIssuerKey(
+        localIssuerReference(values, tenantId, projectId),
+        await readJson<RotateLocalIssuerKeyRequest>(required(values, "input")),
+        { operationId },
+      );
+    } else if (noun === "issuer" && verb === "revoke") {
+      operationId = mutationId(values);
+      mutation = true;
+      result = await client.revokeLocalIssuer(
+        localIssuerReference(values, tenantId, projectId),
+        positiveInteger(values, "revision"),
+        { operationId },
+      );
+    } else if (noun === "issuer" && verb === "signing-config") {
+      result = await client.getLocalIssuerSigningConfiguration(
+        localIssuerReference(values, tenantId, projectId),
+      );
     } else {
       throw new CliUsageError();
     }
@@ -286,7 +383,23 @@ const commandOptions = new Map<string, ReadonlySet<string>>([
   ["file:list", new Set(["base-url", "collection", "cursor", "environment", "limit", "path-prefix", "project", "tenant"])],
   ["file:get", new Set(["base-url", "collection", "entry", "environment", "project", "tenant"])],
   ["file:delete", new Set(["base-url", "collection", "entry", "environment", "operation-id", "project", "revision", "tenant"])],
+  ["policy:get", collectionCommandOptions()],
+  ["policy:set", collectionCommandOptions("input", "operation-id")],
+  ["policy:simulate", collectionCommandOptions("input", "operation-id")],
+  ["delivery:get", collectionCommandOptions()],
+  ["delivery:set", collectionCommandOptions("input", "operation-id")],
+  ["share:create", collectionCommandOptions("input", "operation-id")],
+  ["share:revoke", collectionCommandOptions("share", "operation-id")],
+  ["issuer:list", collectionCommandOptions()],
+  ["issuer:register", collectionCommandOptions("input", "operation-id")],
+  ["issuer:rotate", collectionCommandOptions("input", "issuer", "operation-id")],
+  ["issuer:revoke", collectionCommandOptions("issuer", "operation-id", "revision")],
+  ["issuer:signing-config", collectionCommandOptions("issuer")],
 ]);
+
+function collectionCommandOptions(...additional: string[]): ReadonlySet<string> {
+  return new Set(["base-url", "collection", "environment", "project", "tenant", ...additional]);
+}
 
 function assertCommandOptions(noun: string, verb: string, values: Values): void {
   const allowed = commandOptions.get(`${noun}:${verb}`);
@@ -356,6 +469,10 @@ function fileReference(values: Values, tenantId: string, projectId: string) {
   return { ...collectionReference(values, tenantId, projectId), entryId: required(values, "entry") };
 }
 
+function localIssuerReference(values: Values, tenantId: string, projectId: string) {
+  return { ...collectionReference(values, tenantId, projectId), issuerId: required(values, "issuer") };
+}
+
 async function readTenancyProject(path: string): Promise<TenancyProjectGetResponse> {
   try {
     const bytes = await readFile(path);
@@ -373,6 +490,17 @@ async function readConfiguration(path: string): Promise<unknown> {
     if (bytes.length === 0 || bytes.length > 256 * 1024) throw new CliUsageError();
     const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
     return parseYaml(text, { maxAliasCount: 0, uniqueKeys: true });
+  } catch (error) {
+    if (error instanceof CliUsageError) throw error;
+    throw new CliUsageError();
+  }
+}
+
+async function readJson<T>(path: string): Promise<T> {
+  try {
+    const bytes = await readFile(path);
+    if (bytes.length === 0 || bytes.length > 256 * 1024) throw new CliUsageError();
+    return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)) as T;
   } catch (error) {
     if (error instanceof CliUsageError) throw error;
     throw new CliUsageError();

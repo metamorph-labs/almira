@@ -1,0 +1,419 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Almira Data and Delivery API",
+    "version": "0.1.0-dev.18",
+    "description": "Browser/mobile capability reads and immutable governed delivery. This surface never accepts PATs, SAKs, product sessions, provider credentials, or management routing headers."
+  },
+  "servers": [
+    {
+      "url": "/"
+    }
+  ],
+  "paths": {
+    "/v1/data/{tenant_id}/{project_id}/{environment_id}/{collection_instance_id}/files": {
+      "get": {
+        "operationId": "listFilesWithCapability",
+        "security": [
+          {
+            "capabilityBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          },
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/Origin"
+          },
+          {
+            "name": "path_prefix",
+            "in": "query",
+            "schema": {
+              "$ref": "./openapi.v1.json#/components/schemas/LogicalPath"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Policy-authorized deterministic page. The response permits only the registered request origin.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./openapi.v1.json#/components/schemas/FileEntryPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "./openapi.v1.json#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "./openapi.v1.json#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "./openapi.v1.json#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "./openapi.v1.json#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "./openapi.v1.json#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/data/{tenant_id}/{project_id}/{environment_id}/{collection_instance_id}/files/{entry_id}": {
+      "get": {
+        "operationId": "getFileMetadataWithCapability",
+        "security": [
+          {
+            "capabilityBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          },
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/EntryId"
+          },
+          {
+            "$ref": "#/components/parameters/Origin"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Policy-authorized safe metadata for one stable entry.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./openapi.v1.json#/components/schemas/FileEntry"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "./openapi.v1.json#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "./openapi.v1.json#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "./openapi.v1.json#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "./openapi.v1.json#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "./openapi.v1.json#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/delivery/{tenant_id}/{project_id}/{environment_id}/{collection_instance_id}/{entry_id}/{generation_id}": {
+      "get": {
+        "operationId": "readImmutableGeneration",
+        "description": "Reads one immutable generation. Public collections need no credential. Private reads require a reusable capability token and its exact registered Origin; they do not call Almira once per file to mint a URL.",
+        "security": [
+          {},
+          {
+            "capabilityBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          },
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/EntryId"
+          },
+          {
+            "$ref": "#/components/parameters/GenerationId"
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "description": "Required with a private capability and ignored as authority for public access.",
+            "schema": {
+              "type": "string",
+              "format": "uri",
+              "maxLength": 512
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Range"
+          },
+          {
+            "$ref": "#/components/parameters/IfNoneMatch"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Content"
+          },
+          "206": {
+            "$ref": "#/components/responses/Content"
+          },
+          "304": {
+            "description": "The immutable generation ETag matches. Authorization is still evaluated before this response."
+          },
+          "400": {
+            "$ref": "./openapi.v1.json#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "./openapi.v1.json#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "./openapi.v1.json#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "./openapi.v1.json#/components/responses/NotFound"
+          },
+          "416": {
+            "$ref": "./openapi.v1.json#/components/responses/RangeNotSatisfiable"
+          },
+          "503": {
+            "$ref": "./openapi.v1.json#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/shares/{share_token}": {
+      "get": {
+        "operationId": "readShare",
+        "description": "Reads exactly the immutable generation embedded in an active, unexpired, non-stale share. The share token is the bearer credential and must not be sent in Authorization.",
+        "security": [],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ShareToken"
+          },
+          {
+            "$ref": "#/components/parameters/Range"
+          },
+          {
+            "$ref": "#/components/parameters/IfNoneMatch"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Content"
+          },
+          "206": {
+            "$ref": "#/components/responses/Content"
+          },
+          "304": {
+            "description": "The immutable generation ETag matches. Share state is still evaluated before this response."
+          },
+          "400": {
+            "$ref": "./openapi.v1.json#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "./openapi.v1.json#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "./openapi.v1.json#/components/responses/NotFound"
+          },
+          "410": {
+            "$ref": "./openapi.v1.json#/components/responses/Gone"
+          },
+          "416": {
+            "$ref": "./openapi.v1.json#/components/responses/RangeNotSatisfiable"
+          },
+          "503": {
+            "$ref": "./openapi.v1.json#/components/responses/Unavailable"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "capabilityBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "alm_cap_v1 or alm_local_v1",
+        "description": "A short-lived collection capability issued by Almira or a registered asymmetric local issuer. Management credentials are refused."
+      }
+    },
+    "parameters": {
+      "TenantId": {
+        "name": "tenant_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "./openapi.v1.json#/components/schemas/UuidV7"
+        }
+      },
+      "ProjectId": {
+        "name": "project_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "./openapi.v1.json#/components/schemas/UuidV7"
+        }
+      },
+      "EnvironmentId": {
+        "name": "environment_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "./openapi.v1.json#/components/schemas/UuidV7"
+        }
+      },
+      "CollectionInstanceId": {
+        "name": "collection_instance_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "./openapi.v1.json#/components/schemas/UuidV7"
+        }
+      },
+      "EntryId": {
+        "name": "entry_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "./openapi.v1.json#/components/schemas/UuidV7"
+        }
+      },
+      "GenerationId": {
+        "name": "generation_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "./openapi.v1.json#/components/schemas/UuidV7"
+        }
+      },
+      "Origin": {
+        "name": "Origin",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uri",
+          "maxLength": 512
+        }
+      },
+      "Range": {
+        "name": "Range",
+        "in": "header",
+        "schema": {
+          "type": "string",
+          "pattern": "^bytes=[0-9]+-[0-9]*$",
+          "maxLength": 64
+        }
+      },
+      "IfNoneMatch": {
+        "name": "If-None-Match",
+        "in": "header",
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      },
+      "ShareToken": {
+        "name": "share_token",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "pattern": "^alm_share_v1\\.[A-Za-z0-9_-]{43}$",
+          "x-sensitive": true
+        }
+      }
+    },
+    "responses": {
+      "Content": {
+        "description": "Authorized content with a stable Almira generation ETag and no provider-origin details.",
+        "headers": {
+          "ETag": {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\\"almira-v1-[0-9a-f-]{36}\\\"$"
+            }
+          },
+          "Cache-Control": {
+            "schema": {
+              "type": "string"
+            }
+          },
+          "Access-Control-Allow-Origin": {
+            "schema": {
+              "type": "string"
+            }
+          }
+        },
+        "content": {
+          "application/octet-stream": {
+            "schema": {
+              "type": "string",
+              "contentEncoding": "binary"
+            }
+          }
+        }
+      }
+    }
+  }
+}

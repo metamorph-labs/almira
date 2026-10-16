@@ -185,6 +185,38 @@ test("storage migration start and status preserve exact scope, revision, and ope
   ]);
 });
 
+test("policy replacement accepts an exact JSON document and uses the collection route", async (context) => {
+  const directory = await mkdtemp(join(tmpdir(), "almira-policy-"));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const input = join(directory, "policy.json");
+  const requestBody = { expected_revision: 2, document: { template: "private", rules: [] } };
+  await writeFile(input, JSON.stringify(requestBody));
+  const collectionId = "018f0000-0000-7000-8000-000000000012";
+  const stream = io();
+  let request;
+  const exitCode = await runCli([
+    "policy", "set",
+    "--tenant", tenantId,
+    "--project", projectId,
+    "--environment", environmentId,
+    "--collection", collectionId,
+    "--input", input,
+    "--operation-id", operationId,
+  ], {
+    environment,
+    io: stream.value,
+    fetch: async (url, init) => {
+      request = { url, init };
+      return json({ disposition: "applied", policy: {} });
+    },
+  });
+  assert.equal(exitCode, 0);
+  assert.equal(request.url, `https://almira.test/v1/projects/${projectId}/environments/${environmentId}/collections/${collectionId}/policy`);
+  assert.equal(request.init.method, "PUT");
+  assert.equal(request.init.headers.get("idempotency-key"), operationId);
+  assert.deepEqual(JSON.parse(request.init.body), requestBody);
+});
+
 test("configuration preview and apply consume almira.yaml without a second API", async (context) => {
   const directory = await mkdtemp(join(tmpdir(), "almira-config-"));
   context.after(() => rm(directory, { recursive: true, force: true }));

@@ -371,6 +371,302 @@
       "expected": "invalid"
     },
     {
+      "name": "private_role_policy",
+      "schema": "ReplaceAccessPolicyRequest",
+      "instance": {
+        "expected_revision": 1,
+        "document": {
+          "template": "private",
+          "rules": [
+            {
+              "rule_id": "allow-editors",
+              "effect": "allow",
+              "subject": {
+                "kind": "role",
+                "role": "editor"
+              },
+              "operations": [
+                "metadata_read",
+                "content_read"
+              ],
+              "resource": {
+                "kind": "prefix",
+                "path_prefix": "documents/"
+              }
+            }
+          ]
+        }
+      },
+      "expected": "valid"
+    },
+    {
+      "name": "server_only_cannot_be_widened",
+      "schema": "ReplaceAccessPolicyRequest",
+      "instance": {
+        "expected_revision": 1,
+        "document": {
+          "template": "server_only",
+          "rules": [
+            {
+              "rule_id": "unsafe",
+              "effect": "allow",
+              "subject": {
+                "kind": "authenticated"
+              },
+              "operations": [
+                "content_read"
+              ],
+              "resource": {
+                "kind": "collection"
+              }
+            }
+          ]
+        }
+      },
+      "expected": "invalid"
+    },
+    {
+      "name": "public_write_policy_refused",
+      "schema": "ReplaceAccessPolicyRequest",
+      "instance": {
+        "expected_revision": 1,
+        "document": {
+          "template": "private",
+          "rules": [
+            {
+              "rule_id": "unsafe-public-upload",
+              "effect": "allow",
+              "subject": {
+                "kind": "public"
+              },
+              "operations": [
+                "upload"
+              ],
+              "resource": {
+                "kind": "collection"
+              }
+            }
+          ]
+        }
+      },
+      "expected": "invalid"
+    },
+    {
+      "name": "browser_capability_request",
+      "schema": "CreateCapabilitySessionRequest",
+      "instance": {
+        "subject": {
+          "subject_id": "user_42",
+          "organization_id": "org_blue",
+          "roles": [
+            "editor"
+          ],
+          "attributes": {
+            "region": "eu"
+          }
+        },
+        "operations": [
+          "list",
+          "metadata_read",
+          "content_read"
+        ],
+        "resource": {
+          "kind": "prefix",
+          "path_prefix": "documents/"
+        },
+        "audience": "https://app.example.com",
+        "lifetime_seconds": 300
+      },
+      "expected": "valid"
+    },
+    {
+      "name": "browser_capability_cannot_write",
+      "schema": "CreateCapabilitySessionRequest",
+      "instance": {
+        "subject": {
+          "subject_id": "user_42"
+        },
+        "operations": [
+          "upload"
+        ],
+        "resource": {
+          "kind": "collection"
+        },
+        "audience": "https://app.example.com",
+        "lifetime_seconds": 300
+      },
+      "expected": "invalid"
+    },
+    {
+      "name": "browser_capability_wildcard_audience_refused",
+      "schema": "CreateCapabilitySessionRequest",
+      "instance": {
+        "subject": {
+          "subject_id": "user_42"
+        },
+        "operations": [
+          "content_read"
+        ],
+        "resource": {
+          "kind": "collection"
+        },
+        "audience": "https://*.example.com",
+        "lifetime_seconds": 300
+      },
+      "expected": "invalid"
+    },
+    {
+      "name": "delivery_off_is_no_store",
+      "schema": "DeliveryConfigInput",
+      "instance": {
+        "mode": "off",
+        "cache_preset": "no_store",
+        "logical_aliases": false,
+        "direct_provider_private_downloads": false
+      },
+      "expected": "valid"
+    },
+    {
+      "name": "unwired_immutable_cache_refused",
+      "schema": "DeliveryConfigInput",
+      "instance": {
+        "mode": "public",
+        "cache_preset": "immutable_generation",
+        "logical_aliases": false,
+        "direct_provider_private_downloads": false
+      },
+      "expected": "invalid"
+    },
+    {
+      "name": "immutable_generation_share",
+      "schema": "CreateShareRequest",
+      "instance": {
+        "entry_id": "018f0000-0000-7000-8000-000000000031",
+        "generation_id": "018f0000-0000-7000-8000-000000000032",
+        "lifetime_seconds": 3600,
+        "subject": {
+          "subject_id": "user_42"
+        }
+      },
+      "expected": "valid"
+    },
+    {
+      "name": "registered_hardware_backed_local_issuer",
+      "schema": "RegisterLocalIssuerRequest",
+      "instance": {
+        "issuer_key": "app-backend",
+        "display_name": "Application backend",
+        "public_key": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+        "key_protection": "hardware_backed",
+        "ceiling": {
+          "operations": [
+            "metadata_read",
+            "content_read"
+          ],
+          "resource": {
+            "kind": "collection"
+          },
+          "audiences": [
+            "https://app.example.com"
+          ],
+          "maximum_lifetime_seconds": 300
+        }
+      },
+      "expected": "valid"
+    },
+    {
+      "name": "local_issuer_secret_material_refused",
+      "schema": "RegisterLocalIssuerRequest",
+      "instance": {
+        "issuer_key": "app-backend",
+        "display_name": "Application backend",
+        "public_key": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+        "signing_material": "never-accepted",
+        "key_protection": "cloud_kms",
+        "ceiling": {
+          "operations": [
+            "content_read"
+          ],
+          "resource": {
+            "kind": "collection"
+          },
+          "audiences": [
+            "https://app.example.com"
+          ],
+          "maximum_lifetime_seconds": 300
+        }
+      },
+      "expected": "invalid"
+    },
+    {
+      "name": "local_issuer_signing_configuration_is_complete_and_non_secret",
+      "schema": "LocalIssuerSigningConfiguration",
+      "instance": {
+        "claims_schema_version": 1,
+        "token_prefix": "alm_local_v1.",
+        "signature_context_base64url": "YWxtaXJhOmxvY2FsLWNhcGFiaWxpdHk6djEA",
+        "maximum_clock_skew_seconds": 30,
+        "realm_id": "018f0000-0000-7000-8000-000000000001",
+        "tenant_id": "018f0000-0000-7000-8000-000000000002",
+        "project_id": "018f0000-0000-7000-8000-000000000003",
+        "environment_id": "018f0000-0000-7000-8000-000000000004",
+        "collection_instance_id": "018f0000-0000-7000-8000-000000000005",
+        "issuer_id": "018f0000-0000-7000-8000-000000000006",
+        "issuer_revision": 2,
+        "key_revision": 2,
+        "public_key": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+        "ceiling": {
+          "operations": [
+            "content_read"
+          ],
+          "resource": {
+            "kind": "collection"
+          },
+          "audiences": [
+            "https://app.example.com"
+          ],
+          "maximum_lifetime_seconds": 300
+        },
+        "policy_revision": 4,
+        "policy_issuer_epoch": 3
+      },
+      "expected": "valid"
+    },
+    {
+      "name": "local_issuer_signing_context_is_protocol_fixed",
+      "schema": "LocalIssuerSigningConfiguration",
+      "instance": {
+        "claims_schema_version": 1,
+        "token_prefix": "alm_local_v1.",
+        "signature_context_base64url": "d3JvbmctY29udGV4dA",
+        "maximum_clock_skew_seconds": 30,
+        "realm_id": "018f0000-0000-7000-8000-000000000001",
+        "tenant_id": "018f0000-0000-7000-8000-000000000002",
+        "project_id": "018f0000-0000-7000-8000-000000000003",
+        "environment_id": "018f0000-0000-7000-8000-000000000004",
+        "collection_instance_id": "018f0000-0000-7000-8000-000000000005",
+        "issuer_id": "018f0000-0000-7000-8000-000000000006",
+        "issuer_revision": 2,
+        "key_revision": 2,
+        "public_key": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+        "ceiling": {
+          "operations": [
+            "content_read"
+          ],
+          "resource": {
+            "kind": "collection"
+          },
+          "audiences": [
+            "https://app.example.com"
+          ],
+          "maximum_lifetime_seconds": 300
+        },
+        "policy_revision": 4,
+        "policy_issuer_epoch": 3
+      },
+      "expected": "invalid"
+    },
+    {
       "name": "safe_error_envelope",
       "schema": "Error",
       "instance": {
@@ -450,6 +746,30 @@
       "condition": "FileService may have accepted the migration but its response was not received",
       "code": "ALMIRA_STORAGE_MIGRATION_OUTCOME_UNKNOWN",
       "http_status": 503
+    },
+    {
+      "name": "stale_capability_is_gone",
+      "condition": "the collection policy revision or issuer epoch changed after capability issuance",
+      "code": "ALMIRA_DELIVERY_GRANT_REVOKED",
+      "http_status": 410
+    },
+    {
+      "name": "capability_audience_mismatch_is_forbidden",
+      "condition": "the request Origin differs from the exact registered capability audience",
+      "code": "ALMIRA_DELIVERY_ACCESS_REFUSED",
+      "http_status": 403
+    },
+    {
+      "name": "revoked_share_is_gone",
+      "condition": "the immutable-generation share was revoked before delivery",
+      "code": "ALMIRA_DELIVERY_GRANT_REVOKED",
+      "http_status": 410
+    },
+    {
+      "name": "invalid_local_signature_is_forbidden",
+      "condition": "a locally issued capability signature does not verify against the active registered key revision",
+      "code": "ALMIRA_DELIVERY_ACCESS_REFUSED",
+      "http_status": 403
     }
   ]
 }

@@ -127,14 +127,14 @@ export interface Collection {
   environment_id: UuidV7;
   collection_key: string;
   display_name: string;
-  access_template: "private";
+  access_template: "server_only" | "private" | "public_read";
   storage_class: "normal" | "express";
   storage_binding_state: "pending" | "ready" | "migrating" | "failed";
   technical_metadata_extraction: true;
   malware_scan_required: boolean;
   content_extraction: false;
   vector_indexing: false;
-  delivery_mode: "off";
+  delivery_mode: "off" | "public" | "private";
   revision: number;
   created_at: Timestamp;
 }
@@ -316,6 +316,7 @@ export interface PageOptions {
 export interface ReadPrivateFileOptions extends FileReference {
   generationId?: UuidV7;
   range?: string;
+  subject?: BuilderSubject;
   signal?: AbortSignal;
 }
 
@@ -326,4 +327,241 @@ export interface PrivateFileResponse {
   contentType: string | null;
   etag: string | null;
   status: 200 | 206;
+}
+
+export type AccessOperation =
+  | "list"
+  | "metadata_read"
+  | "content_read"
+  | "search"
+  | "upload"
+  | "delete"
+  | "share";
+
+export type ReadAccessOperation = "list" | "metadata_read" | "content_read" | "search";
+
+export interface BuilderSubject {
+  subject_id: string;
+  organization_id?: string | null | undefined;
+  roles?: string[] | undefined;
+  attributes?: Record<string, string> | undefined;
+}
+
+export type AccessSubject =
+  | { kind: "public" }
+  | { kind: "server" }
+  | { kind: "authenticated" }
+  | { kind: "subject"; subject_id: string }
+  | { kind: "organization"; organization_id: string }
+  | { kind: "role"; role: string }
+  | { kind: "attribute"; key: string; value: string };
+
+export type AccessResource =
+  | { kind: "collection" }
+  | { kind: "prefix"; path_prefix: string }
+  | { kind: "entry"; entry_id: UuidV7 };
+
+export interface AccessRule {
+  rule_id: string;
+  effect: "allow" | "deny";
+  subject: AccessSubject;
+  operations: AccessOperation[];
+  resource: AccessResource;
+}
+
+export interface AccessPolicyDocument {
+  template: "server_only" | "private" | "public_read";
+  rules: AccessRule[];
+}
+
+export interface AccessPolicy {
+  collection_instance_id: UuidV7;
+  revision: number;
+  issuer_epoch: number;
+  document: AccessPolicyDocument;
+  updated_at: Timestamp;
+}
+
+export interface ReplaceAccessPolicyRequest {
+  expected_revision: number;
+  document: AccessPolicyDocument;
+}
+
+export interface AccessPolicyMutationOutcome {
+  disposition: "applied" | "exact_replay";
+  policy: AccessPolicy;
+}
+
+export type SimulationPrincipal =
+  | { kind: "public" }
+  | { kind: "server" }
+  | { kind: "end_user"; subject: BuilderSubject };
+
+export type SimulationTarget =
+  | { kind: "collection" }
+  | { kind: "entry"; entry_id: UuidV7; logical_path: string };
+
+export interface AccessSimulation {
+  principal: SimulationPrincipal;
+  operation: AccessOperation;
+  target: SimulationTarget;
+}
+
+export interface AccessDecision {
+  allowed: boolean;
+  reason: "allowed_by_rule" | "allowed_by_template" | "denied_by_rule" | "no_matching_allow";
+  matched_rule_ids: string[];
+  policy_revision: number;
+}
+
+export interface CreateCapabilitySessionRequest {
+  subject: BuilderSubject;
+  operations: ReadAccessOperation[];
+  resource: AccessResource;
+  audience: string;
+  lifetime_seconds: number;
+}
+
+export interface CapabilitySessionGrant {
+  session_id: UuidV7;
+  token: string;
+  operations: ReadAccessOperation[];
+  resource: AccessResource;
+  audience: string;
+  policy_revision: number;
+  issuer_epoch: number;
+  expires_at: Timestamp;
+}
+
+export interface CapabilitySessionReference extends CollectionReference {
+  sessionId: UuidV7;
+}
+
+export type DeliveryConfigInput =
+  | { mode: "off"; cache_preset: "no_store"; logical_aliases: false; direct_provider_private_downloads: false }
+  | { mode: "public"; cache_preset: "revalidate"; logical_aliases: false; direct_provider_private_downloads: false }
+  | { mode: "private"; cache_preset: "no_store" | "private_session"; logical_aliases: false; direct_provider_private_downloads: false };
+
+export interface DeliveryDomain {
+  kind: "managed" | "custom";
+  hostname: string;
+  state: "active" | "pending_dns" | "provisioning_certificate" | "failed" | "removing";
+  verification_name: string | null;
+  verification_value: string | null;
+  certificate_expires_at: Timestamp | null;
+}
+
+export interface DeliveryConfig {
+  collection_instance_id: UuidV7;
+  mode: "off" | "public" | "private";
+  cache_preset: "no_store" | "revalidate" | "private_session";
+  logical_aliases: false;
+  direct_provider_private_downloads: false;
+  domain: DeliveryDomain;
+  revision: number;
+  updated_at: Timestamp;
+}
+
+export interface ReplaceDeliveryConfigRequest {
+  expected_revision: number;
+  config: DeliveryConfigInput;
+}
+
+export interface DeliveryConfigOutcome {
+  disposition: "applied" | "exact_replay";
+  config: DeliveryConfig;
+}
+
+export interface CreateShareRequest {
+  entry_id: UuidV7;
+  generation_id: UuidV7;
+  lifetime_seconds: number;
+  subject?: BuilderSubject | null | undefined;
+}
+
+export interface ShareGrant {
+  share_id: UuidV7;
+  url: string;
+  entry_id: UuidV7;
+  generation_id: UuidV7;
+  state: "active" | "revoked" | "expired";
+  policy_revision: number;
+  issuer_epoch: number;
+  expires_at: Timestamp;
+}
+
+export interface ShareReference extends CollectionReference {
+  shareId: UuidV7;
+}
+
+export type TokenMutationDisposition = "applied" | "exact_replay";
+
+export type IssuerKeyProtection = "cloud_kms" | "hardware_backed";
+
+export interface LocalIssuerCeiling {
+  operations: ReadAccessOperation[];
+  resource: AccessResource;
+  audiences: string[];
+  maximum_lifetime_seconds: number;
+}
+
+export interface RegisterLocalIssuerRequest {
+  issuer_key: string;
+  display_name: string;
+  public_key: string;
+  key_protection: IssuerKeyProtection;
+  ceiling: LocalIssuerCeiling;
+}
+
+export interface RotateLocalIssuerKeyRequest {
+  expected_revision: number;
+  public_key: string;
+  key_protection: IssuerKeyProtection;
+}
+
+export interface LocalIssuer {
+  issuer_id: UuidV7;
+  issuer_key: string;
+  display_name: string;
+  public_key: string;
+  key_protection: IssuerKeyProtection;
+  ceiling: LocalIssuerCeiling;
+  state: "active" | "revoked";
+  revision: number;
+  key_revision: number;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+}
+
+export interface LocalIssuerMutationOutcome {
+  disposition: "applied" | "exact_replay";
+  issuer: LocalIssuer;
+}
+
+export interface LocalIssuerReference extends CollectionReference {
+  issuerId: UuidV7;
+}
+
+export interface LocalIssuerSigningConfiguration {
+  claims_schema_version: 1;
+  token_prefix: "alm_local_v1.";
+  signature_context_base64url: "YWxtaXJhOmxvY2FsLWNhcGFiaWxpdHk6djEA";
+  maximum_clock_skew_seconds: 30;
+  realm_id: UuidV7;
+  tenant_id: UuidV7;
+  project_id: UuidV7;
+  environment_id: UuidV7;
+  collection_instance_id: UuidV7;
+  issuer_id: UuidV7;
+  issuer_revision: number;
+  key_revision: number;
+  public_key: string;
+  ceiling: LocalIssuerCeiling;
+  policy_revision: number;
+  policy_issuer_epoch: number;
+}
+
+export interface SubjectReadOptions {
+  subject?: BuilderSubject;
+  signal?: AbortSignal;
 }

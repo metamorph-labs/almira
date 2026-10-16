@@ -1,15 +1,15 @@
 {
   "formatVersion": 1,
   "product": "almira",
-  "contractVersion": "0.1.0-dev.17",
+  "contractVersion": "0.1.0-dev.18",
   "source": {
     "repository": "metamorph-labs/almira-core",
     "algorithm": "sha256",
-    "digest": "53bc211d800d83a08ece42c7ac307e2378a57dd0343dbd24c741ebb1e29789f1"
+    "digest": "8b36349e8d3c6ac5bf8f7919dae1ce458535c45f74b50552dd02270dbee384e8"
   },
   "bundle": {
     "algorithm": "sha256",
-    "digest": "53bc211d800d83a08ece42c7ac307e2378a57dd0343dbd24c741ebb1e29789f1"
+    "digest": "8b36349e8d3c6ac5bf8f7919dae1ce458535c45f74b50552dd02270dbee384e8"
   },
   "files": [
     {
@@ -29,28 +29,33 @@
     },
     {
       "path": "conformance/vectors.v1.json",
-      "size": 14128,
-      "digest": "b31d0f2637bde9835a6a8f32fcbe478708887f61df5be1e9ac06eeb2fbbcb6c9"
+      "size": 23448,
+      "digest": "2a8dfe468ef36dbb67adec66d52ea7465c9741d018c71467aa73bde23f0b9deb"
+    },
+    {
+      "path": "data-openapi.v1.json",
+      "size": 12175,
+      "digest": "ff85a79e42252fdca4dd4091eec3028c106ed918262f7e38be51a0ef1d9f416b"
     },
     {
       "path": "errors.v1.json",
-      "size": 10457,
-      "digest": "5a416c9bffacf83b12e1d30e5324650380c3cc3d4c3bf27c53f77de8a99a3382"
+      "size": 12601,
+      "digest": "f024464070996f29493aac123b7bc6973532802b10c3e244e311dcd6d3d2bb8b"
     },
     {
       "path": "openapi.v1.json",
-      "size": 70350,
-      "digest": "fa306dce7b79902f4b1c8ab59b7dfaa7b8243fdec728a4e550f5683b5b806797"
+      "size": 123834,
+      "digest": "e3566e17909cd287869b345bbfe45d411acae633d172224ea1fe16e520d89cad"
     },
     {
       "path": "README.md",
-      "size": 1396,
-      "digest": "b2a1951861d5c23d7fa227f747728f47e64297418d5599e2b2e67fe802078a33"
+      "size": 2049,
+      "digest": "300be6e4a07dead2ae4e7f807563948a3f5fabe7cf2522ea317ecb7f235b977c"
     },
     {
       "path": "release.json",
       "size": 70,
-      "digest": "c3d136ca44d1df35442e9d2f502dbde8ba816e51e0ad02a45ff3b1a53bb580c7"
+      "digest": "0205b109be1b9b863ff954f5828e158e386ffdbecd33b73ba787d50b5dea9b5f"
     }
   ]
 }

@@ -55,6 +55,8 @@ test("tool catalog is closed and marks destructive behavior accurately", async (
       "almira_collection_list",
       "almira_configuration_apply",
       "almira_configuration_preview",
+      "almira_delivery_get",
+      "almira_delivery_replace",
       "almira_environment_create",
       "almira_environment_delete",
       "almira_environment_list",
@@ -62,7 +64,17 @@ test("tool catalog is closed and marks destructive behavior accurately", async (
       "almira_file_delete",
       "almira_file_list",
       "almira_file_metadata_get",
+      "almira_local_issuer_list",
+      "almira_local_issuer_register",
+      "almira_local_issuer_revoke",
+      "almira_local_issuer_rotate",
+      "almira_local_issuer_signing_configuration_get",
+      "almira_policy_get",
+      "almira_policy_replace",
+      "almira_policy_simulate",
       "almira_project_bootstrap",
+      "almira_share_create",
+      "almira_share_revoke",
       "almira_storage_capabilities_get",
       "almira_storage_migration_get",
       "almira_storage_migration_start",
@@ -78,6 +90,10 @@ test("tool catalog is closed and marks destructive behavior accurately", async (
   );
   assert.equal(
     response.tools.find((tool) => tool.name === "almira_environment_list").annotations.readOnlyHint,
+    true,
+  );
+  assert.equal(
+    response.tools.find((tool) => tool.name === "almira_share_revoke").annotations.destructiveHint,
     true,
   );
 });
@@ -171,6 +187,67 @@ test("collection creation forwards the selected storage class", async (context) 
     malware_scan_required: false,
     storage_class: "express",
   });
+});
+
+test("policy and CDN tools preserve exact collection scope and revision", async (context) => {
+  const requests = [];
+  const environmentId = "018f0000-0000-7000-8000-000000000004";
+  const collectionId = "018f0000-0000-7000-8000-000000000012";
+  const operationId = "018f0000-0000-7000-8000-000000000007";
+  const connection = await connected(async (input, init) => {
+    requests.push({ input, init });
+    return json({ disposition: "applied" });
+  });
+  context.after(async () => {
+    await connection.client.close();
+    await connection.server.close();
+  });
+  const common = {
+    tenant_id: tenantId,
+    project_id: projectId,
+    environment_id: environmentId,
+    collection_instance_id: collectionId,
+    expected_revision: 3,
+    operation_id: operationId,
+  };
+  await connection.client.callTool({
+    name: "almira_policy_replace",
+    arguments: { ...common, document: { template: "private", rules: [] } },
+  });
+  await connection.client.callTool({
+    name: "almira_delivery_replace",
+    arguments: {
+      ...common,
+      config: {
+        mode: "public",
+        cache_preset: "revalidate",
+        logical_aliases: false,
+        direct_provider_private_downloads: false,
+      },
+    },
+  });
+  const base = `https://almira.test/v1/projects/${projectId}/environments/${environmentId}/collections/${collectionId}`;
+  assert.deepEqual(requests.map(({ input, init }) => ({
+    input,
+    method: init.method,
+    operationId: init.headers.get("idempotency-key"),
+    body: JSON.parse(init.body),
+  })), [
+    {
+      input: `${base}/policy`, method: "PUT", operationId,
+      body: { expected_revision: 3, document: { template: "private", rules: [] } },
+    },
+    {
+      input: `${base}/delivery`, method: "PUT", operationId,
+      body: {
+        expected_revision: 3,
+        config: {
+          mode: "public", cache_preset: "revalidate", logical_aliases: false,
+          direct_provider_private_downloads: false,
+        },
+      },
+    },
+  ]);
 });
 
 test("storage migration tools preserve exact scope, revision, and replay identity", async (context) => {

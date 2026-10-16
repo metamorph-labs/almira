@@ -81,6 +81,19 @@ collection reports `migrating`.
 Direct transfer URLs and headers returned by `createUpload` are sensitive, one-use capabilities.
 The SDK returns them only to the caller and never logs or persists them.
 
+Application backends can pass a normalized `subject` with `listFiles`, `getFileMetadata`, and
+`readPrivateFile`; the SDK puts its canonical context on that same workload-authenticated call.
+For browser and other end-user data paths, use the deliberately separate `AlmiraDataClient`. It
+accepts only `alm_cap_v1` or `alm_local_v1` capabilities, never PATs, SAKs, workload sessions, or
+product cookies. Browser runtimes supply `Origin`; non-browser runtimes pass the canonical origin
+in the constructor. Public immutable generation reads and token-in-path share reads do not require
+an extra Almira call, and share reads never forward a configured capability.
+
+Access policies, simulations, CDN delivery configuration, revocable shares, and public-key-only
+local issuer registration are all available through typed management methods. Local private keys
+remain in the builder's KMS or hardware-backed signer; `getLocalIssuerSigningConfiguration`
+returns only the revision-bound, non-secret inputs needed by a signer.
+
 The SDK also exports `normalizeConfiguration`, `previewConfiguration`, and `applyConfiguration`
 for the public `almira.yaml` v1 model. Preview performs reads only. Apply refuses conflicts before
 mutation, preserves unlisted resources, checks advertised storage classes, starts governed

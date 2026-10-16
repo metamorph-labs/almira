@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Almira API",
-    "version": "0.1.0-dev.17",
+    "version": "0.1.0-dev.18",
     "description": "Provider-neutral application file storage management and data API."
   },
   "servers": [
@@ -1093,6 +1093,786 @@
           }
         }
       }
+    },
+    "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/policy": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "get": {
+        "operationId": "getCollectionPolicy",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current collection access policy.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessPolicy"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      },
+      "put": {
+        "operationId": "replaceCollectionPolicy",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/OperationId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplaceAccessPolicyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Policy replaced or exactly replayed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessPolicyMutationOutcome"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/policy/simulations": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "post": {
+        "operationId": "simulateCollectionPolicy",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/OperationId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccessSimulation"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Decision from the live policy evaluator without an effect.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessDecision"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/delivery": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "get": {
+        "operationId": "getDeliveryConfig",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Effective collection delivery configuration and diagnostics.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryConfig"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      },
+      "put": {
+        "operationId": "replaceDeliveryConfig",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/OperationId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplaceDeliveryConfigRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Delivery configuration replaced or exactly replayed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryConfigOutcome"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/capability-sessions": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "post": {
+        "operationId": "createCapabilitySession",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/OperationId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCapabilitySessionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Reusable browser/mobile capability bounded to current policy and audience.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CapabilitySessionGrant"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/capability-sessions/{session_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "delete": {
+        "operationId": "revokeCapabilitySession",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/SessionId"
+          },
+          {
+            "$ref": "#/components/parameters/OperationId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Capability revoked or exactly replayed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenMutationDisposition"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/shares": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "post": {
+        "operationId": "createShare",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/OperationId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateShareRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Revocable immutable-generation share.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShareGrant"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/shares/{share_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "delete": {
+        "operationId": "revokeShare",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/ShareId"
+          },
+          {
+            "$ref": "#/components/parameters/OperationId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Share revoked or exactly replayed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenMutationDisposition"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/local-issuers": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "get": {
+        "operationId": "listLocalIssuers",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Registered asymmetric local issuers.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "maxItems": 8,
+                  "items": {
+                    "$ref": "#/components/schemas/LocalIssuer"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      },
+      "post": {
+        "operationId": "registerLocalIssuer",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/OperationId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterLocalIssuerRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Local issuer registered or exactly replayed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocalIssuerMutationOutcome"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/local-issuers/{issuer_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "delete": {
+        "operationId": "revokeLocalIssuer",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/IssuerId"
+          },
+          {
+            "$ref": "#/components/parameters/OperationId"
+          },
+          {
+            "$ref": "#/components/parameters/IfMatchRevision"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Issuer revoked or exactly replayed; issued local tokens stop immediately.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocalIssuerMutationOutcome"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/local-issuers/{issuer_id}/key": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "put": {
+        "operationId": "rotateLocalIssuerKey",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/IssuerId"
+          },
+          {
+            "$ref": "#/components/parameters/OperationId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RotateLocalIssuerKeyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Issuer key rotated or exactly replayed; prior local tokens stop immediately.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocalIssuerMutationOutcome"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/local-issuers/{issuer_id}/signing-configuration": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "get": {
+        "operationId": "getLocalIssuerSigningConfiguration",
+        "description": "Returns non-secret protocol, scope, ceiling, and current revision material. A registered workload can cache this response and sign many short-lived browser capabilities locally; it refreshes after a stale-token refusal rather than calling Almira for every file access.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/IssuerId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current local signing configuration; never includes private key material.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocalIssuerSigningConfiguration"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1177,6 +1957,39 @@
         "required": true,
         "schema": {
           "$ref": "#/components/schemas/UuidV7"
+        }
+      },
+      "SessionId": {
+        "name": "session_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/UuidV7"
+        }
+      },
+      "ShareId": {
+        "name": "share_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/UuidV7"
+        }
+      },
+      "IssuerId": {
+        "name": "issuer_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/UuidV7"
+        }
+      },
+      "IfMatchRevision": {
+        "name": "If-Match",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "integer",
+          "minimum": 1
         }
       }
     },
@@ -1930,7 +2743,12 @@
             "type": "string"
           },
           "access_template": {
-            "const": "private"
+            "type": "string",
+            "enum": [
+              "server_only",
+              "private",
+              "public_read"
+            ]
           },
           "storage_class": {
             "type": "string",
@@ -1961,7 +2779,12 @@
             "const": false
           },
           "delivery_mode": {
-            "const": "off"
+            "type": "string",
+            "enum": [
+              "off",
+              "public",
+              "private"
+            ]
           },
           "revision": {
             "type": "integer",
@@ -2646,6 +3469,1184 @@
               "null"
             ],
             "maxLength": 2048
+          }
+        }
+      },
+      "LogicalPathPrefix": {
+        "type": "string",
+        "minLength": 2,
+        "maxLength": 1025,
+        "pattern": "^(?![.]{1,2}/)(?!.*/[.]{1,2}/)[A-Za-z0-9._~-]{1,255}(?:/[A-Za-z0-9._~-]{1,255})*/$"
+      },
+      "AccessOperation": {
+        "type": "string",
+        "enum": [
+          "list",
+          "metadata_read",
+          "content_read",
+          "search",
+          "upload",
+          "delete",
+          "share"
+        ]
+      },
+      "ReadAccessOperationSet": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 4,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "enum": [
+            "list",
+            "metadata_read",
+            "content_read",
+            "search"
+          ]
+        }
+      },
+      "BuilderSubject": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "subject_id"
+        ],
+        "properties": {
+          "subject_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "organization_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "roles": {
+            "type": "array",
+            "maxItems": 16,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9._:-]{0,63}$"
+            }
+          },
+          "attributes": {
+            "type": "object",
+            "maxProperties": 16,
+            "propertyNames": {
+              "pattern": "^[a-z][a-z0-9._:-]{0,63}$"
+            },
+            "additionalProperties": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255
+            }
+          }
+        }
+      },
+      "AccessSubject": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "public"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "server"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "authenticated"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "subject_id"
+            ],
+            "properties": {
+              "kind": {
+                "const": "subject"
+              },
+              "subject_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 255
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "organization_id"
+            ],
+            "properties": {
+              "kind": {
+                "const": "organization"
+              },
+              "organization_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 255
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "role"
+            ],
+            "properties": {
+              "kind": {
+                "const": "role"
+              },
+              "role": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9._:-]{0,63}$"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "key",
+              "value"
+            ],
+            "properties": {
+              "kind": {
+                "const": "attribute"
+              },
+              "key": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9._:-]{0,63}$"
+              },
+              "value": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 255
+              }
+            }
+          }
+        ]
+      },
+      "AccessResource": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "collection"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "path_prefix"
+            ],
+            "properties": {
+              "kind": {
+                "const": "prefix"
+              },
+              "path_prefix": {
+                "$ref": "#/components/schemas/LogicalPathPrefix"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "entry_id"
+            ],
+            "properties": {
+              "kind": {
+                "const": "entry"
+              },
+              "entry_id": {
+                "$ref": "#/components/schemas/UuidV7"
+              }
+            }
+          }
+        ]
+      },
+      "AccessRule": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "rule_id",
+          "effect",
+          "subject",
+          "operations",
+          "resource"
+        ],
+        "properties": {
+          "rule_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9._:-]{0,63}$"
+          },
+          "effect": {
+            "type": "string",
+            "enum": [
+              "allow",
+              "deny"
+            ]
+          },
+          "subject": {
+            "$ref": "#/components/schemas/AccessSubject"
+          },
+          "operations": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 7,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/components/schemas/AccessOperation"
+            }
+          },
+          "resource": {
+            "$ref": "#/components/schemas/AccessResource"
+          }
+        }
+      },
+      "AccessPolicyDocument": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "template",
+          "rules"
+        ],
+        "properties": {
+          "template": {
+            "type": "string",
+            "enum": [
+              "server_only",
+              "private",
+              "public_read"
+            ]
+          },
+          "rules": {
+            "type": "array",
+            "maxItems": 64,
+            "x-almira-unique-by": "rule_id",
+            "items": {
+              "$ref": "#/components/schemas/AccessRule"
+            }
+          }
+        }
+      },
+      "AccessPolicy": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "collection_instance_id",
+          "revision",
+          "issuer_epoch",
+          "document",
+          "updated_at"
+        ],
+        "properties": {
+          "collection_instance_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "issuer_epoch": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "document": {
+            "$ref": "#/components/schemas/AccessPolicyDocument"
+          },
+          "updated_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        }
+      },
+      "ReplaceAccessPolicyRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "expected_revision",
+          "document"
+        ],
+        "properties": {
+          "expected_revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "document": {
+            "$ref": "#/components/schemas/AccessPolicyDocument"
+          }
+        }
+      },
+      "AccessPolicyMutationOutcome": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "disposition",
+          "policy"
+        ],
+        "properties": {
+          "disposition": {
+            "type": "string",
+            "enum": [
+              "applied",
+              "exact_replay"
+            ]
+          },
+          "policy": {
+            "$ref": "#/components/schemas/AccessPolicy"
+          }
+        }
+      },
+      "SimulationPrincipal": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "public"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "server"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "subject"
+            ],
+            "properties": {
+              "kind": {
+                "const": "end_user"
+              },
+              "subject": {
+                "$ref": "#/components/schemas/BuilderSubject"
+              }
+            }
+          }
+        ]
+      },
+      "SimulationTarget": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "collection"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "entry_id",
+              "logical_path"
+            ],
+            "properties": {
+              "kind": {
+                "const": "entry"
+              },
+              "entry_id": {
+                "$ref": "#/components/schemas/UuidV7"
+              },
+              "logical_path": {
+                "$ref": "#/components/schemas/LogicalPath"
+              }
+            }
+          }
+        ]
+      },
+      "AccessSimulation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "principal",
+          "operation",
+          "target"
+        ],
+        "properties": {
+          "principal": {
+            "$ref": "#/components/schemas/SimulationPrincipal"
+          },
+          "operation": {
+            "$ref": "#/components/schemas/AccessOperation"
+          },
+          "target": {
+            "$ref": "#/components/schemas/SimulationTarget"
+          }
+        }
+      },
+      "AccessDecision": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "allowed",
+          "reason",
+          "matched_rule_ids",
+          "policy_revision"
+        ],
+        "properties": {
+          "allowed": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "allowed_by_rule",
+              "allowed_by_template",
+              "denied_by_rule",
+              "no_matching_allow"
+            ]
+          },
+          "matched_rule_ids": {
+            "type": "array",
+            "maxItems": 64,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9._:-]{0,63}$"
+            }
+          },
+          "policy_revision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "CapabilityResource": {
+        "$ref": "#/components/schemas/AccessResource"
+      },
+      "DeliveryDomain": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "hostname",
+          "state",
+          "verification_name",
+          "verification_value",
+          "certificate_expires_at"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "managed",
+              "custom"
+            ]
+          },
+          "hostname": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 253,
+            "pattern": "^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "active",
+              "pending_dns",
+              "provisioning_certificate",
+              "failed",
+              "removing"
+            ]
+          },
+          "verification_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 253
+          },
+          "verification_value": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2048
+          },
+          "certificate_expires_at": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Timestamp"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "DeliveryConfigInput": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "mode",
+              "cache_preset",
+              "logical_aliases",
+              "direct_provider_private_downloads"
+            ],
+            "properties": {
+              "mode": {
+                "const": "off"
+              },
+              "cache_preset": {
+                "const": "no_store"
+              },
+              "logical_aliases": {
+                "const": false
+              },
+              "direct_provider_private_downloads": {
+                "const": false
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "mode",
+              "cache_preset",
+              "logical_aliases",
+              "direct_provider_private_downloads"
+            ],
+            "properties": {
+              "mode": {
+                "const": "public"
+              },
+              "cache_preset": {
+                "const": "revalidate"
+              },
+              "logical_aliases": {
+                "const": false
+              },
+              "direct_provider_private_downloads": {
+                "const": false
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "mode",
+              "cache_preset",
+              "logical_aliases",
+              "direct_provider_private_downloads"
+            ],
+            "properties": {
+              "mode": {
+                "const": "private"
+              },
+              "cache_preset": {
+                "type": "string",
+                "enum": [
+                  "no_store",
+                  "private_session"
+                ]
+              },
+              "logical_aliases": {
+                "const": false
+              },
+              "direct_provider_private_downloads": {
+                "const": false
+              }
+            }
+          }
+        ]
+      },
+      "DeliveryConfig": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "collection_instance_id",
+          "mode",
+          "cache_preset",
+          "logical_aliases",
+          "direct_provider_private_downloads",
+          "domain",
+          "revision",
+          "updated_at"
+        ],
+        "properties": {
+          "collection_instance_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "off",
+              "public",
+              "private"
+            ]
+          },
+          "cache_preset": {
+            "type": "string",
+            "enum": [
+              "no_store",
+              "revalidate",
+              "private_session"
+            ]
+          },
+          "logical_aliases": {
+            "const": false
+          },
+          "direct_provider_private_downloads": {
+            "const": false
+          },
+          "domain": {
+            "$ref": "#/components/schemas/DeliveryDomain"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "updated_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        }
+      },
+      "ReplaceDeliveryConfigRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "expected_revision",
+          "config"
+        ],
+        "properties": {
+          "expected_revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "config": {
+            "$ref": "#/components/schemas/DeliveryConfigInput"
+          }
+        }
+      },
+      "DeliveryConfigOutcome": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "disposition",
+          "config"
+        ],
+        "properties": {
+          "disposition": {
+            "type": "string",
+            "enum": [
+              "applied",
+              "exact_replay"
+            ]
+          },
+          "config": {
+            "$ref": "#/components/schemas/DeliveryConfig"
+          }
+        }
+      },
+      "CreateCapabilitySessionRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "subject",
+          "operations",
+          "resource",
+          "audience",
+          "lifetime_seconds"
+        ],
+        "properties": {
+          "subject": {
+            "$ref": "#/components/schemas/BuilderSubject"
+          },
+          "operations": {
+            "$ref": "#/components/schemas/ReadAccessOperationSet"
+          },
+          "resource": {
+            "$ref": "#/components/schemas/CapabilityResource"
+          },
+          "audience": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 2048,
+            "x-almira-canonical-origin": true
+          },
+          "lifetime_seconds": {
+            "type": "integer",
+            "minimum": 60,
+            "maximum": 900
+          }
+        }
+      },
+      "CapabilitySessionGrant": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "session_id",
+          "token",
+          "operations",
+          "resource",
+          "audience",
+          "policy_revision",
+          "issuer_epoch",
+          "expires_at"
+        ],
+        "properties": {
+          "session_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "token": {
+            "type": "string",
+            "minLength": 32,
+            "maxLength": 24576,
+            "pattern": "^alm_cap_v1\\.[A-Za-z0-9_-]+$",
+            "x-sensitive": true
+          },
+          "operations": {
+            "$ref": "#/components/schemas/ReadAccessOperationSet"
+          },
+          "resource": {
+            "$ref": "#/components/schemas/CapabilityResource"
+          },
+          "audience": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 2048,
+            "x-almira-canonical-origin": true
+          },
+          "policy_revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "issuer_epoch": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "expires_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        }
+      },
+      "TokenMutationDisposition": {
+        "type": "string",
+        "enum": [
+          "applied",
+          "exact_replay"
+        ]
+      },
+      "CreateShareRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "entry_id",
+          "generation_id",
+          "lifetime_seconds"
+        ],
+        "properties": {
+          "entry_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "generation_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "lifetime_seconds": {
+            "type": "integer",
+            "minimum": 60,
+            "maximum": 604800
+          },
+          "subject": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/BuilderSubject"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "ShareGrant": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "share_id",
+          "url",
+          "entry_id",
+          "generation_id",
+          "state",
+          "policy_revision",
+          "issuer_epoch",
+          "expires_at"
+        ],
+        "properties": {
+          "share_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 4096,
+            "x-sensitive": true
+          },
+          "entry_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "generation_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "active",
+              "revoked",
+              "expired"
+            ]
+          },
+          "policy_revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "issuer_epoch": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "expires_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        }
+      },
+      "LocalIssuerCeiling": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operations",
+          "resource",
+          "audiences",
+          "maximum_lifetime_seconds"
+        ],
+        "properties": {
+          "operations": {
+            "$ref": "#/components/schemas/ReadAccessOperationSet"
+          },
+          "resource": {
+            "$ref": "#/components/schemas/CapabilityResource"
+          },
+          "audiences": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 16,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "format": "uri",
+              "maxLength": 2048,
+              "x-almira-canonical-origin": true
+            }
+          },
+          "maximum_lifetime_seconds": {
+            "type": "integer",
+            "minimum": 60,
+            "maximum": 900
+          }
+        }
+      },
+      "RegisterLocalIssuerRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "issuer_key",
+          "display_name",
+          "public_key",
+          "key_protection",
+          "ceiling"
+        ],
+        "properties": {
+          "issuer_key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9._-]{0,63}$"
+          },
+          "display_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "public_key": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{43}$",
+            "description": "Canonical unpadded base64url Ed25519 public key; private keys are never accepted."
+          },
+          "key_protection": {
+            "type": "string",
+            "enum": [
+              "cloud_kms",
+              "hardware_backed"
+            ]
+          },
+          "ceiling": {
+            "$ref": "#/components/schemas/LocalIssuerCeiling"
+          }
+        }
+      },
+      "RotateLocalIssuerKeyRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "expected_revision",
+          "public_key",
+          "key_protection"
+        ],
+        "properties": {
+          "expected_revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "public_key": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{43}$"
+          },
+          "key_protection": {
+            "type": "string",
+            "enum": [
+              "cloud_kms",
+              "hardware_backed"
+            ]
+          }
+        }
+      },
+      "LocalIssuer": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "issuer_id",
+          "issuer_key",
+          "display_name",
+          "public_key",
+          "key_protection",
+          "ceiling",
+          "state",
+          "revision",
+          "key_revision",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "issuer_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "issuer_key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9._-]{0,63}$"
+          },
+          "display_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "public_key": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{43}$"
+          },
+          "key_protection": {
+            "type": "string",
+            "enum": [
+              "cloud_kms",
+              "hardware_backed"
+            ]
+          },
+          "ceiling": {
+            "$ref": "#/components/schemas/LocalIssuerCeiling"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "active",
+              "revoked"
+            ]
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "key_revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "updated_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        }
+      },
+      "LocalIssuerMutationOutcome": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "disposition",
+          "issuer"
+        ],
+        "properties": {
+          "disposition": {
+            "type": "string",
+            "enum": [
+              "applied",
+              "exact_replay"
+            ]
+          },
+          "issuer": {
+            "$ref": "#/components/schemas/LocalIssuer"
+          }
+        }
+      },
+      "LocalIssuerSigningConfiguration": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "claims_schema_version",
+          "token_prefix",
+          "signature_context_base64url",
+          "maximum_clock_skew_seconds",
+          "realm_id",
+          "tenant_id",
+          "project_id",
+          "environment_id",
+          "collection_instance_id",
+          "issuer_id",
+          "issuer_revision",
+          "key_revision",
+          "public_key",
+          "ceiling",
+          "policy_revision",
+          "policy_issuer_epoch"
+        ],
+        "properties": {
+          "claims_schema_version": {
+            "type": "integer",
+            "const": 1
+          },
+          "token_prefix": {
+            "type": "string",
+            "const": "alm_local_v1."
+          },
+          "signature_context_base64url": {
+            "type": "string",
+            "const": "YWxtaXJhOmxvY2FsLWNhcGFiaWxpdHk6djEA",
+            "description": "Canonical unpadded base64url bytes prepended to canonical JCS claims before Ed25519 signing."
+          },
+          "maximum_clock_skew_seconds": {
+            "type": "integer",
+            "const": 30
+          },
+          "realm_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "tenant_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "project_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "environment_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "collection_instance_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "issuer_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "issuer_revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "key_revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "public_key": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{43}$"
+          },
+          "ceiling": {
+            "$ref": "#/components/schemas/LocalIssuerCeiling"
+          },
+          "policy_revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "policy_issuer_epoch": {
+            "type": "integer",
+            "minimum": 1
           }
         }
       },

@@ -23,8 +23,10 @@ change starts the same governed, resumable storage migration exposed by those su
 
 The dependency-light TypeScript client is in [`sdks/typescript`](sdks/typescript). It covers every
 operation in the promoted contract and supports same-origin browser sessions, PATs, SAKs and
-short-lived workload evidence through the standard Fetch API. Run `pnpm check` for the complete
-local repository gate.
+short-lived workload evidence through the standard Fetch API. Its separate `AlmiraDataClient`
+accepts only end-user capability tokens and exposes capability-backed metadata, immutable CDN
+generation reads, and share reads without admitting management credentials. Run `pnpm check` for
+the complete local repository gate.
 
 The first management commands are in [`clients/cli`](clients/cli). The CLI uses predictable
 noun/verb commands, JSON-only stdout, stable exit codes and environment-backed credentials; it

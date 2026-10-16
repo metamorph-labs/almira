@@ -80,6 +80,13 @@ It returns a root `operation_id` plus deterministic child operation IDs; reuse t
 ambiguous outcome. A class-only collection change starts the same governed migration; other
 unsupported existing collection changes are conflicts, never silent no-ops.
 
+Collection access, CDN delivery, shares, and local capability issuers use the same noun/verb
+shape: `policy get|set|simulate`, `delivery get|set`, `share create|revoke`, and
+`issuer list|register|rotate|revoke|signing-config`. Structured request bodies are passed through
+`--input FILE` as exact JSON so shell quoting cannot silently change a policy or key ceiling.
+Mutations retain the same `--operation-id` replay contract; issuer revocation also requires the
+current `--revision`.
+
 Exit codes are stable: `0` success, `2` usage, `3` authentication/authorization, `4` not found,
 `5` conflict, `6` retryable service response, `7` other API response, `8` local/network failure,
 and `9` unexpected internal failure.

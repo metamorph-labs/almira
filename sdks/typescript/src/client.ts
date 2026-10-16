@@ -1,17 +1,28 @@
 import { AlmiraApiError, AlmiraClientError } from "./errors.js";
 import type {
+  AccessDecision,
+  AccessPolicy,
+  AccessPolicyMutationOutcome,
+  AccessSimulation,
   BootstrapOutcome,
   BootstrapProjectRequest,
   BrowserOriginPolicy,
+  BuilderSubject,
+  CapabilitySessionGrant,
+  CapabilitySessionReference,
   Collection,
   CollectionPage,
   CollectionReference,
   CreateCollectionOutcome,
   CreateCollectionRequest,
+  CreateCapabilitySessionRequest,
   CreateEnvironmentRequest,
   CreateUploadOutcome,
   CreateUploadRequest,
+  CreateShareRequest,
   DeleteFileOutcome,
+  DeliveryConfig,
+  DeliveryConfigOutcome,
   EnvironmentList,
   EnvironmentMutationOutcome,
   EnvironmentReference,
@@ -19,18 +30,30 @@ import type {
   FileEntryPage,
   FileReference,
   FinalizeUploadRequest,
+  LocalIssuer,
+  LocalIssuerMutationOutcome,
+  LocalIssuerReference,
+  LocalIssuerSigningConfiguration,
   MutationOptions,
   PageOptions,
   PrivateFileResponse,
   ProjectReference,
   ReadPrivateFileOptions,
+  RegisterLocalIssuerRequest,
+  ReplaceAccessPolicyRequest,
   ReplaceBrowserOriginsOutcome,
   ReplaceBrowserOriginsRequest,
+  ReplaceDeliveryConfigRequest,
+  RotateLocalIssuerKeyRequest,
+  ShareGrant,
+  ShareReference,
   StorageRealizationCatalog,
   StartStorageMigrationOutcome,
   StartStorageMigrationRequest,
   StorageMigration,
   StorageMigrationReference,
+  SubjectReadOptions,
+  TokenMutationDisposition,
   UpdateEnvironmentRequest,
   UuidV7,
 } from "./types.js";
@@ -291,22 +314,29 @@ export class AlmiraClient {
 
   async listFiles(
     reference: CollectionReference,
-    options: PageOptions & { pathPrefix?: string } = {},
+    options: PageOptions & { pathPrefix?: string; subject?: BuilderSubject } = {},
   ): Promise<FileEntryPage> {
     const query = new URLSearchParams();
     appendPage(query, options);
     if (options.pathPrefix !== undefined) query.set("path_prefix", options.pathPrefix);
+    const subject = subjectHeaders(options.subject);
     return this.#json(withQuery(collectionPath(reference, "/files"), query), {
       method: "GET",
+      ...(subject === undefined ? {} : { headers: subject }),
       signal: options.signal,
     }, reference.tenantId);
   }
 
   async getFileMetadata(
     reference: FileReference,
-    options: { signal?: AbortSignal } = {},
+    options: SubjectReadOptions = {},
   ): Promise<FileEntry> {
-    return this.#json(filePath(reference), { method: "GET", signal: options.signal }, reference.tenantId);
+    const subject = subjectHeaders(options.subject);
+    return this.#json(filePath(reference), {
+      method: "GET",
+      ...(subject === undefined ? {} : { headers: subject }),
+      signal: options.signal,
+    }, reference.tenantId);
   }
 
   async deleteFile(
@@ -329,6 +359,7 @@ export class AlmiraClient {
     const query = new URLSearchParams();
     if (options.generationId !== undefined) query.set("generation_id", uuid(options.generationId));
     const headers: Record<string, string> = { accept: "application/octet-stream" };
+    Object.assign(headers, subjectHeaders(options.subject));
     if (options.range !== undefined) {
       if (options.range.length > 64 || !BYTE_RANGE.test(options.range)) invalidInput();
       headers.range = options.range;
@@ -349,6 +380,176 @@ export class AlmiraClient {
       etag: response.headers.get("etag"),
       status: response.status,
     } as PrivateFileResponse;
+  }
+
+  async getCollectionPolicy(
+    reference: CollectionReference,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<AccessPolicy> {
+    return this.#json(collectionPath(reference, "/policy"), {
+      method: "GET",
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async replaceCollectionPolicy(
+    reference: CollectionReference,
+    request: ReplaceAccessPolicyRequest,
+    options: MutationOptions,
+  ): Promise<AccessPolicyMutationOutcome> {
+    return this.#json(collectionPath(reference, "/policy"), {
+      method: "PUT",
+      headers: mutationHeaders(options.operationId),
+      body: request,
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async simulateCollectionPolicy(
+    reference: CollectionReference,
+    request: AccessSimulation,
+    options: MutationOptions,
+  ): Promise<AccessDecision> {
+    return this.#json(collectionPath(reference, "/policy/simulations"), {
+      method: "POST",
+      headers: mutationHeaders(options.operationId),
+      body: request,
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async getDeliveryConfig(
+    reference: CollectionReference,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<DeliveryConfig> {
+    return this.#json(collectionPath(reference, "/delivery"), {
+      method: "GET",
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async replaceDeliveryConfig(
+    reference: CollectionReference,
+    request: ReplaceDeliveryConfigRequest,
+    options: MutationOptions,
+  ): Promise<DeliveryConfigOutcome> {
+    return this.#json(collectionPath(reference, "/delivery"), {
+      method: "PUT",
+      headers: mutationHeaders(options.operationId),
+      body: request,
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async createCapabilitySession(
+    reference: CollectionReference,
+    request: CreateCapabilitySessionRequest,
+    options: MutationOptions,
+  ): Promise<CapabilitySessionGrant> {
+    return this.#json(collectionPath(reference, "/capability-sessions"), {
+      method: "POST",
+      headers: mutationHeaders(options.operationId),
+      body: request,
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async revokeCapabilitySession(
+    reference: CapabilitySessionReference,
+    options: MutationOptions,
+  ): Promise<TokenMutationDisposition> {
+    return this.#json(collectionPath(reference, `/capability-sessions/${uuid(reference.sessionId)}`), {
+      method: "DELETE",
+      headers: mutationHeaders(options.operationId),
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async createShare(
+    reference: CollectionReference,
+    request: CreateShareRequest,
+    options: MutationOptions,
+  ): Promise<ShareGrant> {
+    return this.#json(collectionPath(reference, "/shares"), {
+      method: "POST",
+      headers: mutationHeaders(options.operationId),
+      body: request,
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async revokeShare(
+    reference: ShareReference,
+    options: MutationOptions,
+  ): Promise<TokenMutationDisposition> {
+    return this.#json(collectionPath(reference, `/shares/${uuid(reference.shareId)}`), {
+      method: "DELETE",
+      headers: mutationHeaders(options.operationId),
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async listLocalIssuers(
+    reference: CollectionReference,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<LocalIssuer[]> {
+    return this.#json(collectionPath(reference, "/local-issuers"), {
+      method: "GET",
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async registerLocalIssuer(
+    reference: CollectionReference,
+    request: RegisterLocalIssuerRequest,
+    options: MutationOptions,
+  ): Promise<LocalIssuerMutationOutcome> {
+    return this.#json(collectionPath(reference, "/local-issuers"), {
+      method: "POST",
+      headers: mutationHeaders(options.operationId),
+      body: request,
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async rotateLocalIssuerKey(
+    reference: LocalIssuerReference,
+    request: RotateLocalIssuerKeyRequest,
+    options: MutationOptions,
+  ): Promise<LocalIssuerMutationOutcome> {
+    return this.#json(collectionPath(reference, `/local-issuers/${uuid(reference.issuerId)}/key`), {
+      method: "PUT",
+      headers: mutationHeaders(options.operationId),
+      body: request,
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async revokeLocalIssuer(
+    reference: LocalIssuerReference,
+    expectedRevision: number,
+    options: MutationOptions,
+  ): Promise<LocalIssuerMutationOutcome> {
+    if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 1) invalidInput();
+    return this.#json(collectionPath(reference, `/local-issuers/${uuid(reference.issuerId)}`), {
+      method: "DELETE",
+      headers: {
+        ...mutationHeaders(options.operationId),
+        "if-match": String(expectedRevision),
+      },
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async getLocalIssuerSigningConfiguration(
+    reference: LocalIssuerReference,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<LocalIssuerSigningConfiguration> {
+    return this.#json(
+      collectionPath(reference, `/local-issuers/${uuid(reference.issuerId)}/signing-configuration`),
+      { method: "GET", signal: options.signal },
+      reference.tenantId,
+    );
   }
 
   async #json<T>(path: string, options: JsonRequestOptions, tenantId: UuidV7): Promise<T> {
@@ -432,6 +633,34 @@ function validProductSelection(value: string): boolean {
 
 function mutationHeaders(operationId: UuidV7): Record<string, string> {
   return { "idempotency-key": uuid(operationId) };
+}
+
+function subjectHeaders(subject: BuilderSubject | undefined): Record<string, string> | undefined {
+  if (subject === undefined) return undefined;
+  let encoded: string;
+  try {
+    const canonical = JSON.stringify(canonicalJson(subject));
+    const bytes = new TextEncoder().encode(canonical);
+    if (bytes.length === 0 || bytes.length > 4 * 1024) invalidInput();
+    let binary = "";
+    for (const byte of bytes) binary += String.fromCharCode(byte);
+    encoded = globalThis.btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/u, "");
+  } catch (error) {
+    if (error instanceof AlmiraClientError) throw error;
+    return invalidInput();
+  }
+  return { "x-almira-subject-context": encoded };
+}
+
+function canonicalJson(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonicalJson);
+  if (typeof value !== "object" || value === null) return value;
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .filter(([, child]) => child !== undefined)
+      .sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0)
+      .map(([key, child]) => [key, canonicalJson(child)]),
+  );
 }
 
 function uuid(value: string): string {

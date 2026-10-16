@@ -9,8 +9,48 @@
   },
   "errors": [
     {
+      "code": "ALMIRA_ACCESS_AUTHORIZATION_EXPIRED",
+      "http_status": 403,
+      "retryable": true
+    },
+    {
+      "code": "ALMIRA_ACCESS_AUTHORIZATION_MISMATCH",
+      "http_status": 403,
+      "retryable": false
+    },
+    {
       "code": "ALMIRA_ACCESS_FORBIDDEN",
       "http_status": 403,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_ACCESS_POLICY_INVALID",
+      "http_status": 400,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_ACCESS_POLICY_NOT_FOUND",
+      "http_status": 404,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_ACCESS_POLICY_REVISION_CONFLICT",
+      "http_status": 409,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_ACCESS_REFUSED",
+      "http_status": 403,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_ACCESS_SUBJECT_INVALID",
+      "http_status": 400,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_ACCESS_TARGET_INVALID",
+      "http_status": 400,
       "retryable": false
     },
     {
@@ -92,6 +132,61 @@
       "code": "ALMIRA_COLLECTION_UNAVAILABLE",
       "http_status": 503,
       "retryable": true
+    },
+    {
+      "code": "ALMIRA_DELIVERY_ACCESS_REFUSED",
+      "http_status": 403,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_DELIVERY_CAPABILITY_INVALID",
+      "http_status": 400,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_DELIVERY_CONFIG_INVALID",
+      "http_status": 400,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_DELIVERY_CONFIG_NOT_FOUND",
+      "http_status": 404,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_DELIVERY_GRANT_EXPIRED",
+      "http_status": 410,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_DELIVERY_GRANT_REVOKED",
+      "http_status": 410,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_DELIVERY_LOCAL_ISSUER_INVALID",
+      "http_status": 400,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_DELIVERY_NOT_FOUND",
+      "http_status": 404,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_DELIVERY_ORIGIN_NOT_AVAILABLE",
+      "http_status": 404,
+      "retryable": true
+    },
+    {
+      "code": "ALMIRA_DELIVERY_REVISION_CONFLICT",
+      "http_status": 409,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_DELIVERY_SHARE_INVALID",
+      "http_status": 400,
+      "retryable": false
     },
     {
       "code": "ALMIRA_ENVIRONMENT_AUTHORIZATION_EXPIRED",
