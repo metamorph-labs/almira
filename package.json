@@ -1,0 +1,20 @@
+{
+  "name": "almira",
+  "version": "0.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "packageManager": "pnpm@11.0.9",
+  "engines": {
+    "node": "24.19.0",
+    "pnpm": "11.0.9"
+  },
+  "volta": {
+    "node": "24.19.0",
+    "pnpm": "11.0.9"
+  },
+  "scripts": {
+    "check": "pnpm check:foundation",
+    "check:foundation": "node scripts/check-foundation.mjs"
+  }
+}
+
