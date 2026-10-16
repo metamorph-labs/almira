@@ -53,6 +53,8 @@ test("tool catalog is closed and marks destructive behavior accurately", async (
       "almira_collection_create",
       "almira_collection_get",
       "almira_collection_list",
+      "almira_configuration_apply",
+      "almira_configuration_preview",
       "almira_environment_create",
       "almira_environment_delete",
       "almira_environment_list",
@@ -76,6 +78,36 @@ test("tool catalog is closed and marks destructive behavior accurately", async (
     response.tools.find((tool) => tool.name === "almira_environment_list").annotations.readOnlyHint,
     true,
   );
+});
+
+test("configuration tools preview and converge the same structured document", async (context) => {
+  const requests = [];
+  const connection = await connected(async (input, init) => {
+    requests.push({ input, init });
+    return json({ environments: [] });
+  });
+  context.after(async () => {
+    await connection.client.close();
+    await connection.server.close();
+  });
+  const configuration = { api_version: "almira/v1", environments: [] };
+  const preview = await connection.client.callTool({
+    name: "almira_configuration_preview",
+    arguments: { tenant_id: tenantId, project_id: projectId, configuration },
+  });
+  assert.equal(preview.isError, undefined);
+  assert.equal(preview.structuredContent.result.preserves_unlisted_resources, true);
+
+  const operationId = "018f0000-0000-7000-8000-000000000007";
+  const applied = await connection.client.callTool({
+    name: "almira_configuration_apply",
+    arguments: { tenant_id: tenantId, project_id: projectId, configuration, operation_id: operationId },
+  });
+  assert.equal(applied.isError, undefined);
+  assert.equal(applied.structuredContent.operation_id, operationId);
+  assert.equal(applied.structuredContent.result.disposition, "converged");
+  assert.equal(requests.length, 2);
+  assert(requests.every(({ init }) => init.method === "GET"));
 });
 
 test("storage capability tool performs one exact read without mutation authority", async (context) => {

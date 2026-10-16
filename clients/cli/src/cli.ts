@@ -1,11 +1,15 @@
 import { parseArgs } from "node:util";
 import { readFile } from "node:fs/promises";
+import { parse as parseYaml } from "yaml";
 
 import {
   AlmiraApiError,
   AlmiraClient,
   AlmiraClientError,
+  AlmiraConfigurationError,
+  applyConfiguration,
   createOperationId,
+  previewConfiguration,
   type TenancyProjectGetResponse,
 } from "@metamorph-labs/almira-sdk";
 
@@ -38,6 +42,8 @@ Commands:
   origin get              Read an environment's browser-origin policy
   origin set              Replace an environment's browser-origin policy
   storage capabilities    Discover storage realizations available to an environment
+  config preview          Preview additive almira.yaml changes
+  config apply            Apply an almira.yaml configuration
   collection list         List collections in an environment
   collection create       Create a private normal or express collection
   collection get          Read one collection
@@ -55,6 +61,7 @@ Common identifiers:
   --environment UUID      Almira environment UUIDv7
   --collection UUID       Almira collection-instance UUIDv7
   --entry UUID            Almira file-entry UUIDv7
+  --file PATH             almira.yaml path for config preview/apply
 
 Collection creation:
   --class CLASS           normal (default) or express
@@ -73,6 +80,7 @@ const options = {
   display: { type: "string" },
   entry: { type: "string" },
   environment: { type: "string" },
+  file: { type: "string" },
   help: { type: "boolean", short: "h" },
   key: { type: "string" },
   limit: { type: "string" },
@@ -165,6 +173,17 @@ export async function runCli(arguments_: string[], dependencies: CliDependencies
         ...reference,
         environmentId: required(values, "environment"),
       });
+    } else if (noun === "config" && verb === "preview") {
+      result = await previewConfiguration(client, reference, await readConfiguration(required(values, "file")));
+    } else if (noun === "config" && verb === "apply") {
+      operationId = mutationId(values);
+      mutation = true;
+      result = await applyConfiguration(
+        client,
+        reference,
+        await readConfiguration(required(values, "file")),
+        { operationId },
+      );
     } else if (noun === "collection" && verb === "list") {
       result = await client.listCollections(
         { ...reference, environmentId: required(values, "environment") },
@@ -235,6 +254,8 @@ const commandOptions = new Map<string, ReadonlySet<string>>([
   ["origin:get", new Set(["base-url", "environment", "project", "tenant"])],
   ["origin:set", new Set(["base-url", "environment", "operation-id", "origin", "project", "revision", "tenant"])],
   ["storage:capabilities", new Set(["base-url", "environment", "project", "tenant"])],
+  ["config:preview", new Set(["base-url", "file", "project", "tenant"])],
+  ["config:apply", new Set(["base-url", "file", "operation-id", "project", "tenant"])],
   ["collection:list", new Set(["base-url", "cursor", "environment", "limit", "project", "tenant"])],
   ["collection:create", new Set(["base-url", "class", "display", "environment", "key", "operation-id", "project", "scan", "tenant"])],
   ["collection:get", new Set(["base-url", "collection", "environment", "project", "tenant"])],
@@ -322,6 +343,18 @@ async function readTenancyProject(path: string): Promise<TenancyProjectGetRespon
   }
 }
 
+async function readConfiguration(path: string): Promise<unknown> {
+  try {
+    const bytes = await readFile(path);
+    if (bytes.length === 0 || bytes.length > 256 * 1024) throw new CliUsageError();
+    const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    return parseYaml(text, { maxAliasCount: 0, uniqueKeys: true });
+  } catch (error) {
+    if (error instanceof CliUsageError) throw error;
+    throw new CliUsageError();
+  }
+}
+
 function writeJson(output: { write(value: string): unknown }, value: unknown): void {
   output.write(`${JSON.stringify(value)}\n`);
 }
@@ -364,6 +397,17 @@ function report(
       recovery: error.code === "ALMIRA_CLIENT_NETWORK" ? "retry with the same operation_id" : "fix local configuration or input",
     });
     return 8;
+  }
+  if (error instanceof AlmiraConfigurationError) {
+    writeJson(output, {
+      code: error.code,
+      ...(operationId === null ? {} : { operation_id: operationId }),
+      ...(error.plan === null ? {} : { plan: error.plan }),
+      recovery: error.code === "ALMIRA_CONFIGURATION_INPUT_INVALID"
+        ? "fix almira.yaml and retry"
+        : "inspect the configuration conflicts and current capabilities",
+    });
+    return error.code === "ALMIRA_CONFIGURATION_INPUT_INVALID" ? 2 : 5;
   }
   writeJson(output, {
     code: "ALMIRA_CLI_INTERNAL",

@@ -3,7 +3,10 @@ import {
   AlmiraApiError,
   AlmiraClient,
   AlmiraClientError,
+  AlmiraConfigurationError,
+  applyConfiguration,
   createOperationId,
+  previewConfiguration,
 } from "@metamorph-labs/almira-sdk";
 import * as z from "zod/v4";
 
@@ -43,7 +46,27 @@ const page = {
   limit: z.number().int().min(1).max(100).optional(),
 };
 const environmentKey = z.string().regex(/^[a-z][a-z0-9-]{0,46}[a-z0-9]$/u);
-const environmentDisplayName = z.string().min(1).max(80).regex(/^\S(?:.*\S)?$/u);
+const environmentDisplayName = z.string().refine((value) =>
+  [...value].length >= 1 &&
+  [...value].length <= 80 &&
+  value === value.trim() &&
+  !/[\u0000-\u001f\u007f]/u.test(value),
+);
+const configurationCollection = z.object({
+  key: z.string().regex(/^[a-z]([a-z0-9_-]{0,62}[a-z0-9])?$/u),
+  display_name: environmentDisplayName,
+  malware_scan_required: z.boolean(),
+  storage_class: z.enum(["normal", "express"]).optional(),
+}).strict();
+const configuration = z.object({
+  api_version: z.literal("almira/v1"),
+  environments: z.array(z.object({
+    key: environmentKey,
+    display_name: environmentDisplayName,
+    browser_origins: z.array(z.string().min(1).max(255)).max(32).optional(),
+    collections: z.array(configurationCollection),
+  }).strict()).max(10),
+}).strict();
 
 const readAnnotations = {
   readOnlyHint: true,
@@ -75,7 +98,7 @@ const outputSchema = z
 
 /** Creates one stdio-safe MCP server over the canonical Almira SDK client. */
 export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
-  const server = new McpServer({ name: "almira", version: "0.1.0-dev.13" });
+  const server = new McpServer({ name: "almira", version: "0.1.0-dev.16" });
 
   server.registerTool(
     "almira_project_bootstrap",
@@ -110,6 +133,43 @@ export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
     },
     async ({ tenant_id, project_id }) =>
       execute(() => client.listEnvironments({ tenantId: tenant_id, projectId: project_id })),
+  );
+
+  server.registerTool(
+    "almira_configuration_preview",
+    {
+      title: "Preview Almira configuration",
+      description: "Read current state and return the deterministic additive diff for an almira.yaml v1 document.",
+      inputSchema: z.object({ ...scope, configuration }).strict(),
+      outputSchema,
+      annotations: readAnnotations,
+    },
+    async ({ tenant_id, project_id, configuration: desired }) =>
+      execute(() => previewConfiguration(
+        client,
+        { tenantId: tenant_id, projectId: project_id },
+        desired,
+      )),
+  );
+
+  server.registerTool(
+    "almira_configuration_apply",
+    {
+      title: "Apply Almira configuration",
+      description: "Apply one additive almira.yaml v1 diff through ordinary scoped Almira operations.",
+      inputSchema: z.object({ ...scope, configuration, operation_id: operationId }).strict(),
+      outputSchema,
+      annotations: mutationAnnotations,
+    },
+    async ({ tenant_id, project_id, configuration: desired, operation_id }) => {
+      const id = operation_id ?? createOperationId();
+      return execute(() => applyConfiguration(
+        client,
+        { tenantId: tenant_id, projectId: project_id },
+        desired,
+        { operationId: id },
+      ), id);
+    },
   );
 
   server.registerTool(
@@ -493,6 +553,13 @@ function safeError(error: unknown, operationId?: string): Record<string, unknown
     return {
       code: error.code,
       ...(operationId === undefined ? {} : { operation_id: operationId }),
+    };
+  }
+  if (error instanceof AlmiraConfigurationError) {
+    return {
+      code: error.code,
+      ...(operationId === undefined ? {} : { operation_id: operationId }),
+      ...(error.plan === null ? {} : { plan: error.plan }),
     };
   }
   return {

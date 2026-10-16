@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.almira.dev/configuration/almira.v1.schema.json",
+  "title": "Almira declarative configuration v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "api_version",
+    "environments"
+  ],
+  "properties": {
+    "api_version": {
+      "const": "almira/v1"
+    },
+    "environments": {
+      "type": "array",
+      "maxItems": 10,
+      "x-almira-unique-by": "key",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "display_name",
+          "collections"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 48,
+            "pattern": "^[a-z][a-z0-9-]{0,46}[a-z0-9]$"
+          },
+          "display_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "pattern": "^[^\\s\\u0000-\\u001f\\u007f](?:[^\\u0000-\\u001f\\u007f]*[^\\s\\u0000-\\u001f\\u007f])?$"
+          },
+          "browser_origins": {
+            "type": "array",
+            "maxItems": 32,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255,
+              "x-almira-canonical-origin": true
+            }
+          },
+          "collections": {
+            "type": "array",
+            "x-almira-unique-by": "key",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "key",
+                "display_name",
+                "malware_scan_required"
+              ],
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64,
+                  "pattern": "^[a-z]([a-z0-9_-]{0,62}[a-z0-9])?$"
+                },
+                "display_name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80,
+                  "pattern": "^[^\\s\\u0000-\\u001f\\u007f](?:[^\\u0000-\\u001f\\u007f]*[^\\s\\u0000-\\u001f\\u007f])?$"
+                },
+                "malware_scan_required": {
+                  "type": "boolean"
+                },
+                "storage_class": {
+                  "type": "string",
+                  "enum": [
+                    "normal",
+                    "express"
+                  ],
+                  "default": "normal"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

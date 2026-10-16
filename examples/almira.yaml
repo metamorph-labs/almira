@@ -1,0 +1,18 @@
+api_version: almira/v1
+environments:
+  - key: development
+    display_name: Development
+    browser_origins:
+      - http://localhost:3000
+    collections:
+      - key: assets
+        display_name: Assets
+        malware_scan_required: true
+        storage_class: normal
+  - key: production
+    display_name: Production
+    collections:
+      - key: assets
+        display_name: Assets
+        malware_scan_required: true
+        storage_class: normal

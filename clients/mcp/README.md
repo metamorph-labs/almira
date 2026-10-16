@@ -28,5 +28,9 @@ placed in model context; application integration uses the SDK. Mutating tools ac
 Collection creation accepts `storage_class` as `normal` (the default) or `express`; agents should
 first verify that the selected environment advertises the requested class.
 
+`almira_configuration_preview` and `almira_configuration_apply` accept the structured form of the
+public `almira.yaml` v1 schema. Preview is read-only; apply preserves unlisted resources and uses
+deterministic child operation IDs beneath its reusable root `operation_id`.
+
 The server uses the official MCP TypeScript SDK v2 and the 2026-07-28 protocol over stdio. Stdout is
 reserved exclusively for MCP; safe startup diagnostics use stderr.

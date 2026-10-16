@@ -127,6 +127,41 @@ test("collection creation uses predictable noun/verb arguments", async () => {
   assert.equal(JSON.parse(stream.output.stdout.join("")).operation_id, operationId);
 });
 
+test("configuration preview and apply consume almira.yaml without a second API", async (context) => {
+  const directory = await mkdtemp(join(tmpdir(), "almira-config-"));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const configurationPath = join(directory, "almira.yaml");
+  await writeFile(configurationPath, "api_version: almira/v1\nenvironments: []\n");
+  const invoke = async (verb) => {
+    const stream = io();
+    const exitCode = await runCli([
+      "config", verb,
+      "--tenant", tenantId,
+      "--project", projectId,
+      "--file", configurationPath,
+      ...(verb === "apply" ? ["--operation-id", operationId] : []),
+    ], {
+      environment,
+      io: stream.value,
+      fetch: async (input, init) => {
+        assert.equal(input, `https://almira.test/v1/projects/${projectId}/environments`);
+        assert.equal(init.method, "GET");
+        return json({ environments: [] });
+      },
+    });
+    assert.equal(exitCode, 0);
+    return JSON.parse(stream.output.stdout.join(""));
+  };
+
+  const preview = await invoke("preview");
+  assert.equal(preview.preserves_unlisted_resources, true);
+  assert.deepEqual(preview.actions, []);
+  const applied = await invoke("apply");
+  assert.equal(applied.operation_id, operationId);
+  assert.equal(applied.result.disposition, "converged");
+  assert.equal(applied.result.operation_id, operationId);
+});
+
 test("environment lifecycle commands preserve exact body and revision semantics", async () => {
   const requests = [];
   const invoke = async (arguments_) => {

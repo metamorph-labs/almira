@@ -54,3 +54,8 @@ evidence—never provider coordinates or credentials.
 
 Direct transfer URLs and headers returned by `createUpload` are sensitive, one-use capabilities.
 The SDK returns them only to the caller and never logs or persists them.
+
+The SDK also exports `normalizeConfiguration`, `previewConfiguration`, and `applyConfiguration`
+for the public `almira.yaml` v1 model. Preview performs reads only. Apply refuses conflicts before
+mutation, preserves unlisted resources, checks advertised storage classes, and returns a resumable
+receipt rooted in the caller-supplied operation ID.

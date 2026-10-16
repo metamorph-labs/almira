@@ -17,6 +17,8 @@ Add storage to the user's application; do not treat Almira as an application bui
 6. Call `almira_collection_list`. Reuse a suitable collection or call `almira_collection_create` with the selected advertised `storage_class` and an explicit `malware_scan_required` choice. Never infer that scanning exists when it is not configured.
 7. For browser-to-storage transfers, read the current policy with `almira_browser_origins_get`, preserve its revision, and replace it with `almira_browser_origins_replace`. Add only exact application origins.
 
+For repeatable setup, prefer a checked-in `almira.yaml` v1 document. Call `almira_configuration_preview` first, show its exact additive actions and conflicts through the host's normal approval UX, then call `almira_configuration_apply` with one retained root `operation_id`. Unlisted resources are preserved; do not describe apply as pruning or deployment.
+
 Reuse the returned `operation_id` when retrying any mutation whose result was not received. Let the host request approval normally; do not introduce a second plan or approval protocol.
 
 ## Integrate The Application

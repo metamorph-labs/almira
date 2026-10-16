@@ -23,6 +23,14 @@ almira storage capabilities \
   --tenant 018f0000-0000-7000-8000-000000000002 \
   --project 018f0000-0000-7000-8000-000000000003 \
   --environment 018f0000-0000-7000-8000-000000000004
+almira config preview \
+  --tenant 018f0000-0000-7000-8000-000000000002 \
+  --project 018f0000-0000-7000-8000-000000000003 \
+  --file ./almira.yaml
+almira config apply \
+  --tenant 018f0000-0000-7000-8000-000000000002 \
+  --project 018f0000-0000-7000-8000-000000000003 \
+  --file ./almira.yaml
 almira collection create \
   --tenant 018f0000-0000-7000-8000-000000000002 \
   --project 018f0000-0000-7000-8000-000000000003 \
@@ -47,6 +55,11 @@ returned.
 
 `collection create` defaults `--class` to `normal`. Select `express` only when the environment's
 fresh storage-capability result advertises it.
+
+`config preview` reads current state without mutation and returns a digest-bound deterministic
+diff. `config apply` is additive: omitted environments, origins, and collections are preserved.
+It returns a root `operation_id` plus deterministic child operation IDs; reuse the root ID after an
+ambiguous outcome. Unsupported existing collection changes are conflicts, never silent no-ops.
 
 Exit codes are stable: `0` success, `2` usage, `3` authentication/authorization, `4` not found,
 `5` conflict, `6` retryable service response, `7` other API response, `8` local/network failure,

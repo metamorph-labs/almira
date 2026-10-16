@@ -1,6 +1,6 @@
 {
   "name": "@metamorph-labs/almira-cli",
-  "version": "0.1.0-dev.13",
+  "version": "0.1.0-dev.16",
   "description": "Composable management CLI for Almira",
   "type": "module",
   "license": "Apache-2.0",
@@ -16,7 +16,8 @@
     "test": "pnpm build && node --test test/*.test.mjs"
   },
   "dependencies": {
-    "@metamorph-labs/almira-sdk": "workspace:*"
+    "@metamorph-labs/almira-sdk": "workspace:*",
+    "yaml": "2.8.1"
   },
   "devDependencies": {
     "@types/node": "24.10.1",

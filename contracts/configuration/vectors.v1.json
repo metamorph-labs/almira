@@ -1,0 +1,130 @@
+{
+  "schema_id": "almira.public.configuration-conformance-vectors.v1",
+  "format_version": 1,
+  "vectors": [
+    {
+      "name": "managed_development_configuration",
+      "instance": {
+        "api_version": "almira/v1",
+        "environments": [
+          {
+            "key": "development",
+            "display_name": "Development",
+            "browser_origins": [
+              "http://localhost:3000"
+            ],
+            "collections": [
+              {
+                "key": "assets",
+                "display_name": "Assets",
+                "malware_scan_required": true,
+                "storage_class": "normal"
+              }
+            ]
+          }
+        ]
+      },
+      "expected": "valid"
+    },
+    {
+      "name": "normal_class_defaults_when_omitted",
+      "instance": {
+        "api_version": "almira/v1",
+        "environments": [
+          {
+            "key": "preview-one",
+            "display_name": "Preview one",
+            "collections": [
+              {
+                "key": "sessions",
+                "display_name": "Sessions",
+                "malware_scan_required": false
+              }
+            ]
+          }
+        ]
+      },
+      "expected": "valid"
+    },
+    {
+      "name": "provider_coordinates_are_refused",
+      "instance": {
+        "api_version": "almira/v1",
+        "environments": [],
+        "bucket": "customer-data"
+      },
+      "expected": "invalid"
+    },
+    {
+      "name": "unknown_storage_class_is_refused",
+      "instance": {
+        "api_version": "almira/v1",
+        "environments": [
+          {
+            "key": "development",
+            "display_name": "Development",
+            "collections": [
+              {
+                "key": "archive",
+                "display_name": "Archive",
+                "malware_scan_required": false,
+                "storage_class": "cold"
+              }
+            ]
+          }
+        ]
+      },
+      "expected": "invalid"
+    },
+    {
+      "name": "noncanonical_origin_is_refused",
+      "instance": {
+        "api_version": "almira/v1",
+        "environments": [
+          {
+            "key": "development",
+            "display_name": "Development",
+            "browser_origins": [
+              "https://app.example/"
+            ],
+            "collections": []
+          }
+        ]
+      },
+      "expected": "invalid"
+    },
+    {
+      "name": "control_character_in_display_name_is_refused",
+      "instance": {
+        "api_version": "almira/v1",
+        "environments": [
+          {
+            "key": "development",
+            "display_name": "Develop\tment",
+            "collections": []
+          }
+        ]
+      },
+      "expected": "invalid"
+    },
+    {
+      "name": "duplicate_environment_keys_are_refused",
+      "instance": {
+        "api_version": "almira/v1",
+        "environments": [
+          {
+            "key": "development",
+            "display_name": "Development",
+            "collections": []
+          },
+          {
+            "key": "development",
+            "display_name": "Another development",
+            "collections": []
+          }
+        ]
+      },
+      "expected": "invalid"
+    }
+  ]
+}

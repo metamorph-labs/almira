@@ -7,6 +7,7 @@ This directory is the canonical Almira public contract bundle. It is authored in
 The first API slice contains:
 
 - `openapi.v1.json`: the provider-neutral management and file data contract;
+- `configuration/almira.v1.schema.json`: the closed additive `almira.yaml` v1 contract;
 - `errors.v1.json`: stable, redacted public error/status mappings; and
 - `conformance/vectors.v1.json`: executable closed-schema and error vectors.
 

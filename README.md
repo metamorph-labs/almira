@@ -16,6 +16,10 @@ Released public contracts are installed under [`contracts/`](contracts/) from a 
 digest-bound bundle produced by `almira-core`. Run `pnpm contracts:verify` to verify the installed
 bundle independently; see [`AGENTS.md`](AGENTS.md) before proposing a contract change.
 
+Declarative setup uses the closed [`almira.yaml`](examples/almira.yaml) v1 format. Preview is
+read-only and additive; apply preserves unlisted resources and executes the same scoped operations
+available individually through the SDK, CLI, MCP server, and console.
+
 The dependency-light TypeScript client is in [`sdks/typescript`](sdks/typescript). It covers every
 operation in the promoted contract and supports same-origin browser sessions, PATs, SAKs and
 short-lived workload evidence through the standard Fetch API. Run `pnpm check` for the complete
