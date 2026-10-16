@@ -39,7 +39,7 @@ Commands:
   origin set              Replace an environment's browser-origin policy
   storage capabilities    Discover storage realizations available to an environment
   collection list         List collections in an environment
-  collection create       Create a private normal collection
+  collection create       Create a private normal or express collection
   collection get          Read one collection
   file list               List file metadata
   file get                Read one file's metadata
@@ -56,6 +56,10 @@ Common identifiers:
   --collection UUID       Almira collection-instance UUIDv7
   --entry UUID            Almira file-entry UUIDv7
 
+Collection creation:
+  --class CLASS           normal (default) or express
+  --scan POLICY           required or optional
+
 Mutations accept --operation-id UUID. If omitted, the CLI creates one and includes it in output.
 Project bootstrap also requires --tenancy-project FILE containing the exact project.get response.
 All stdout is JSON. Diagnostics are stable JSON on stderr; credentials are never accepted as flags.
@@ -63,6 +67,7 @@ All stdout is JSON. Diagnostics are stable JSON on stderr; credentials are never
 
 const options = {
   "base-url": { type: "string" },
+  class: { type: "string" },
   collection: { type: "string" },
   cursor: { type: "string" },
   display: { type: "string" },
@@ -170,12 +175,15 @@ export async function runCli(arguments_: string[], dependencies: CliDependencies
       mutation = true;
       const scan = required(values, "scan");
       if (scan !== "required" && scan !== "optional") throw new CliUsageError();
+      const storageClass = stringValue(values, "class") ?? "normal";
+      if (storageClass !== "normal" && storageClass !== "express") throw new CliUsageError();
       result = await client.createCollection(
         { ...reference, environmentId: required(values, "environment") },
         {
           collection_key: required(values, "key"),
           display_name: required(values, "display"),
           malware_scan_required: scan === "required",
+          storage_class: storageClass,
         },
         { operationId },
       );
@@ -228,7 +236,7 @@ const commandOptions = new Map<string, ReadonlySet<string>>([
   ["origin:set", new Set(["base-url", "environment", "operation-id", "origin", "project", "revision", "tenant"])],
   ["storage:capabilities", new Set(["base-url", "environment", "project", "tenant"])],
   ["collection:list", new Set(["base-url", "cursor", "environment", "limit", "project", "tenant"])],
-  ["collection:create", new Set(["base-url", "display", "environment", "key", "operation-id", "project", "scan", "tenant"])],
+  ["collection:create", new Set(["base-url", "class", "display", "environment", "key", "operation-id", "project", "scan", "tenant"])],
   ["collection:get", new Set(["base-url", "collection", "environment", "project", "tenant"])],
   ["file:list", new Set(["base-url", "collection", "cursor", "environment", "limit", "path-prefix", "project", "tenant"])],
   ["file:get", new Set(["base-url", "collection", "entry", "environment", "project", "tenant"])],

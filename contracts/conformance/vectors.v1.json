@@ -163,6 +163,28 @@
       "expected": "invalid"
     },
     {
+      "name": "express_collection_selection",
+      "schema": "CreateCollectionRequest",
+      "instance": {
+        "collection_key": "sessions",
+        "display_name": "Sessions",
+        "malware_scan_required": false,
+        "storage_class": "express"
+      },
+      "expected": "valid"
+    },
+    {
+      "name": "unknown_collection_storage_class",
+      "schema": "CreateCollectionRequest",
+      "instance": {
+        "collection_key": "archives",
+        "display_name": "Archives",
+        "malware_scan_required": false,
+        "storage_class": "cold"
+      },
+      "expected": "invalid"
+    },
+    {
       "name": "server_upload_request",
       "schema": "CreateUploadRequest",
       "instance": {

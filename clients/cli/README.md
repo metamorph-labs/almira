@@ -27,7 +27,7 @@ almira collection create \
   --tenant 018f0000-0000-7000-8000-000000000002 \
   --project 018f0000-0000-7000-8000-000000000003 \
   --environment 018f0000-0000-7000-8000-000000000004 \
-  --key assets --display Assets --scan required
+  --key assets --display Assets --scan required --class normal
 ```
 
 `tenancy-project.json` is the exact successful Tenancy `project.get` result for the selected
@@ -44,6 +44,9 @@ outcome must use that value with `--operation-id`.
 environment. Provider family, location, health and supported `normal`/`express` classes are safe
 planning inputs; realization IDs are opaque and provider coordinates or credentials are never
 returned.
+
+`collection create` defaults `--class` to `normal`. Select `express` only when the environment's
+fresh storage-capability result advertises it.
 
 Exit codes are stable: `0` success, `2` usage, `3` authentication/authorization, `4` not found,
 `5` conflict, `6` retryable service response, `7` other API response, `8` local/network failure,

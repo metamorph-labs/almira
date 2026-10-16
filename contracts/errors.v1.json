@@ -84,6 +84,11 @@
       "retryable": false
     },
     {
+      "code": "ALMIRA_COLLECTION_STORAGE_CLASS_UNAVAILABLE",
+      "http_status": 409,
+      "retryable": false
+    },
+    {
       "code": "ALMIRA_COLLECTION_UNAVAILABLE",
       "http_status": 503,
       "retryable": true

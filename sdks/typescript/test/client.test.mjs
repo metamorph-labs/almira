@@ -61,7 +61,12 @@ test("bearer management request is exact and omits browser credentials", async (
 
   await client.createCollection(
     { tenantId, projectId, environmentId },
-    { collection_key: "assets", display_name: "Assets", malware_scan_required: true },
+    {
+      collection_key: "assets",
+      display_name: "Assets",
+      malware_scan_required: true,
+      storage_class: "express",
+    },
     { operationId },
   );
 
@@ -80,6 +85,7 @@ test("bearer management request is exact and omits browser credentials", async (
     collection_key: "assets",
     display_name: "Assets",
     malware_scan_required: true,
+    storage_class: "express",
   });
 });
 

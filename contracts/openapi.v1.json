@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Almira API",
-    "version": "0.1.0-dev.11",
+    "version": "0.1.0-dev.13",
     "description": "Provider-neutral application file storage management and data API."
   },
   "servers": [
@@ -510,7 +510,7 @@
         },
         "responses": {
           "201": {
-            "description": "Private normal collection created.",
+            "description": "Private collection created with the selected storage class.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1759,6 +1759,14 @@
           },
           "malware_scan_required": {
             "type": "boolean"
+          },
+          "storage_class": {
+            "type": "string",
+            "enum": [
+              "normal",
+              "express"
+            ],
+            "default": "normal"
           }
         }
       },
@@ -1802,7 +1810,11 @@
             "const": "private"
           },
           "storage_class": {
-            "const": "normal"
+            "type": "string",
+            "enum": [
+              "normal",
+              "express"
+            ]
           },
           "storage_binding_state": {
             "type": "string",

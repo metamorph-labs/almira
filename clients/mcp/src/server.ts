@@ -75,7 +75,7 @@ const outputSchema = z
 
 /** Creates one stdio-safe MCP server over the canonical Almira SDK client. */
 export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
-  const server = new McpServer({ name: "almira", version: "0.1.0-dev.11" });
+  const server = new McpServer({ name: "almira", version: "0.1.0-dev.13" });
 
   server.registerTool(
     "almira_project_bootstrap",
@@ -282,7 +282,7 @@ export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
     "almira_collection_create",
     {
       title: "Create Almira collection",
-      description: "Create one private normal collection with explicit malware-scanning policy.",
+      description: "Create one private normal or express collection with explicit malware-scanning policy.",
       inputSchema: z
         .object({
           ...scope,
@@ -290,6 +290,7 @@ export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
           collection_key: z.string().min(1).max(64),
           display_name: z.string().min(1).max(80),
           malware_scan_required: z.boolean(),
+          storage_class: z.enum(["normal", "express"]).optional(),
           operation_id: operationId,
         })
         .strict(),
@@ -303,6 +304,7 @@ export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
       collection_key,
       display_name,
       malware_scan_required,
+      storage_class,
       operation_id,
     }) => {
       const id = operation_id ?? createOperationId();
@@ -310,7 +312,12 @@ export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
         () =>
           client.createCollection(
             { tenantId: tenant_id, projectId: project_id, environmentId: environment_id },
-            { collection_key, display_name, malware_scan_required },
+            {
+              collection_key,
+              display_name,
+              malware_scan_required,
+              storage_class: storage_class ?? "normal",
+            },
             { operationId: id },
           ),
         id,

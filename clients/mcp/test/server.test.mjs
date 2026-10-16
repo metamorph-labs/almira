@@ -103,6 +103,42 @@ test("storage capability tool performs one exact read without mutation authority
   assert.equal(request.init.headers.get("idempotency-key"), null);
 });
 
+test("collection creation forwards the selected storage class", async (context) => {
+  let request;
+  const environmentId = "018f0000-0000-7000-8000-000000000004";
+  const operationId = "018f0000-0000-7000-8000-000000000007";
+  const connection = await connected(async (input, init) => {
+    request = { input, init };
+    return json({ disposition: "applied", collection: {} }, 201);
+  });
+  context.after(async () => {
+    await connection.client.close();
+    await connection.server.close();
+  });
+
+  const response = await connection.client.callTool({
+    name: "almira_collection_create",
+    arguments: {
+      tenant_id: tenantId,
+      project_id: projectId,
+      environment_id: environmentId,
+      collection_key: "sessions",
+      display_name: "Sessions",
+      malware_scan_required: false,
+      storage_class: "express",
+      operation_id: operationId,
+    },
+  });
+  assert.equal(response.isError, undefined);
+  assert.equal(request.init.headers.get("idempotency-key"), operationId);
+  assert.deepEqual(JSON.parse(request.init.body), {
+    collection_key: "sessions",
+    display_name: "Sessions",
+    malware_scan_required: false,
+    storage_class: "express",
+  });
+});
+
 test("environment tools call the exact public lifecycle operations", async (context) => {
   const requests = [];
   const connection = await connected(async (input, init) => {

@@ -118,6 +118,7 @@ export interface CreateCollectionRequest {
   collection_key: string;
   display_name: string;
   malware_scan_required: boolean;
+  storage_class?: "normal" | "express";
 }
 
 export interface Collection {
@@ -127,7 +128,7 @@ export interface Collection {
   collection_key: string;
   display_name: string;
   access_template: "private";
-  storage_class: "normal";
+  storage_class: "normal" | "express";
   storage_binding_state: "pending" | "ready" | "migrating" | "failed";
   technical_metadata_extraction: true;
   malware_scan_required: boolean;

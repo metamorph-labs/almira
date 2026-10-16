@@ -18,6 +18,17 @@ const capabilities = await almira.getStorageCapabilities({
   environmentId: environments[0].environment_id,
 });
 
+const collection = await almira.createCollection(
+  { tenantId, projectId, environmentId: environments[0].environment_id },
+  {
+    collection_key: "assets",
+    display_name: "Assets",
+    malware_scan_required: true,
+    storage_class: "normal",
+  },
+  { operationId },
+);
+
 const preview = await almira.createEnvironment(
   { tenantId, projectId },
   { environment_key: "preview-one", display_name: "Preview one" },

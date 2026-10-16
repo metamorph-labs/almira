@@ -25,6 +25,8 @@ manage browser origins and collections, and inspect file metadata. One-use uploa
 descriptors and file bytes are deliberately not
 placed in model context; application integration uses the SDK. Mutating tools accept an optional
 `operation_id` and always return the value used so an agent can safely retry an ambiguous outcome.
+Collection creation accepts `storage_class` as `normal` (the default) or `express`; agents should
+first verify that the selected environment advertises the requested class.
 
 The server uses the official MCP TypeScript SDK v2 and the 2026-07-28 protocol over stdio. Stdout is
 reserved exclusively for MCP; safe startup diagnostics use stderr.

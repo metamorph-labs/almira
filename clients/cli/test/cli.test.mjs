@@ -106,6 +106,7 @@ test("collection creation uses predictable noun/verb arguments", async () => {
       "--key", "assets",
       "--display", "Assets",
       "--scan", "required",
+      "--class", "express",
       "--operation-id", operationId,
     ],
     {
@@ -116,6 +117,7 @@ test("collection creation uses predictable noun/verb arguments", async () => {
           collection_key: "assets",
           display_name: "Assets",
           malware_scan_required: true,
+          storage_class: "express",
         });
         return json({ disposition: "applied", collection: {} }, 201);
       },
