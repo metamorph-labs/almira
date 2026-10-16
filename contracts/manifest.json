@@ -1,0 +1,31 @@
+{
+  "formatVersion": 1,
+  "product": "almira",
+  "contractVersion": "0.1.0-dev.1",
+  "source": {
+    "repository": "metamorph-labs/almira-core",
+    "algorithm": "sha256",
+    "digest": "133ad9cd84a9753a038a8553ddf1a3a3676fcc45f5533a806a93aec3a42b47cb"
+  },
+  "bundle": {
+    "algorithm": "sha256",
+    "digest": "133ad9cd84a9753a038a8553ddf1a3a3676fcc45f5533a806a93aec3a42b47cb"
+  },
+  "files": [
+    {
+      "path": "bundle.schema.json",
+      "size": 1728,
+      "digest": "fcafcbea1f9e1864fa6fc82e369dacd4a5010122de8225c8177e6d2604f97301"
+    },
+    {
+      "path": "README.md",
+      "size": 717,
+      "digest": "65d4ef46dd84f316394ed7940ac819a2b4590c31b0b2ba376907063d6bc2ae34"
+    },
+    {
+      "path": "release.json",
+      "size": 70,
+      "digest": "18abb0551e9a1a53e622d379a34a083140ca2a65f79da821c6c7b411a84cff65"
+    }
+  ]
+}
