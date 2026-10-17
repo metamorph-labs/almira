@@ -27,6 +27,9 @@ placed in model context; application integration uses the SDK. Mutating tools ac
 `operation_id` and always return the value used so an agent can safely retry an ambiguous outcome.
 Collection creation accepts `storage_class` as `normal` (the default) or `express`; agents should
 first verify that the selected environment advertises the requested class.
+`almira_collection_lifecycle_replace` sets the collection's 1–3650 day recycle window using the
+current revision. The default is 30 days, the value applies to future deletions, and existing
+recycle deadlines are unchanged.
 
 Portability tools start credential-free FileService-bound imports, start safe retained-generation
 exports, and inspect durable job progress. Imports accept no provider credential or storage target.
@@ -79,8 +82,9 @@ ambiguous start and poll `almira_storage_migration_get` until `succeeded` or `fa
 
 `almira_configuration_preview` and `almira_configuration_apply` accept the structured form of the
 public `almira.yaml` v1 schema. Preview is read-only; apply preserves unlisted resources and uses
-deterministic child operation IDs beneath its reusable root `operation_id`. Class-only changes use
-the same storage-migration operation, while explicit extraction/vector settings are applied through
+deterministic child operation IDs beneath its reusable root `operation_id`. Recycle retention is
+applied through the ordinary lifecycle operation, class changes use the same storage-migration
+operation, while explicit extraction/vector settings are applied through
 the ordinary collection extraction operation and explicit media settings use the ordinary
 collection media operation. Explicit malware-policy changes use the ordinary collection
 protection operation in the same revision-safe sequence.

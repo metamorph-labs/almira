@@ -137,8 +137,23 @@ export interface Collection {
   transcription_extraction: boolean;
   vector_indexing: boolean;
   delivery_mode: "off" | "public" | "private";
+  recycle_retention_days: number;
   revision: number;
   created_at: Timestamp;
+}
+
+export interface CollectionLifecycleInput {
+  recycle_retention_days: number;
+}
+
+export interface ReplaceCollectionLifecycleRequest {
+  expected_revision: number;
+  config: CollectionLifecycleInput;
+}
+
+export interface CollectionLifecycleOutcome {
+  disposition: "applied" | "exact_replay";
+  collection: Collection;
 }
 
 export interface CreateCollectionOutcome {

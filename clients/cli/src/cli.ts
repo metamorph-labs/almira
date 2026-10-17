@@ -68,6 +68,7 @@ Commands:
   collection list         List collections in an environment
   collection create       Create a private normal or express collection
   collection get          Read one collection
+  lifecycle set           Replace a collection's recycle-retention window
   collection migrate      Migrate a collection to another storage class
   migration get           Read durable storage-migration progress
   import start            Start an import from a FileService-issued source manifest
@@ -141,6 +142,7 @@ Common identifiers:
 Collection creation:
   --class CLASS           normal (default) or express
   --scan POLICY           required or optional
+  --days DAYS             Recycle retention from 1 to 3650 days
 
 Mutations accept --operation-id UUID. If omitted, the CLI creates one and includes it in output.
 Project bootstrap also requires --tenancy-project FILE containing the exact project.get response.
@@ -152,6 +154,7 @@ const options = {
   class: { type: "string" },
   collection: { type: "string" },
   cursor: { type: "string" },
+  days: { type: "string" },
   display: { type: "string" },
   entry: { type: "string" },
   environment: { type: "string" },
@@ -309,6 +312,19 @@ export async function runCli(arguments_: string[], dependencies: CliDependencies
       );
     } else if (noun === "collection" && verb === "get") {
       result = await client.getCollection(collectionReference(values, tenantId, projectId));
+    } else if (noun === "lifecycle" && verb === "set") {
+      operationId = mutationId(values);
+      mutation = true;
+      const days = positiveInteger(values, "days");
+      if (days > 3650) throw new CliUsageError();
+      result = await client.replaceCollectionLifecycle(
+        collectionReference(values, tenantId, projectId),
+        {
+          expected_revision: positiveInteger(values, "revision"),
+          config: { recycle_retention_days: days },
+        },
+        { operationId },
+      );
     } else if (noun === "collection" && verb === "migrate") {
       operationId = mutationId(values);
       mutation = true;
@@ -738,6 +754,7 @@ const commandOptions = new Map<string, ReadonlySet<string>>([
   ["collection:list", new Set(["base-url", "cursor", "environment", "limit", "project", "tenant"])],
   ["collection:create", new Set(["base-url", "class", "display", "environment", "key", "operation-id", "project", "scan", "tenant"])],
   ["collection:get", new Set(["base-url", "collection", "environment", "project", "tenant"])],
+  ["lifecycle:set", collectionCommandOptions("days", "operation-id", "revision")],
   ["collection:migrate", new Set(["base-url", "class", "collection", "environment", "operation-id", "project", "revision", "tenant"])],
   ["migration:get", new Set(["base-url", "collection", "environment", "migration", "project", "tenant"])],
   ["import:start", collectionCommandOptions("input", "operation-id")],

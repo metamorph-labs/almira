@@ -12,6 +12,7 @@ import type {
   CapabilitySessionReference,
   Collection,
   CollectionExtractionConfig,
+  CollectionLifecycleOutcome,
   CollectionMediaConfig,
   CollectionProtectionConfig,
   CollectionPage,
@@ -83,6 +84,7 @@ import type {
   ReplaceBrowserOriginsRequest,
   ReplaceDeliveryConfigRequest,
   ReplaceCollectionExtractionRequest,
+  ReplaceCollectionLifecycleRequest,
   ReplaceCollectionMediaRequest,
   ReplaceCollectionProtectionRequest,
   ReplaceEntryMetadataRequest,
@@ -306,6 +308,19 @@ export class AlmiraClient {
     options: { signal?: AbortSignal } = {},
   ): Promise<Collection> {
     return this.#json(collectionPath(reference), { method: "GET", signal: options.signal }, reference.tenantId);
+  }
+
+  async replaceCollectionLifecycle(
+    reference: CollectionReference,
+    request: ReplaceCollectionLifecycleRequest,
+    options: MutationOptions,
+  ): Promise<CollectionLifecycleOutcome> {
+    return this.#json(collectionPath(reference, "/lifecycle"), {
+      method: "PUT",
+      headers: mutationHeaders(options.operationId),
+      body: request,
+      signal: options.signal,
+    }, reference.tenantId);
   }
 
   async getCollectionExtraction(

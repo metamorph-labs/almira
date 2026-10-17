@@ -60,6 +60,7 @@ test("tool catalog is closed and marks destructive behavior accurately", async (
       "almira_collection_extraction_replace",
       "almira_collection_get",
       "almira_collection_import_start",
+      "almira_collection_lifecycle_replace",
       "almira_collection_list",
       "almira_collection_media_get",
       "almira_collection_media_replace",
@@ -268,6 +269,45 @@ test("media tools preserve configuration, job, and immutable generation scope", 
     ["POST", `${base}/processing-jobs/${jobId}/cancel`],
     ["GET", `${base}/files/${entryId}/versions/${generationId}/derivatives`],
   ]);
+});
+
+test("collection lifecycle tool sets bounded future-deletion retention", async (context) => {
+  const environmentId = "018f0000-0000-7000-8000-000000000004";
+  const collectionId = "018f0000-0000-7000-8000-000000000005";
+  const operationId = "018f0000-0000-7000-8000-000000000007";
+  const requests = [];
+  const connection = await connected(async (input, init) => {
+    requests.push({ input, init });
+    return json({ disposition: "applied", collection: { revision: 5 } });
+  });
+  context.after(async () => {
+    await connection.client.close();
+    await connection.server.close();
+  });
+  const result = await connection.client.callTool({
+    name: "almira_collection_lifecycle_replace",
+    arguments: {
+      tenant_id: tenantId,
+      project_id: projectId,
+      environment_id: environmentId,
+      collection_instance_id: collectionId,
+      expected_revision: 4,
+      recycle_retention_days: 90,
+      operation_id: operationId,
+    },
+  });
+  assert.equal(result.isError, undefined);
+  assert.equal(requests.length, 1);
+  assert.equal(
+    requests[0].input,
+    `https://almira.test/v1/projects/${projectId}/environments/${environmentId}/collections/${collectionId}/lifecycle`,
+  );
+  assert.equal(requests[0].init.method, "PUT");
+  assert.equal(requests[0].init.headers.get("idempotency-key"), operationId);
+  assert.deepEqual(JSON.parse(requests[0].init.body), {
+    expected_revision: 4,
+    config: { recycle_retention_days: 90 },
+  });
 });
 
 test("protection tools expose policy, cases, rescan, and review but no verdict override", async (context) => {

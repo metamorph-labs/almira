@@ -695,6 +695,39 @@ test("environment lifecycle commands preserve exact body and revision semantics"
   ]);
 });
 
+test("collection lifecycle command sets bounded recycle retention", async () => {
+  const collectionId = "018f0000-0000-7000-8000-000000000012";
+  const requests = [];
+  const stream = io();
+  const exitCode = await runCli([
+    "lifecycle", "set",
+    "--tenant", tenantId,
+    "--project", projectId,
+    "--environment", environmentId,
+    "--collection", collectionId,
+    "--days", "90",
+    "--revision", "4",
+    "--operation-id", operationId,
+  ], {
+    environment,
+    io: stream.value,
+    fetch: async (input, init) => {
+      requests.push({ input, init });
+      return json({ disposition: "applied", collection: { revision: 5 } });
+    },
+  });
+  assert.equal(exitCode, 0);
+  assert.equal(requests.length, 1);
+  assert.equal(
+    requests[0].input,
+    `https://almira.test/v1/projects/${projectId}/environments/${environmentId}/collections/${collectionId}/lifecycle`,
+  );
+  assert.deepEqual(JSON.parse(requests[0].init.body), {
+    expected_revision: 4,
+    config: { recycle_retention_days: 90 },
+  });
+});
+
 test("file lifecycle commands expose recycle, versions, rename, copy, batch, and generation selection", async (context) => {
   const collectionId = "018f0000-0000-7000-8000-000000000012";
   const entryId = "018f0000-0000-7000-8000-000000000013";

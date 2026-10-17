@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Almira API",
-    "version": "0.1.0-dev.29",
+    "version": "0.1.0-dev.31",
     "description": "Provider-neutral application file storage management and data API."
   },
   "servers": [
@@ -3805,6 +3805,70 @@
           }
         }
       }
+    },
+    "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/lifecycle": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "put": {
+        "operationId": "replaceCollectionLifecycle",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/OperationId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplaceCollectionLifecycleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Recycle policy replaced or exactly replayed; existing recycle deadlines are unchanged.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectionLifecycleOutcome"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -6067,6 +6131,7 @@
           "transcription_extraction",
           "vector_indexing",
           "delivery_mode",
+          "recycle_retention_days",
           "revision",
           "created_at"
         ],
@@ -6135,6 +6200,12 @@
               "public",
               "private"
             ]
+          },
+          "recycle_retention_days": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3650,
+            "description": "Collection policy used to compute the fixed recycle deadline for each new deletion."
           },
           "revision": {
             "type": "integer",
@@ -9083,6 +9154,57 @@
           },
           "entry": {
             "$ref": "#/components/schemas/FileEntry"
+          }
+        }
+      },
+      "CollectionLifecycleInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "recycle_retention_days"
+        ],
+        "properties": {
+          "recycle_retention_days": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3650
+          }
+        }
+      },
+      "ReplaceCollectionLifecycleRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "expected_revision",
+          "config"
+        ],
+        "properties": {
+          "expected_revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "config": {
+            "$ref": "#/components/schemas/CollectionLifecycleInput"
+          }
+        }
+      },
+      "CollectionLifecycleOutcome": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "disposition",
+          "collection"
+        ],
+        "properties": {
+          "disposition": {
+            "type": "string",
+            "enum": [
+              "applied",
+              "exact_replay"
+            ]
+          },
+          "collection": {
+            "$ref": "#/components/schemas/Collection"
           }
         }
       }

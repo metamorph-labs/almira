@@ -20,6 +20,7 @@ export interface AlmiraConfigurationCollectionV1 {
   readonly display_name: string;
   readonly malware_scan_required: boolean;
   readonly storage_class: "normal" | "express";
+  readonly recycle_retention_days: number;
   readonly extraction?: {
     readonly content: boolean;
     readonly ocr: boolean;
@@ -105,6 +106,16 @@ export type AlmiraConfigurationAction =
       readonly collection_key: string;
       readonly expected_revision: number | null;
       readonly config: NonNullable<AlmiraConfigurationCollectionV1["media"]>;
+    }
+  | {
+      readonly action_id: string;
+      readonly operation: "collection_lifecycle.replace";
+      readonly environment_id: UuidV7 | null;
+      readonly environment_key: string;
+      readonly collection_instance_id: UuidV7 | null;
+      readonly collection_key: string;
+      readonly expected_revision: number | null;
+      readonly config: { readonly recycle_retention_days: number };
     }
   | {
       readonly action_id: string;
@@ -211,6 +222,9 @@ export async function previewConfiguration(
       }
       for (const collection of desired.collections) {
         actions.push(collectionAction(desired.key, null, collection, "check_on_apply"));
+        if (collection.recycle_retention_days !== 30) {
+          actions.push(lifecycleAction(desired.key, null, null, collection, null));
+        }
         if (collection.extraction !== undefined) {
           actions.push(extractionAction(desired.key, null, null, collection, null));
         }
@@ -266,6 +280,16 @@ export async function previewConfiguration(
           continue;
         }
         let expectedRevision = existing.revision;
+        if (existing.recycle_retention_days !== collection.recycle_retention_days) {
+          actions.push(lifecycleAction(
+            desired.key,
+            environment.environment_id,
+            existing.collection_instance_id,
+            collection,
+            expectedRevision,
+          ));
+          expectedRevision += 1;
+        }
         if (existing.malware_scan_required !== collection.malware_scan_required) {
           actions.push(protectionAction(
             desired.key,
@@ -344,6 +368,15 @@ export async function previewConfiguration(
         collection,
         "verified",
       ));
+      if (collection.recycle_retention_days !== 30) {
+        actions.push(lifecycleAction(
+          desired.key,
+          environment.environment_id,
+          null,
+          collection,
+          null,
+        ));
+      }
       if (collection.extraction !== undefined) {
         actions.push(extractionAction(
           desired.key,
@@ -467,6 +500,20 @@ export async function applyConfiguration(
       );
       if (created !== undefined) created.revision = outcome.config.revision;
       receipts.push(receipt(action, operationId, outcome.disposition));
+    } else if (action.operation === "collection_lifecycle.replace") {
+      const created = createdCollections.get(collectionMapKey(action.environment_key, action.collection_key));
+      const collectionInstanceId = action.collection_instance_id ?? created?.id;
+      const expectedRevision = action.expected_revision ?? created?.revision;
+      if (collectionInstanceId === undefined || expectedRevision === undefined) {
+        throw new AlmiraClientError("ALMIRA_CLIENT_RESPONSE_INVALID");
+      }
+      const outcome = await client.replaceCollectionLifecycle(
+        { ...environment, collectionInstanceId },
+        { expected_revision: expectedRevision, config: action.config },
+        { operationId, ...signalOptions },
+      );
+      if (created !== undefined) created.revision = outcome.collection.revision;
+      receipts.push(receipt(action, operationId, outcome.disposition));
     } else if (action.operation === "collection_protection.replace") {
       const created = createdCollections.get(collectionMapKey(action.environment_key, action.collection_key));
       const collectionInstanceId = action.collection_instance_id ?? created?.id;
@@ -540,14 +587,19 @@ function normalizeEnvironment(value: unknown): AlmiraConfigurationEnvironmentV1 
 }
 
 function normalizeCollection(value: unknown): AlmiraConfigurationCollectionV1 {
-  const item = exactRecord(value, ["key", "display_name", "malware_scan_required", "storage_class", "extraction", "media"]);
+  const item = exactRecord(value, ["key", "display_name", "malware_scan_required", "storage_class", "recycle_retention_days", "extraction", "media"]);
   const storageClass = item.storage_class ?? "normal";
+  const recycleRetentionDays = item.recycle_retention_days ?? 30;
   if (
     typeof item.key !== "string" ||
     !COLLECTION_KEY.test(item.key) ||
     !validName(item.display_name, 80) ||
     typeof item.malware_scan_required !== "boolean" ||
-    (storageClass !== "normal" && storageClass !== "express")
+    (storageClass !== "normal" && storageClass !== "express") ||
+    typeof recycleRetentionDays !== "number" ||
+    !Number.isSafeInteger(recycleRetentionDays) ||
+    recycleRetentionDays < 1 ||
+    recycleRetentionDays > 3650
   ) invalidConfiguration();
   let extraction: AlmiraConfigurationCollectionV1["extraction"];
   if (item.extraction !== undefined) {
@@ -572,6 +624,7 @@ function normalizeCollection(value: unknown): AlmiraConfigurationCollectionV1 {
     display_name: item.display_name,
     malware_scan_required: item.malware_scan_required,
     storage_class: storageClass,
+    recycle_retention_days: recycleRetentionDays,
     ...(extraction === undefined ? {} : { extraction }),
     ...(media === undefined ? {} : { media }),
   };
@@ -810,6 +863,25 @@ function mediaAction(
     collection_key: collection.key,
     expected_revision: expectedRevision,
     config: collection.media,
+  };
+}
+
+function lifecycleAction(
+  environmentKey: string,
+  environmentId: UuidV7 | null,
+  collectionInstanceId: UuidV7 | null,
+  collection: AlmiraConfigurationCollectionV1,
+  expectedRevision: number | null,
+): AlmiraConfigurationAction {
+  return {
+    action_id: `collection_lifecycle.replace:${environmentKey}:${collection.key}`,
+    operation: "collection_lifecycle.replace",
+    environment_id: environmentId,
+    environment_key: environmentKey,
+    collection_instance_id: collectionInstanceId,
+    collection_key: collection.key,
+    expected_revision: expectedRevision,
+    config: { recycle_retention_days: collection.recycle_retention_days },
   };
 }
 

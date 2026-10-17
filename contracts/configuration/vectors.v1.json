@@ -18,7 +18,8 @@
                 "key": "assets",
                 "display_name": "Assets",
                 "malware_scan_required": true,
-                "storage_class": "normal"
+                "storage_class": "normal",
+                "recycle_retention_days": 90
               }
             ]
           }
@@ -130,6 +131,27 @@
                   "transcription": false,
                   "vector_indexing": true
                 }
+              }
+            ]
+          }
+        ]
+      },
+      "expected": "invalid"
+    },
+    {
+      "name": "recycle_retention_must_be_bounded",
+      "instance": {
+        "api_version": "almira/v1",
+        "environments": [
+          {
+            "key": "development",
+            "display_name": "Development",
+            "collections": [
+              {
+                "key": "assets",
+                "display_name": "Assets",
+                "malware_scan_required": true,
+                "recycle_retention_days": 0
               }
             ]
           }

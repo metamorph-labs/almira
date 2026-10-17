@@ -1,7 +1,7 @@
 {
   "schema_id": "almira.public.api-conformance-vectors.v1",
   "format_version": 1,
-  "openapi": "../openapi.v1.json",
+  "openapi": "0.1.0-dev.31",
   "schema_vectors": [
     {
       "name": "additional_environment_is_managed_by_default",
@@ -1233,6 +1233,40 @@
         "destination_path": "archive/report-copy.pdf",
         "expected_source_revision": 3,
         "provider": "aws_s3"
+      },
+      "expected": "invalid"
+    },
+    {
+      "name": "collection_recycle_policy_is_bounded",
+      "schema": "ReplaceCollectionLifecycleRequest",
+      "instance": {
+        "expected_revision": 4,
+        "config": {
+          "recycle_retention_days": 90
+        }
+      },
+      "expected": "valid"
+    },
+    {
+      "name": "collection_recycle_policy_zero_is_refused",
+      "schema": "ReplaceCollectionLifecycleRequest",
+      "instance": {
+        "expected_revision": 4,
+        "config": {
+          "recycle_retention_days": 0
+        }
+      },
+      "expected": "invalid"
+    },
+    {
+      "name": "collection_recycle_policy_cannot_add_purge_authority",
+      "schema": "ReplaceCollectionLifecycleRequest",
+      "instance": {
+        "expected_revision": 4,
+        "config": {
+          "recycle_retention_days": 90,
+          "purge_immediately": true
+        }
       },
       "expected": "invalid"
     }

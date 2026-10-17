@@ -42,6 +42,12 @@ almira collection migrate \
   --environment 018f0000-0000-7000-8000-000000000004 \
   --collection 018f0000-0000-7000-8000-000000000012 \
   --class express --revision 1
+almira lifecycle set \
+  --tenant 018f0000-0000-7000-8000-000000000002 \
+  --project 018f0000-0000-7000-8000-000000000003 \
+  --environment 018f0000-0000-7000-8000-000000000004 \
+  --collection 018f0000-0000-7000-8000-000000000012 \
+  --days 90 --revision 2
 almira migration get \
   --tenant 018f0000-0000-7000-8000-000000000002 \
   --project 018f0000-0000-7000-8000-000000000003 \
@@ -96,6 +102,10 @@ returned.
 `collection create` defaults `--class` to `normal`. Select `express` only when the environment's
 fresh storage-capability result advertises it.
 
+`lifecycle set` replaces the collection's 1–3650 day recycle-retention policy using its current
+revision. The default is 30 days. The setting is captured by later deletions and never changes an
+entry's existing recycle deadline; expired entries are no longer listed or restorable.
+
 `collection migrate` starts a governed class change using the current collection `--revision`;
 the provider target remains opaque. Uploads pause while that collection is migrating. Retain the
 emitted operation ID after an ambiguous start and use `migration get` until the durable receipt is
@@ -115,8 +125,9 @@ descriptor URL or signed headers.
 `config preview` reads current state without mutation and returns a digest-bound deterministic
 diff. `config apply` is additive: omitted environments, origins, and collections are preserved.
 It returns a root `operation_id` plus deterministic child operation IDs; reuse the root ID after an
-ambiguous outcome. A class-only collection change starts the same governed migration; other
-unsupported existing collection changes are conflicts, never silent no-ops.
+ambiguous outcome. Recycle retention, malware protection, extraction, media, and class changes use
+one revision-safe sequence; a class change starts the same governed migration. Unsupported changes
+remain conflicts, never silent no-ops.
 
 Collection malware controls use `protection get|set`. A replacement applies only to new
 generations. `scan list` reports bounded environment-wide cases and accepts optional

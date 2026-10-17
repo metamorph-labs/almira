@@ -83,6 +83,12 @@
                   ],
                   "default": "normal"
                 },
+                "recycle_retention_days": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 3650,
+                  "default": 30
+                },
                 "extraction": {
                   "type": "object",
                   "additionalProperties": false,

@@ -9,6 +9,7 @@ environments:
         display_name: Assets
         malware_scan_required: true
         storage_class: normal
+        recycle_retention_days: 30
         extraction:
           content: true
           ocr: true
@@ -31,6 +32,7 @@ environments:
         display_name: Assets
         malware_scan_required: true
         storage_class: normal
+        recycle_retention_days: 30
         extraction:
           content: true
           ocr: true

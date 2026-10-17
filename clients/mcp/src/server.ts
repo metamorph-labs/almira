@@ -91,6 +91,7 @@ const configurationCollection = z.object({
   display_name: environmentDisplayName,
   malware_scan_required: z.boolean(),
   storage_class: z.enum(["normal", "express"]).optional(),
+  recycle_retention_days: z.number().int().min(1).max(3650).optional(),
   extraction: z.object({
     content: z.boolean(),
     ocr: z.boolean(),
@@ -342,7 +343,7 @@ export function createAlmiraMcpServer(
   client: AlmiraClient,
   dependencies: AlmiraMcpDependencies = {},
 ): McpServer {
-  const server = new McpServer({ name: "almira", version: "0.1.0-dev.29" });
+  const server = new McpServer({ name: "almira", version: "0.1.0-dev.31" });
 
   server.registerTool(
     "almira_project_bootstrap",
@@ -736,6 +737,33 @@ export function createAlmiraMcpServer(
             ...(config.video_profile === undefined ? {} : { video_profile: config.video_profile }),
           },
         },
+        { operationId: id },
+      ), id);
+    },
+  );
+
+  server.registerTool(
+    "almira_collection_lifecycle_replace",
+    {
+      title: "Replace collection lifecycle policy",
+      description: "Set the collection's recycle retention for future deletions using optimistic revision control; existing recycle deadlines are unchanged.",
+      inputSchema: z.object({
+        ...collectionScope,
+        expected_revision: z.number().int().min(1),
+        recycle_retention_days: z.number().int().min(1).max(3650),
+        operation_id: operationId,
+      }).strict(),
+      outputSchema,
+      annotations: mutationAnnotations,
+    },
+    async ({
+      tenant_id, project_id, environment_id, collection_instance_id,
+      expected_revision, recycle_retention_days, operation_id,
+    }) => {
+      const id = operation_id ?? createOperationId();
+      return execute(() => client.replaceCollectionLifecycle(
+        collectionReference(tenant_id, project_id, environment_id, collection_instance_id),
+        { expected_revision, config: { recycle_retention_days } },
         { operationId: id },
       ), id);
     },

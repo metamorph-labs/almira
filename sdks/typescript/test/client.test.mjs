@@ -537,6 +537,32 @@ test("media methods preserve collection and immutable generation scope", async (
     .every(({ init }) => init.headers.get("idempotency-key") === operationId));
 });
 
+test("collection lifecycle replacement uses the collection route and optimistic revision", async () => {
+  const calls = [];
+  const client = new AlmiraClient({
+    credential: "mm_pat_v1.test",
+    fetch: async (input, init) => {
+      calls.push({ input, init });
+      return json({ disposition: "applied", collection: { revision: 5 } });
+    },
+  });
+  await client.replaceCollectionLifecycle(
+    { tenantId, projectId, environmentId, collectionInstanceId },
+    { expected_revision: 4, config: { recycle_retention_days: 90 } },
+    { operationId },
+  );
+  assert.equal(
+    calls[0].input,
+    `/v1/projects/${projectId}/environments/${environmentId}/collections/${collectionInstanceId}/lifecycle`,
+  );
+  assert.equal(calls[0].init.method, "PUT");
+  assert.equal(calls[0].init.headers.get("idempotency-key"), operationId);
+  assert.deepEqual(JSON.parse(calls[0].init.body), {
+    expected_revision: 4,
+    config: { recycle_retention_days: 90 },
+  });
+});
+
 test("protection methods preserve environment, collection, and exact-generation scope", async () => {
   const calls = [];
   const client = new AlmiraClient({

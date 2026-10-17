@@ -109,6 +109,9 @@ retained `latest_generation`, which can differ after a restore. `deleteFile` imm
 reads and starts the server-defined recycle window;
 management callers can use `listFiles({ includeDeleted: true })` and `restoreFile` before expiry.
 Builder-subject listing never admits `includeDeleted`.
+Use `replaceCollectionLifecycle` to set the collection's 1–3650 day recycle window (30 days by
+default). The new setting applies to later deletions only; each already-deleted entry keeps its
+captured deadline, and expired entries are neither listed nor restorable.
 Use `mutateFilesBatch` when up to 100 independent lifecycle changes must commit or roll back as one
 collection-local operation. Each entry may occur once and results preserve request order.
 Use `copyFile` with an exact source entry, immutable generation, optimistic source revision and new
@@ -167,6 +170,7 @@ for the public `almira.yaml` v1 model. Preview performs reads only. Apply refuse
 mutation, preserves unlisted resources, checks advertised storage classes, starts governed
 class-only migrations, applies explicit collection extraction/vector controls, and returns a
 resumable receipt rooted in the caller-supplied operation ID. Optional `media` blocks converge
-through the same collection media API. An explicit `malware_scan_required` change converges through
-the collection protection API in the same revision-safe protection → extraction → media → storage
-class sequence.
+through the same collection media API. `recycle_retention_days` defaults to 30 and converges
+through the lifecycle API. An explicit `malware_scan_required` change converges through the
+collection protection API in the same revision-safe lifecycle → protection → extraction → media →
+storage-class sequence.

@@ -516,6 +516,7 @@ test("existing collection class changes plan and apply a governed migration", as
           content_extraction: false,
           vector_indexing: false,
           delivery_mode: "off",
+          recycle_retention_days: 30,
           revision: 4,
           created_at: "2026-10-17T00:00:00Z",
         }], next_cursor: null });
@@ -632,6 +633,7 @@ test("existing collection protection, extraction, media, and class changes share
           transcription_extraction: false,
           vector_indexing: false,
           delivery_mode: "off",
+          recycle_retention_days: 30,
           revision: 4,
           created_at: "2026-10-17T00:00:00Z",
         }], next_cursor: null });
@@ -670,14 +672,17 @@ test("existing collection protection, extraction, media, and class changes share
           updated_at: "2026-10-17T00:00:00Z",
         });
       }
-      if (input.endsWith(`/collections/${collectionId}/protection`) && init.method === "PUT") {
-        return response({ disposition: "applied", config: { revision: 5 } });
+      if (input.endsWith(`/collections/${collectionId}/lifecycle`) && init.method === "PUT") {
+        return response({ disposition: "applied", collection: { revision: 5 } });
       }
-      if (input.endsWith(`/collections/${collectionId}/extraction`) && init.method === "PUT") {
+      if (input.endsWith(`/collections/${collectionId}/protection`) && init.method === "PUT") {
         return response({ disposition: "applied", config: { revision: 6 } });
       }
-      if (input.endsWith(`/collections/${collectionId}/media`) && init.method === "PUT") {
+      if (input.endsWith(`/collections/${collectionId}/extraction`) && init.method === "PUT") {
         return response({ disposition: "applied", config: { revision: 7 } });
+      }
+      if (input.endsWith(`/collections/${collectionId}/media`) && init.method === "PUT") {
+        return response({ disposition: "applied", config: { revision: 8 } });
       }
       if (input.endsWith(`/collections/${collectionId}/storage-migrations`) && init.method === "POST") {
         return response({ disposition: "applied", migration: { migration_id: operationId } }, 201);
@@ -695,6 +700,7 @@ test("existing collection protection, extraction, media, and class changes share
         display_name: "Documents",
         malware_scan_required: true,
         storage_class: "express",
+        recycle_retention_days: 90,
         extraction: { content: true, ocr: false, transcription: false, vector_indexing: true },
         media: {
           image_presets: {},
@@ -708,12 +714,13 @@ test("existing collection protection, extraction, media, and class changes share
   const plan = await previewConfiguration(client, { tenantId, projectId }, desired);
   assert.deepEqual(plan.conflicts, []);
   assert.deepEqual(plan.actions.map((action) => [action.operation, action.expected_revision]), [
-    ["collection_protection.replace", 4],
-    ["collection_extraction.replace", 5],
-    ["collection_media.replace", 6],
+    ["collection_lifecycle.replace", 4],
+    ["collection_protection.replace", 5],
+    ["collection_extraction.replace", 6],
+    ["collection_media.replace", 7],
     ["storage_migration.start", undefined],
   ]);
-  assert.equal(plan.actions[3].expected_collection_revision, 7);
+  assert.equal(plan.actions[4].expected_collection_revision, 8);
 
   const receipt = await applyConfiguration(
     client,
@@ -722,6 +729,7 @@ test("existing collection protection, extraction, media, and class changes share
     { operationId },
   );
   assert.deepEqual(receipt.actions.map((action) => action.action_id), [
+    "collection_lifecycle.replace:development:documents",
     "collection_protection.replace:development:documents",
     "collection_extraction.replace:development:documents",
     "collection_media.replace:development:documents",
@@ -729,9 +737,10 @@ test("existing collection protection, extraction, media, and class changes share
   ]);
   const mutations = calls.filter(({ init }) => init.method !== "GET");
   assert.deepEqual(mutations.map(({ init }) => JSON.parse(init.body)), [
-    { expected_revision: 4, config: { malware_scan_required: true } },
-    { expected_revision: 5, config: { content: true, ocr: false, transcription: false, vector_indexing: true } },
-    { expected_revision: 6, config: { image_presets: {}, document_previews: true, video_profile: null } },
-    { target_storage_class: "express", expected_collection_revision: 7 },
+    { expected_revision: 4, config: { recycle_retention_days: 90 } },
+    { expected_revision: 5, config: { malware_scan_required: true } },
+    { expected_revision: 6, config: { content: true, ocr: false, transcription: false, vector_indexing: true } },
+    { expected_revision: 7, config: { image_presets: {}, document_previews: true, video_profile: null } },
+    { target_storage_class: "express", expected_collection_revision: 8 },
   ]);
 });
