@@ -35,6 +35,8 @@ noun/verb commands, JSON-only stdout, stable exit codes and environment-backed c
 shares the SDK transport instead of implementing a second API client. Stable file identities can
 be listed with their immutable generations, renamed without copying bytes, switched to a retained
 generation, moved into a bounded recycle window, and restored while that window remains open.
+Bounded lifecycle batches apply up to 100 independent rename, generation-selection, recycle, or
+restore actions atomically with optimistic revisions and exact replay.
 Collections expose mandatory safe technical extraction plus explicit content, OCR and transcription
 controls. Collection protection, environment-wide scan cases, exact-generation rescans and
 content-free administrative reviews are available across the SDK, CLI, MCP server and console.

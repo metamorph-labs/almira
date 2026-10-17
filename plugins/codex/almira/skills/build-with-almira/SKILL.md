@@ -31,6 +31,7 @@ Reuse the returned `operation_id` when retrying any mutation whose result was no
 Use `@metamorph-labs/almira-sdk` instead of hand-written HTTP calls. Instantiate `AlmiraClient`, create a transfer with `createUpload`, send bytes with `uploadDirect`, and commit the generation with `finalizeUpload`. Use `readPrivateFile` for authorized reads. Follow the SDK README and the Node upload example when available in the checked-out Almira repository.
 
 Treat a file entry as the stable identity and generations as immutable bytes. For lifecycle work, use the published `createFileVersion`, `listFileGenerations`, `renameFile`, `restoreFileGeneration`, `deleteFile`, and `restoreFile` SDK methods or their management tools. Deletion must be treated as immediate read refusal even though a management caller can restore the entry during its bounded recycle window.
+For multiple independent lifecycle mutations, prefer `mutateFilesBatch`/`almira_file_batch`: it is atomic, revision-bound, limited to 100 actions, and accepts each entry only once.
 
 Use `replaceEntryMetadata` or `almira_file_customer_metadata_replace` for bounded customer tags and scalar fields. Use authoritative list filters for exact lifecycle, tag, metadata, media-type, size, time, and extraction-state queries. Read `almira_file_extraction_get` for safe exact-generation status; request `almira_file_extracted_content_get` only when the user's token has the distinct permission and the application genuinely needs the protected text.
 

@@ -654,6 +654,13 @@ test("file lifecycle methods use stable entry paths and optimistic revisions", a
     expected_revision: 4,
   }, { operationId });
   await client.restoreFile(reference, { expected_revision: 5 }, { operationId });
+  await client.mutateFilesBatch(
+    { tenantId, projectId, environmentId, collectionInstanceId },
+    { actions: [
+      { action: "rename", entry_id: entryId, logical_path: "archive/final.txt", expected_revision: 6 },
+    ] },
+    { operationId },
+  );
 
   const base = `/v1/projects/${projectId}/environments/${environmentId}/collections/${collectionInstanceId}/files/${entryId}`;
   assert.deepEqual(calls.map(({ input, init }) => ({
@@ -677,7 +684,25 @@ test("file lifecycle methods use stable entry paths and optimistic revisions", a
     { input: base, method: "PATCH", operationId, body: { logical_path: "archive/file.txt", expected_revision: 3 } },
     { input: `${base}/current-generation`, method: "PUT", operationId, body: { generation_id: generationId, expected_revision: 4 } },
     { input: `${base}/restore`, method: "POST", operationId, body: { expected_revision: 5 } },
+    {
+      input: `/v1/projects/${projectId}/environments/${environmentId}/collections/${collectionInstanceId}/file-batches`,
+      method: "POST",
+      operationId,
+      body: { actions: [{ action: "rename", entry_id: entryId, logical_path: "archive/final.txt", expected_revision: 6 }] },
+    },
   ]);
+
+  await assert.rejects(
+    client.mutateFilesBatch(
+      { tenantId, projectId, environmentId, collectionInstanceId },
+      { actions: [
+        { action: "delete", entry_id: entryId, expected_revision: 6 },
+        { action: "restore", entry_id: entryId, expected_revision: 7 },
+      ] },
+      { operationId },
+    ),
+    (error) => error instanceof AlmiraClientError && error.code === "ALMIRA_CLIENT_INPUT_INVALID",
+  );
 });
 
 test("recycle listing is management-only", async () => {

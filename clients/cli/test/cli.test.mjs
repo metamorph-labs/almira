@@ -695,10 +695,16 @@ test("environment lifecycle commands preserve exact body and revision semantics"
   ]);
 });
 
-test("file lifecycle commands expose recycle, versions, rename, and generation selection", async () => {
+test("file lifecycle commands expose recycle, versions, rename, batch, and generation selection", async (context) => {
   const collectionId = "018f0000-0000-7000-8000-000000000012";
   const entryId = "018f0000-0000-7000-8000-000000000013";
   const generationId = "018f0000-0000-7000-8000-000000000014";
+  const directory = await mkdtemp(join(tmpdir(), "almira-cli-batch-"));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const batchInput = join(directory, "batch.json");
+  await writeFile(batchInput, JSON.stringify({
+    actions: [{ action: "delete", entry_id: entryId, expected_revision: 6 }],
+  }));
   const requests = [];
   const invoke = async (arguments_) => {
     const stream = io();
@@ -726,6 +732,7 @@ test("file lifecycle commands expose recycle, versions, rename, and generation s
   await invoke(["file", "rename", ...file, "--path", "archive/file.txt", "--revision", "3", "--operation-id", operationId]);
   await invoke(["file", "select-version", ...file, "--generation", generationId, "--revision", "4", "--operation-id", operationId]);
   await invoke(["file", "restore", ...file, "--revision", "5", "--operation-id", operationId]);
+  await invoke(["file", "batch", ...common, "--input", batchInput, "--operation-id", operationId]);
 
   const base = `https://almira.test/v1/projects/${projectId}/environments/${environmentId}/collections/${collectionId}/files`;
   assert.deepEqual(requests.map(({ input, init }) => ({
@@ -739,6 +746,12 @@ test("file lifecycle commands expose recycle, versions, rename, and generation s
     { input: `${base}/${entryId}`, method: "PATCH", operationId, body: { logical_path: "archive/file.txt", expected_revision: 3 } },
     { input: `${base}/${entryId}/current-generation`, method: "PUT", operationId, body: { generation_id: generationId, expected_revision: 4 } },
     { input: `${base}/${entryId}/restore`, method: "POST", operationId, body: { expected_revision: 5 } },
+    {
+      input: `${base.replace(/\/files$/u, "")}/file-batches`,
+      method: "POST",
+      operationId,
+      body: { actions: [{ action: "delete", entry_id: entryId, expected_revision: 6 }] },
+    },
   ]);
 });
 

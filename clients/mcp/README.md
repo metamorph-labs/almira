@@ -38,6 +38,9 @@ File management tools list retained immutable generations, rename stable entries
 retained generation, move an entry into its recycle window, and restore it before expiry. Deleted
 entries are visible only when a management caller explicitly requests `include_deleted`; these
 tools never turn recycle visibility into application-user access.
+`almira_file_batch` applies up to 100 independent lifecycle mutations atomically. Each entry may
+appear once, every action carries its optimistic revision, and returned entries preserve input
+order for deterministic agent follow-up.
 
 The catalog also exposes collection extraction controls, bounded customer tags and typed metadata,
 authoritative structured list filters, lexical/semantic/hybrid `almira_file_search`, and safe

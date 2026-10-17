@@ -109,6 +109,8 @@ retained `latest_generation`, which can differ after a restore. `deleteFile` imm
 reads and starts the server-defined recycle window;
 management callers can use `listFiles({ includeDeleted: true })` and `restoreFile` before expiry.
 Builder-subject listing never admits `includeDeleted`.
+Use `mutateFilesBatch` when up to 100 independent lifecycle changes must commit or roll back as one
+collection-local operation. Each entry may occur once and results preserve request order.
 
 Collection malware policy is managed with `getCollectionProtection` and
 `replaceCollectionProtection`. A policy replacement applies only to generations created after

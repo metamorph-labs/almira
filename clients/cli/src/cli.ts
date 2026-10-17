@@ -19,6 +19,7 @@ import {
   type AccessSimulation,
   type CreateShareRequest,
   type CreateProtectionReviewRequest,
+  type FileBatchRequest,
   type RegisterLocalIssuerRequest,
   type ReplaceAccessPolicyRequest,
   type ReplaceCollectionExtractionRequest,
@@ -91,6 +92,7 @@ Commands:
   file list               List and filter authoritative file metadata
   file search             Search current files with lexical, semantic, or hybrid retrieval
   file get                Read one file's metadata
+  file batch              Apply an atomic lifecycle batch from --input JSON
   metadata get            Read bounded customer metadata for one file
   metadata set            Replace bounded customer metadata from --input JSON
   file versions           List immutable generations
@@ -548,6 +550,14 @@ export async function runCli(arguments_: string[], dependencies: CliDependencies
       });
     } else if (noun === "file" && verb === "get") {
       result = await client.getFileMetadata(fileReference(values, tenantId, projectId));
+    } else if (noun === "file" && verb === "batch") {
+      operationId = mutationId(values);
+      mutation = true;
+      result = await client.mutateFilesBatch(
+        collectionReference(values, tenantId, projectId),
+        await readJson<FileBatchRequest>(required(values, "input")),
+        { operationId },
+      );
     } else if (noun === "metadata" && verb === "get") {
       result = await client.getEntryMetadata(fileReference(values, tenantId, projectId));
     } else if (noun === "metadata" && verb === "set") {
@@ -745,6 +755,7 @@ const commandOptions = new Map<string, ReadonlySet<string>>([
     "mode", "page-size", "path-prefix", "project", "query", "tag", "tenant",
   ])],
   ["file:get", new Set(["base-url", "collection", "entry", "environment", "project", "tenant"])],
+  ["file:batch", collectionCommandOptions("input", "operation-id")],
   ["metadata:get", collectionCommandOptions("entry")],
   ["metadata:set", collectionCommandOptions("entry", "input", "operation-id")],
   ["file:versions", new Set(["base-url", "collection", "cursor", "entry", "environment", "limit", "project", "tenant"])],

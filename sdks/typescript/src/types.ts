@@ -778,6 +778,22 @@ export interface FileMutationOutcome {
   entry: FileEntry;
 }
 
+export type FileBatchAction =
+  | { action: "rename"; entry_id: UuidV7; logical_path: string; expected_revision: number }
+  | { action: "select_generation"; entry_id: UuidV7; generation_id: UuidV7; expected_revision: number }
+  | { action: "delete"; entry_id: UuidV7; expected_revision: number }
+  | { action: "restore"; entry_id: UuidV7; expected_revision: number };
+
+export interface FileBatchRequest {
+  actions: FileBatchAction[];
+}
+
+export interface FileBatchOutcome {
+  disposition: "applied" | "exact_replay";
+  /** Entries are returned in the same order as the submitted actions. */
+  entries: FileEntry[];
+}
+
 export interface DeleteFileOutcome {
   disposition: "applied" | "exact_replay";
   entry: FileEntry;

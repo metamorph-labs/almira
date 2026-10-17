@@ -36,6 +36,8 @@ import type {
   ExtractedContentReference,
   ExtractionConfigOutcome,
   FileEntry,
+  FileBatchOutcome,
+  FileBatchRequest,
   FileEntryPage,
   FileGeneration,
   FileGenerationPage,
@@ -106,6 +108,7 @@ import type {
 const UUID_V7 = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const API_ERROR = /^ALMIRA_[A-Z0-9_]{1,120}$/u;
 const BYTE_RANGE = /^bytes=[0-9]+-[0-9]*$/u;
+const LOGICAL_PATH = /^(?![.]{1,2}(?:\/|$))(?!.+\/[.]{1,2}(?:\/|$))[A-Za-z0-9._~-]{1,255}(?:\/[A-Za-z0-9._~-]{1,255})*$/u;
 const MAXIMUM_JSON_RESPONSE_BYTES = 2 * 1024 * 1024;
 
 type EvidenceProvider = () => string | Promise<string>;
@@ -641,6 +644,33 @@ export class AlmiraClient {
     options: MutationOptions,
   ): Promise<CreateUploadOutcome> {
     return this.#json(filePath(reference, "/versions"), {
+      method: "POST",
+      headers: mutationHeaders(options.operationId),
+      body: request,
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async mutateFilesBatch(
+    reference: CollectionReference,
+    request: FileBatchRequest,
+    options: MutationOptions,
+  ): Promise<FileBatchOutcome> {
+    if (!Array.isArray(request.actions) || request.actions.length < 1 || request.actions.length > 100) {
+      invalidInput();
+    }
+    const entries = new Set<string>();
+    for (const action of request.actions) {
+      uuid(action.entry_id);
+      if (!Number.isSafeInteger(action.expected_revision) || action.expected_revision < 1) invalidInput();
+      if (entries.has(action.entry_id)) invalidInput();
+      entries.add(action.entry_id);
+      if (action.action === "select_generation") uuid(action.generation_id);
+      else if (action.action === "rename") {
+        if (!LOGICAL_PATH.test(action.logical_path)) invalidInput();
+      } else if (action.action !== "delete" && action.action !== "restore") invalidInput();
+    }
+    return this.#json(collectionPath(reference, "/file-batches"), {
       method: "POST",
       headers: mutationHeaders(options.operationId),
       body: request,

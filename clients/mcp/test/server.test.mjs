@@ -73,6 +73,7 @@ test("tool catalog is closed and marks destructive behavior accurately", async (
       "almira_environment_delete",
       "almira_environment_list",
       "almira_environment_update",
+      "almira_file_batch",
       "almira_file_customer_metadata_get",
       "almira_file_customer_metadata_replace",
       "almira_file_delete",
@@ -425,6 +426,14 @@ test("file lifecycle tools preserve stable entry scope, revisions, and operation
     name: "almira_file_restore",
     arguments: { ...scope, entry_id: entryId, expected_revision: 5, operation_id: operationId },
   });
+  await connection.client.callTool({
+    name: "almira_file_batch",
+    arguments: {
+      ...scope,
+      actions: [{ action: "delete", entry_id: entryId, expected_revision: 6 }],
+      operation_id: operationId,
+    },
+  });
 
   const base = `https://almira.test/v1/projects/${projectId}/environments/${environmentId}/collections/${collectionId}/files`;
   assert.deepEqual(requests.map(({ input, init }) => ({
@@ -445,6 +454,12 @@ test("file lifecycle tools preserve stable entry scope, revisions, and operation
     { input: `${base}/${entryId}`, method: "PATCH", operationId, body: { logical_path: "archive/file.txt", expected_revision: 3 } },
     { input: `${base}/${entryId}/current-generation`, method: "PUT", operationId, body: { generation_id: generationId, expected_revision: 4 } },
     { input: `${base}/${entryId}/restore`, method: "POST", operationId, body: { expected_revision: 5 } },
+    {
+      input: `${base.replace(/\/files$/u, "")}/file-batches`,
+      method: "POST",
+      operationId,
+      body: { actions: [{ action: "delete", entry_id: entryId, expected_revision: 6 }] },
+    },
   ]);
 });
 

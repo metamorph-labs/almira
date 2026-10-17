@@ -1178,6 +1178,40 @@
         "details": "provider endpoint timed out"
       },
       "expected": "invalid"
+    },
+    {
+      "name": "atomic_file_batch_is_bounded_and_closed",
+      "schema": "FileBatchRequest",
+      "instance": {
+        "actions": [
+          {
+            "action": "rename",
+            "entry_id": "018f0000-0000-7000-8000-000000000081",
+            "logical_path": "archive/report.pdf",
+            "expected_revision": 3
+          },
+          {
+            "action": "delete",
+            "entry_id": "018f0000-0000-7000-8000-000000000082",
+            "expected_revision": 2
+          }
+        ]
+      },
+      "expected": "valid"
+    },
+    {
+      "name": "unknown_file_batch_action_is_refused",
+      "schema": "FileBatchRequest",
+      "instance": {
+        "actions": [
+          {
+            "action": "purge",
+            "entry_id": "018f0000-0000-7000-8000-000000000081",
+            "expected_revision": 3
+          }
+        ]
+      },
+      "expected": "invalid"
     }
   ],
   "error_vectors": [
@@ -1186,6 +1220,12 @@
       "condition": "authenticated scope does not equal the requested project",
       "code": "ALMIRA_FILE_SCOPE_MISMATCH",
       "http_status": 403
+    },
+    {
+      "name": "duplicate_file_batch_entry_is_invalid",
+      "condition": "the same stable file identity appears more than once in one atomic batch",
+      "code": "ALMIRA_FILE_INVALID",
+      "http_status": 400
     },
     {
       "name": "expired_transfer_is_gone",

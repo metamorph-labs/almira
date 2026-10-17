@@ -127,11 +127,13 @@ until FileService returns clean. `scan review` accepts an exact JSON `--input FI
 content-free audit records and never release content or override FileService; no release command
 exists.
 
-File lifecycle commands are `file list|get|versions|rename|select-version|delete|restore`.
+File lifecycle commands are `file list|get|versions|rename|select-version|delete|restore|batch`.
 Renaming changes only the stable entry path; versions remain immutable. `file delete` immediately
 removes read access and starts the bounded recycle window. Use `file list --include-deleted` to
 find recyclable entries and `file restore` before expiry. Rename, generation selection, delete,
 and restore all require the current `--revision`.
+`file batch --input batch.json` applies up to 100 independent revision-bound rename,
+version-selection, delete, or restore actions atomically; an entry may occur only once.
 
 Collection extraction controls use `extraction get|set`; safe technical extraction is mandatory,
 while content, OCR, transcription, and vector indexing are collection-level opt-ins. Vector

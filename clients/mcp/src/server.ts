@@ -145,6 +145,34 @@ const fileMetadataFilter = z.object({
   .refine((value) => value.minimum_size_bytes === undefined || value.maximum_size_bytes === undefined || value.minimum_size_bytes <= value.maximum_size_bytes, {
     message: "minimum_size_bytes cannot exceed maximum_size_bytes",
   });
+const fileBatchAction = z.discriminatedUnion("action", [
+  z.object({
+    action: z.literal("rename"),
+    entry_id: uuid,
+    logical_path: z.string().min(1).max(1024),
+    expected_revision: z.number().int().min(1),
+  }).strict(),
+  z.object({
+    action: z.literal("select_generation"),
+    entry_id: uuid,
+    generation_id: uuid,
+    expected_revision: z.number().int().min(1),
+  }).strict(),
+  z.object({
+    action: z.literal("delete"),
+    entry_id: uuid,
+    expected_revision: z.number().int().min(1),
+  }).strict(),
+  z.object({
+    action: z.literal("restore"),
+    entry_id: uuid,
+    expected_revision: z.number().int().min(1),
+  }).strict(),
+]);
+const fileBatchActions = z.array(fileBatchAction).min(1).max(100).refine(
+  (actions) => new Set(actions.map((action) => action.entry_id)).size === actions.length,
+  { message: "an entry may occur only once in an atomic batch" },
+);
 const searchFacet = z.string().regex(/^(?:tags|verified_media_type|custom\.[a-z](?:[a-z0-9._-]{0,62}[a-z0-9])?)$/u);
 const searchInput = z.object({
   query: z.string().min(1).max(1024).refine((value) => value === value.trim() && !/[\u0000-\u001f\u007f]/u.test(value)),
@@ -314,7 +342,7 @@ export function createAlmiraMcpServer(
   client: AlmiraClient,
   dependencies: AlmiraMcpDependencies = {},
 ): McpServer {
-  const server = new McpServer({ name: "almira", version: "0.1.0-dev.27" });
+  const server = new McpServer({ name: "almira", version: "0.1.0-dev.28" });
 
   server.registerTool(
     "almira_project_bootstrap",
@@ -1337,6 +1365,29 @@ export function createAlmiraMcpServer(
         ...fileReference(tenant_id, project_id, environment_id, collection_instance_id, entry_id),
         generationId: generation_id,
       })),
+  );
+
+  server.registerTool(
+    "almira_file_batch",
+    {
+      title: "Mutate Almira files atomically",
+      description: "Apply up to 100 independent revision-bound rename, version-selection, delete, or restore actions as one atomic collection mutation.",
+      inputSchema: z.object({
+        ...collectionScope,
+        actions: fileBatchActions,
+        operation_id: operationId,
+      }).strict(),
+      outputSchema,
+      annotations: deleteAnnotations,
+    },
+    async ({ tenant_id, project_id, environment_id, collection_instance_id, actions, operation_id }) => {
+      const id = operation_id ?? createOperationId();
+      return execute(() => client.mutateFilesBatch(
+        { tenantId: tenant_id, projectId: project_id, environmentId: environment_id, collectionInstanceId: collection_instance_id },
+        { actions },
+        { operationId: id },
+      ), id);
+    },
   );
 
   server.registerTool(
