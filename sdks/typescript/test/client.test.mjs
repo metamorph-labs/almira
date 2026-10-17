@@ -225,6 +225,74 @@ test("storage migration start and status use the collection-scoped contract", as
   ]);
 });
 
+test("portable import, export, status, and download use exact collection scope", async () => {
+  const calls = [];
+  const source = {
+    source_binding_id: "018f0000-0000-7000-8000-000000000021",
+    source_binding_generation: 1,
+    manifest_sha256: `sha256:${"a".repeat(64)}`,
+    objects_total: 1,
+    bytes_total: 12,
+  };
+  const job = {
+    job_id: operationId,
+    environment_id: environmentId,
+    collection_instance_id: collectionInstanceId,
+    kind: "export",
+  };
+  const descriptor = {
+    descriptor_id: "018f0000-0000-7000-8000-000000000022",
+    method: "GET",
+    url: "https://transfer.example.invalid/export?grant=opaque",
+    headers: [],
+    expected_size_bytes: 64,
+    content_sha256: `sha256:${"b".repeat(64)}`,
+    one_use: true,
+    expires_at: "2099-10-17T00:00:00Z",
+  };
+  const client = new AlmiraClient({
+    credential: "mm_pat_v1.test",
+    fetch: async (input, init) => {
+      calls.push({ input, init });
+      if (String(input).endsWith("/imports")) return json({ disposition: "applied", job }, { status: 201 });
+      if (String(input).endsWith("/exports")) return json({ disposition: "applied", job }, { status: 201 });
+      if (String(input).endsWith("/download")) return json(descriptor, { status: 201 });
+      if (String(input).includes("/portability-jobs?")) return json({ jobs: [job], next_cursor: null });
+      return json(job);
+    },
+  });
+  const reference = { tenantId, projectId, environmentId, collectionInstanceId };
+  const importRequest = {
+    expected_collection_revision: 3,
+    source,
+    objects: [{
+      source_object_id: "018f0000-0000-7000-8000-000000000023",
+      logical_path: "documents/readme.txt",
+      expected_size_bytes: 12,
+      content_sha256: `sha256:${"c".repeat(64)}`,
+      declared_media_type: "text/plain",
+    }],
+  };
+  await client.startCollectionImport(reference, importRequest, { operationId });
+  await client.startCollectionExport(reference, { expected_collection_revision: 3 }, { operationId });
+  await client.listPortabilityJobs(reference, { kind: "export", limit: 25, cursor: "next" });
+  await client.getPortabilityJob({ ...reference, jobId: operationId });
+  await client.createPortabilityExportDownload({ ...reference, jobId: operationId }, { operationId });
+  const base = `/v1/projects/${projectId}/environments/${environmentId}/collections/${collectionInstanceId}`;
+  assert.deepEqual(calls.map(({ input, init }) => ({
+    input,
+    method: init.method,
+    operation: init.headers.get("idempotency-key"),
+    body: init.body === undefined ? undefined : JSON.parse(init.body),
+  })), [
+    { input: `${base}/imports`, method: "POST", operation: operationId, body: importRequest },
+    { input: `${base}/exports`, method: "POST", operation: operationId, body: { expected_collection_revision: 3 } },
+    { input: `${base}/portability-jobs?limit=25&cursor=next&kind=export`, method: "GET", operation: null, body: undefined },
+    { input: `${base}/portability-jobs/${operationId}`, method: "GET", operation: null, body: undefined },
+    { input: `${base}/portability-jobs/${operationId}/download`, method: "POST", operation: operationId, body: undefined },
+  ]);
+});
+
 test("management search sends one bounded collection request with optional subject context", async () => {
   let call;
   const client = new AlmiraClient({

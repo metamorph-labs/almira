@@ -1,13 +1,22 @@
+import { createHash } from "node:crypto";
+import { createWriteStream } from "node:fs";
+import { link, unlink } from "node:fs/promises";
+import { Readable, Transform } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import { McpServer } from "@modelcontextprotocol/server";
 import {
   AlmiraApiError,
   AlmiraClient,
   AlmiraClientError,
   AlmiraConfigurationError,
+  AlmiraTransferError,
   applyConfiguration,
   createOperationId,
+  openPortableExport,
   previewConfiguration,
+  type PortableExportStream,
   type SearchInput,
+  type StartCollectionImportRequest,
 } from "@metamorph-labs/almira-sdk";
 import * as z from "zod/v4";
 
@@ -225,6 +234,41 @@ const protectionReviewReason = z.string().refine((value) => {
   const bytes = new TextEncoder().encode(value).length;
   return bytes >= 12 && bytes <= 1000 && value === value.trim() && !/[\u0000-\u001f\u007f]/u.test(value);
 }, { message: "reason must be 12-1000 UTF-8 bytes without surrounding whitespace or controls" });
+const contentSha256 = z.string().regex(/^sha256:[0-9a-f]{64}$/u);
+const logicalPath = z.string().regex(/^[A-Za-z0-9._~-]+(?:\/[A-Za-z0-9._~-]+)*$/u).max(1024);
+const importSource = z.object({
+  source_binding_id: uuid,
+  source_binding_generation: z.number().int().min(1),
+  manifest_sha256: contentSha256,
+  objects_total: z.number().int().min(1).max(100),
+  bytes_total: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER),
+}).strict();
+const importObject = z.object({
+  source_object_id: uuid,
+  logical_path: logicalPath,
+  expected_size_bytes: z.number().int().min(1).max(10_737_418_240),
+  content_sha256: contentSha256,
+  declared_media_type: z.string().regex(/^[a-z0-9!#$&^_.+-]+\/[a-z0-9!#$&^_.+-]+$/u).max(127),
+}).strict();
+const importRequest = z.object({
+  expected_collection_revision: z.number().int().min(1),
+  source: importSource,
+  objects: z.array(importObject).min(1).max(100),
+  destination_prefix: logicalPath.optional(),
+}).strict()
+  .refine((value) => value.objects.length === value.source.objects_total, {
+    message: "source objects_total must equal objects length",
+  })
+  .refine((value) => value.objects.reduce((total, object) => total + object.expected_size_bytes, 0) === value.source.bytes_total, {
+    message: "source bytes_total must equal object sizes",
+  })
+  .refine((value) => new Set(value.objects.map((object) => object.source_object_id)).size === value.objects.length, {
+    message: "source_object_id values must be unique",
+  })
+  .refine((value) => new Set(value.objects.map((object) => object.logical_path)).size === value.objects.length, {
+    message: "logical_path values must be unique",
+  });
+const outputPath = z.string().min(1).max(4096).refine((value) => !/[\u0000\r\n]/u.test(value));
 
 const readAnnotations = {
   readOnlyHint: true,
@@ -247,6 +291,13 @@ const deleteAnnotations = {
   openWorldHint: true,
 } as const;
 
+const transferAnnotations = {
+  readOnlyHint: false,
+  destructiveHint: false,
+  idempotentHint: false,
+  openWorldHint: true,
+} as const;
+
 const outputSchema = z
   .object({
     operation_id: uuid.optional(),
@@ -254,9 +305,16 @@ const outputSchema = z
   })
   .strict();
 
+export interface AlmiraMcpDependencies {
+  fetch?: typeof globalThis.fetch;
+}
+
 /** Creates one stdio-safe MCP server over the canonical Almira SDK client. */
-export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
-  const server = new McpServer({ name: "almira", version: "0.1.0-dev.26" });
+export function createAlmiraMcpServer(
+  client: AlmiraClient,
+  dependencies: AlmiraMcpDependencies = {},
+): McpServer {
+  const server = new McpServer({ name: "almira", version: "0.1.0-dev.27" });
 
   server.registerTool(
     "almira_project_bootstrap",
@@ -909,6 +967,143 @@ export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
   );
 
   server.registerTool(
+    "almira_collection_import_start",
+    {
+      title: "Start collection import",
+      description: "Start a governed import from a FileService-issued opaque source binding and bounded credential-free manifest.",
+      inputSchema: z.object({
+        ...collectionScope,
+        request: importRequest,
+        operation_id: operationId,
+      }).strict(),
+      outputSchema,
+      annotations: mutationAnnotations,
+    },
+    async ({ tenant_id, project_id, environment_id, collection_instance_id, request, operation_id }) => {
+      const id = operation_id ?? createOperationId();
+      return execute(() => client.startCollectionImport(
+        collectionReference(tenant_id, project_id, environment_id, collection_instance_id),
+        request as StartCollectionImportRequest,
+        { operationId: id },
+      ), id);
+    },
+  );
+
+  server.registerTool(
+    "almira_collection_export_start",
+    {
+      title: "Start collection export",
+      description: "Start a portable export containing only retained, available, safety-admitted generations and derivatives.",
+      inputSchema: z.object({
+        ...collectionScope,
+        expected_collection_revision: z.number().int().min(1),
+        operation_id: operationId,
+      }).strict(),
+      outputSchema,
+      annotations: mutationAnnotations,
+    },
+    async ({
+      tenant_id,
+      project_id,
+      environment_id,
+      collection_instance_id,
+      expected_collection_revision,
+      operation_id,
+    }) => {
+      const id = operation_id ?? createOperationId();
+      return execute(() => client.startCollectionExport(
+        collectionReference(tenant_id, project_id, environment_id, collection_instance_id),
+        { expected_collection_revision },
+        { operationId: id },
+      ), id);
+    },
+  );
+
+  server.registerTool(
+    "almira_portability_jobs_list",
+    {
+      title: "List portability jobs",
+      description: "List durable collection import and export progress without transfer credentials.",
+      inputSchema: z.object({
+        ...collectionScope,
+        kind: z.enum(["import", "export"]).optional(),
+        ...page,
+      }).strict(),
+      outputSchema,
+      annotations: readAnnotations,
+    },
+    async ({ tenant_id, project_id, environment_id, collection_instance_id, kind, cursor, limit }) =>
+      execute(() => client.listPortabilityJobs(
+        collectionReference(tenant_id, project_id, environment_id, collection_instance_id),
+        {
+          ...(kind === undefined ? {} : { kind }),
+          ...(cursor === undefined ? {} : { cursor }),
+          ...(limit === undefined ? {} : { limit }),
+        },
+      )),
+  );
+
+  server.registerTool(
+    "almira_portability_job_get",
+    {
+      title: "Get portability job",
+      description: "Read durable import or export progress and its terminal credential-free receipt.",
+      inputSchema: z.object({ ...collectionScope, portability_job_id: uuid }).strict(),
+      outputSchema,
+      annotations: readAnnotations,
+    },
+    async ({ tenant_id, project_id, environment_id, collection_instance_id, portability_job_id }) =>
+      execute(() => client.getPortabilityJob({
+        ...collectionReference(tenant_id, project_id, environment_id, collection_instance_id),
+        jobId: portability_job_id,
+      })),
+  );
+
+  server.registerTool(
+    "almira_portability_export_download",
+    {
+      title: "Download portable export",
+      description: "Consume a fresh one-use export instruction, stream and verify it, and create a new local file without returning transfer secrets.",
+      inputSchema: z.object({
+        ...collectionScope,
+        portability_job_id: uuid,
+        output_path: outputPath,
+        operation_id: operationId,
+      }).strict(),
+      outputSchema,
+      annotations: transferAnnotations,
+    },
+    async ({
+      tenant_id,
+      project_id,
+      environment_id,
+      collection_instance_id,
+      portability_job_id,
+      output_path,
+      operation_id,
+    }) => {
+      const id = operation_id ?? createOperationId();
+      const reference = {
+        ...collectionReference(tenant_id, project_id, environment_id, collection_instance_id),
+        jobId: portability_job_id,
+      };
+      return execute(async () => {
+        const descriptor = await client.createPortabilityExportDownload(reference, { operationId: id });
+        const stream = await openPortableExport(descriptor, {
+          ...(dependencies.fetch === undefined ? {} : { fetch: dependencies.fetch }),
+        });
+        await savePortableExport(output_path, descriptor.descriptor_id, stream);
+        return {
+          job_id: portability_job_id,
+          output_path,
+          size_bytes: stream.sizeBytes,
+          content_sha256: stream.contentSha256,
+        };
+      }, id);
+    },
+  );
+
+  server.registerTool(
     "almira_file_list",
     {
       title: "List Almira files",
@@ -1524,6 +1719,58 @@ function fileReference(
   return { tenantId, projectId, environmentId, collectionInstanceId, entryId };
 }
 
+class McpDownloadError extends Error {
+  readonly code:
+    | "ALMIRA_MCP_OUTPUT_EXISTS"
+    | "ALMIRA_MCP_OUTPUT_INVALID"
+    | "ALMIRA_MCP_OUTPUT_WRITE_FAILED";
+
+  constructor(code: McpDownloadError["code"]) {
+    super(code);
+    this.code = code;
+  }
+}
+
+async function savePortableExport(
+  output: string,
+  descriptorId: string,
+  stream: PortableExportStream,
+): Promise<void> {
+  const temporary = `${output}.almira-${descriptorId}.partial`;
+  const hash = createHash("sha256");
+  let size = 0;
+  const meter = new Transform({
+    transform(chunk: Buffer, _encoding, callback) {
+      size += chunk.length;
+      hash.update(chunk);
+      callback(null, chunk);
+    },
+  });
+  try {
+    await pipeline(
+      Readable.fromWeb(stream.body as Parameters<typeof Readable.fromWeb>[0]),
+      meter,
+      createWriteStream(temporary, { flags: "wx", mode: 0o600 }),
+    );
+    if (size !== stream.sizeBytes || `sha256:${hash.digest("hex")}` !== stream.contentSha256) {
+      throw new McpDownloadError("ALMIRA_MCP_OUTPUT_INVALID");
+    }
+    await link(temporary, output);
+    await unlink(temporary).catch(() => undefined);
+  } catch (error) {
+    await unlink(temporary).catch(() => undefined);
+    if (error instanceof McpDownloadError) throw error;
+    if (isFileSystemError(error) && error.code === "EEXIST") {
+      throw new McpDownloadError("ALMIRA_MCP_OUTPUT_EXISTS");
+    }
+    throw new McpDownloadError("ALMIRA_MCP_OUTPUT_WRITE_FAILED");
+  }
+}
+
+function isFileSystemError(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && "code" in error;
+}
+
 async function execute(call: () => Promise<unknown>, operationId?: string) {
   try {
     const result = await call();
@@ -1565,6 +1812,18 @@ function safeError(error: unknown, operationId?: string): Record<string, unknown
       code: error.code,
       ...(operationId === undefined ? {} : { operation_id: operationId }),
       ...(error.plan === null ? {} : { plan: error.plan }),
+    };
+  }
+  if (error instanceof AlmiraTransferError) {
+    return {
+      code: error.code,
+      ...(operationId === undefined ? {} : { operation_id: operationId }),
+    };
+  }
+  if (error instanceof McpDownloadError) {
+    return {
+      code: error.code,
+      ...(operationId === undefined ? {} : { operation_id: operationId }),
     };
   }
   return {

@@ -4,6 +4,7 @@ import type {
   DirectUploadPart,
   DirectUploadPartCompletion,
   FinalizeUploadRequest,
+  PortableDownloadDescriptor,
 } from "./types.js";
 
 const UUID_V7 = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
@@ -19,6 +20,12 @@ export interface DirectUploadOptions {
   fetch?: typeof globalThis.fetch;
   now?: () => number;
   signal?: AbortSignal;
+}
+
+export interface PortableExportStream {
+  body: ReadableStream<Uint8Array>;
+  contentSha256: `sha256:${string}`;
+  sizeBytes: number;
 }
 
 /**
@@ -71,6 +78,55 @@ export async function uploadDirect(
     parts,
     size_bytes: size,
     content_sha256: descriptor.content_sha256,
+  };
+}
+
+/**
+ * Opens a one-use portable-export download as a stream without exposing its bearer in errors.
+ * Consumers must hash the stream and compare it with `contentSha256` before accepting the file.
+ */
+export async function openPortableExport(
+  descriptor: PortableDownloadDescriptor,
+  options: DirectUploadOptions = {},
+): Promise<PortableExportStream> {
+  validatePortableDescriptor(descriptor);
+  const now = options.now ?? Date.now;
+  const currentTime = now();
+  if (!Number.isFinite(currentTime) || Date.parse(descriptor.expires_at) <= currentTime) {
+    throw new AlmiraTransferError("ALMIRA_TRANSFER_DESCRIPTOR_EXPIRED");
+  }
+  const fetch_ = options.fetch ?? globalThis.fetch;
+  if (typeof fetch_ !== "function") invalidDescriptor();
+  let response: Response;
+  try {
+    response = await fetch_(descriptor.url, {
+      method: "GET",
+      headers: new Headers(
+        descriptor.headers.map(({ name, value }): [string, string] => [name, value]),
+      ),
+      credentials: "omit",
+      redirect: "error",
+      ...(options.signal === undefined ? {} : { signal: options.signal }),
+    });
+  } catch {
+    throw new AlmiraTransferError("ALMIRA_TRANSFER_OUTCOME_UNKNOWN");
+  }
+  if (!response.ok) {
+    await discard(response);
+    throw new AlmiraTransferError("ALMIRA_TRANSFER_PART_REFUSED", null, response.status);
+  }
+  const contentLength = response.headers.get("content-length");
+  if (
+    response.body === null ||
+    (contentLength !== null && Number(contentLength) !== descriptor.expected_size_bytes)
+  ) {
+    await discard(response);
+    throw new AlmiraTransferError("ALMIRA_TRANSFER_RESPONSE_INVALID");
+  }
+  return {
+    body: response.body,
+    contentSha256: descriptor.content_sha256,
+    sizeBytes: descriptor.expected_size_bytes,
   };
 }
 
@@ -150,6 +206,28 @@ function validateDescriptor(descriptor: DirectUploadDescriptor, size: number): v
     offset += request.length_bytes;
   }
   if (offset !== size) invalidDescriptor();
+}
+
+function validatePortableDescriptor(descriptor: PortableDownloadDescriptor): void {
+  if (
+    descriptor === null ||
+    typeof descriptor !== "object" ||
+    !UUID_V7.test(descriptor.descriptor_id) ||
+    descriptor.method !== "GET" ||
+    !validTransferUrl(descriptor.url) ||
+    !Array.isArray(descriptor.headers) ||
+    descriptor.headers.length > 16 ||
+    descriptor.headers.some(({ name, value }) =>
+      !/^[A-Za-z0-9_-]{1,128}$/u.test(name) ||
+      value.length < 1 ||
+      value.length > 8192 ||
+      /[\u0000-\u001f\u007f]/u.test(value)) ||
+    !Number.isSafeInteger(descriptor.expected_size_bytes) ||
+    descriptor.expected_size_bytes < 1 ||
+    !CONTENT_SHA256.test(descriptor.content_sha256) ||
+    descriptor.one_use !== true ||
+    !Number.isFinite(Date.parse(descriptor.expires_at))
+  ) invalidDescriptor();
 }
 
 function validTransferUrl(value: string): boolean {

@@ -436,6 +436,99 @@ export interface StartStorageMigrationOutcome {
   migration: StorageMigration;
 }
 
+export interface ImportSourceBinding {
+  source_binding_id: UuidV7;
+  source_binding_generation: number;
+  manifest_sha256: ContentSha256;
+  objects_total: number;
+  bytes_total: number;
+}
+
+export interface ImportManifestObject {
+  source_object_id: UuidV7;
+  logical_path: string;
+  expected_size_bytes: number;
+  content_sha256: ContentSha256;
+  declared_media_type: string;
+}
+
+export interface StartCollectionImportRequest {
+  expected_collection_revision: number;
+  source: ImportSourceBinding;
+  objects: ImportManifestObject[];
+  destination_prefix?: string;
+}
+
+export interface StartCollectionExportRequest {
+  expected_collection_revision: number;
+}
+
+export interface PortabilityProgress {
+  objects_total: number;
+  bytes_total: number;
+  objects_transferred: number;
+  bytes_transferred: number;
+  objects_verified: number;
+  objects_rejected: number;
+}
+
+export interface PortableExportArtifact {
+  artifact_id: UuidV7;
+  manifest_sha256: ContentSha256;
+  content_sha256: ContentSha256;
+  size_bytes: number;
+  expires_at: Timestamp;
+}
+
+export interface PortabilityJob {
+  job_id: UuidV7;
+  environment_id: UuidV7;
+  collection_instance_id: UuidV7;
+  kind: "import" | "export";
+  source: ImportSourceBinding | null;
+  destination_prefix: string | null;
+  inventory_digest: ContentSha256;
+  phase: "starting" | "transferring" | "verifying" | "packaging" | "succeeded" | "failed";
+  progress: PortabilityProgress;
+  failure: "source_unavailable" | "source_changed" | "target_unavailable" | "verification_failed" | "owner_failed" | null;
+  artifact: PortableExportArtifact | null;
+  expected_collection_revision: number;
+  revision: number;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+  completed_at: Timestamp | null;
+}
+
+export interface PortabilityJobOutcome {
+  disposition: "applied" | "exact_replay";
+  job: PortabilityJob;
+}
+
+export interface PortabilityJobPage {
+  jobs: PortabilityJob[];
+  next_cursor: string | null;
+}
+
+export interface PortabilityJobPageOptions extends PageOptions {
+  kind?: "import" | "export";
+}
+
+export interface PortableDownloadHeader {
+  name: string;
+  value: string;
+}
+
+export interface PortableDownloadDescriptor {
+  descriptor_id: UuidV7;
+  method: "GET";
+  url: string;
+  headers: PortableDownloadHeader[];
+  expected_size_bytes: number;
+  content_sha256: ContentSha256;
+  one_use: true;
+  expires_at: Timestamp;
+}
+
 export interface CollectionPage {
   collections: Collection[];
   next_cursor: string | null;
@@ -705,6 +798,10 @@ export interface CollectionReference extends EnvironmentReference {
 
 export interface StorageMigrationReference extends CollectionReference {
   migrationId: UuidV7;
+}
+
+export interface PortabilityJobReference extends CollectionReference {
+  jobId: UuidV7;
 }
 
 export interface FileReference extends CollectionReference {

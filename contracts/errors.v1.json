@@ -474,6 +474,96 @@
       "retryable": false
     },
     {
+      "code": "ALMIRA_PORTABILITY_ALREADY_ACTIVE",
+      "http_status": 409,
+      "retryable": true
+    },
+    {
+      "code": "ALMIRA_PORTABILITY_ARTIFACT_EXPIRED",
+      "http_status": 410,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_PORTABILITY_ARTIFACT_NOT_READY",
+      "http_status": 409,
+      "retryable": true
+    },
+    {
+      "code": "ALMIRA_PORTABILITY_AUTHORIZATION_EXPIRED",
+      "http_status": 403,
+      "retryable": true
+    },
+    {
+      "code": "ALMIRA_PORTABILITY_AUTHORIZATION_MISMATCH",
+      "http_status": 403,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_PORTABILITY_COLLECTION_NOT_FOUND",
+      "http_status": 404,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_PORTABILITY_COLLECTION_NOT_READY",
+      "http_status": 409,
+      "retryable": true
+    },
+    {
+      "code": "ALMIRA_PORTABILITY_INTEGRITY_FAILURE",
+      "http_status": 503,
+      "retryable": true
+    },
+    {
+      "code": "ALMIRA_PORTABILITY_INVALID",
+      "http_status": 400,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_PORTABILITY_NOT_FOUND",
+      "http_status": 404,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_PORTABILITY_OPERATION_CONFLICT",
+      "http_status": 409,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_PORTABILITY_OUTCOME_UNKNOWN",
+      "http_status": 503,
+      "retryable": true
+    },
+    {
+      "code": "ALMIRA_PORTABILITY_OWNER_RESPONSE_INVALID",
+      "http_status": 503,
+      "retryable": true
+    },
+    {
+      "code": "ALMIRA_PORTABILITY_OWNER_UNAVAILABLE",
+      "http_status": 503,
+      "retryable": true
+    },
+    {
+      "code": "ALMIRA_PORTABILITY_PATH_CONFLICT",
+      "http_status": 409,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_PORTABILITY_REVISION_CONFLICT",
+      "http_status": 409,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_PORTABILITY_SCOPE_MISMATCH",
+      "http_status": 403,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_PORTABILITY_UNAVAILABLE",
+      "http_status": 503,
+      "retryable": true
+    },
+    {
       "code": "ALMIRA_PROJECT_AUTHORIZATION_EXPIRED",
       "http_status": 403,
       "retryable": true

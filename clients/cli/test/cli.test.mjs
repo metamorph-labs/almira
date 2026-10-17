@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -183,6 +184,163 @@ test("storage migration start and status preserve exact scope, revision, and ope
       body: undefined,
     },
   ]);
+});
+
+test("portability commands preserve credential-free manifests, scope, and replay identity", async (context) => {
+  const directory = await mkdtemp(join(tmpdir(), "almira-portability-"));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const collectionId = "018f0000-0000-7000-8000-000000000012";
+  const portabilityJobId = "018f0000-0000-7000-8000-000000000013";
+  const sourceObjectId = "018f0000-0000-7000-8000-000000000014";
+  const sourceBindingId = "018f0000-0000-7000-8000-000000000015";
+  const input = join(directory, "import.json");
+  const requestBody = {
+    expected_collection_revision: 4,
+    source: {
+      source_binding_id: sourceBindingId,
+      source_binding_generation: 2,
+      manifest_sha256: `sha256:${"a".repeat(64)}`,
+      objects_total: 1,
+      bytes_total: 5,
+    },
+    objects: [{
+      source_object_id: sourceObjectId,
+      logical_path: "seed/hello.txt",
+      expected_size_bytes: 5,
+      content_sha256: `sha256:${"b".repeat(64)}`,
+      declared_media_type: "text/plain",
+    }],
+    destination_prefix: "imported",
+  };
+  await writeFile(input, JSON.stringify(requestBody));
+  const requests = [];
+  const invoke = async (arguments_) => {
+    const stream = io();
+    const exitCode = await runCli(arguments_, {
+      environment,
+      io: stream.value,
+      fetch: async (url, init) => {
+        requests.push({ url, init });
+        if (init.method === "POST") {
+          return json({ disposition: "applied", job: { job_id: portabilityJobId } }, 201);
+        }
+        return json(url.includes("?")
+          ? { jobs: [], next_cursor: null }
+          : { job_id: portabilityJobId });
+      },
+    });
+    assert.equal(exitCode, 0, stream.output.stderr.join(""));
+    return JSON.parse(stream.output.stdout.join(""));
+  };
+  const scope = [
+    "--tenant", tenantId, "--project", projectId, "--environment", environmentId,
+    "--collection", collectionId,
+  ];
+
+  const imported = await invoke([
+    "import", "start", ...scope, "--input", input, "--operation-id", operationId,
+  ]);
+  await invoke([
+    "export", "start", ...scope, "--revision", "5", "--operation-id", operationId,
+  ]);
+  await invoke(["portability", "list", ...scope, "--kind", "export", "--limit", "25"]);
+  await invoke(["portability", "get", ...scope, "--portability-job", portabilityJobId]);
+
+  assert.equal(imported.operation_id, operationId);
+  const base = `https://almira.test/v1/projects/${projectId}/environments/${environmentId}/collections/${collectionId}`;
+  assert.deepEqual(requests.map(({ url, init }) => ({
+    url,
+    method: init.method,
+    operationId: init.headers.get("idempotency-key"),
+    body: init.body === undefined ? undefined : JSON.parse(init.body),
+  })), [
+    { url: `${base}/imports`, method: "POST", operationId, body: requestBody },
+    {
+      url: `${base}/exports`, method: "POST", operationId,
+      body: { expected_collection_revision: 5 },
+    },
+    {
+      url: `${base}/portability-jobs?limit=25&kind=export`, method: "GET",
+      operationId: null, body: undefined,
+    },
+    {
+      url: `${base}/portability-jobs/${portabilityJobId}`, method: "GET",
+      operationId: null, body: undefined,
+    },
+  ]);
+  assert.doesNotMatch(JSON.stringify(requestBody), /credential|secret|token|bucket|account|region/iu);
+});
+
+test("portable export download streams, verifies, and never overwrites the target", async (context) => {
+  const directory = await mkdtemp(join(tmpdir(), "almira-export-"));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const output = join(directory, "archive.tar");
+  const collectionId = "018f0000-0000-7000-8000-000000000012";
+  const portabilityJobId = "018f0000-0000-7000-8000-000000000013";
+  const descriptorId = "018f0000-0000-7000-8000-000000000014";
+  const bytes = new TextEncoder().encode("portable archive");
+  const digest = `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
+  const providerUrl = "https://objects.example/one-use?signature=sensitive";
+  const calls = [];
+  const invoke = async () => {
+    const stream = io();
+    const exitCode = await runCli([
+      "export", "download",
+      "--tenant", tenantId,
+      "--project", projectId,
+      "--environment", environmentId,
+      "--collection", collectionId,
+      "--portability-job", portabilityJobId,
+      "--output", output,
+      "--operation-id", operationId,
+    ], {
+      environment,
+      io: stream.value,
+      fetch: async (url, init) => {
+        calls.push({ url, init });
+        if (url === providerUrl) {
+          return new Response(bytes, { headers: { "content-length": String(bytes.length) } });
+        }
+        return json({
+          descriptor_id: descriptorId,
+          method: "GET",
+          url: providerUrl,
+          headers: [{ name: "x-export-token", value: "sensitive" }],
+          expected_size_bytes: bytes.length,
+          content_sha256: digest,
+          one_use: true,
+          expires_at: "2099-01-01T00:00:00Z",
+        }, 201);
+      },
+    });
+    return { exitCode, output: stream.output };
+  };
+
+  const first = await invoke();
+  assert.equal(first.exitCode, 0, first.output.stderr.join(""));
+  assert.deepEqual(JSON.parse(first.output.stdout.join("")), {
+    operation_id: operationId,
+    result: {
+      job_id: portabilityJobId,
+      output,
+      size_bytes: bytes.length,
+      content_sha256: digest,
+    },
+  });
+  assert.deepEqual(new Uint8Array(await readFile(output)), bytes);
+  assert.equal(calls[0].init.headers.get("authorization"), "Bearer mm_pat_v1.test");
+  assert.equal(calls[1].init.headers.get("authorization"), null);
+  assert.equal(calls[1].init.headers.get("x-export-token"), "sensitive");
+
+  const second = await invoke();
+  assert.equal(second.exitCode, 5);
+  assert.deepEqual(JSON.parse(second.output.stderr.join("")), {
+    code: "ALMIRA_CLI_OUTPUT_EXISTS",
+    operation_id: operationId,
+    recovery: "choose a new --output path",
+  });
+  assert.deepEqual(new Uint8Array(await readFile(output)), bytes);
+  assert.doesNotMatch(second.output.stderr.join(""), /signature|sensitive/iu);
 });
 
 test("policy replacement accepts an exact JSON document and uses the collection route", async (context) => {

@@ -1060,6 +1060,107 @@
       "expected": "invalid"
     },
     {
+      "name": "credential_free_import_manifest_is_valid",
+      "schema": "StartCollectionImportRequest",
+      "instance": {
+        "expected_collection_revision": 1,
+        "source": {
+          "source_binding_id": "018f0000-0000-7000-8000-000000000071",
+          "source_binding_generation": 1,
+          "manifest_sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "objects_total": 1,
+          "bytes_total": 12
+        },
+        "objects": [
+          {
+            "source_object_id": "018f0000-0000-7000-8000-000000000072",
+            "logical_path": "documents/readme.txt",
+            "expected_size_bytes": 12,
+            "content_sha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "declared_media_type": "text/plain"
+          }
+        ],
+        "destination_prefix": "seed"
+      },
+      "expected": "valid"
+    },
+    {
+      "name": "import_source_credentials_are_refused",
+      "schema": "StartCollectionImportRequest",
+      "instance": {
+        "expected_collection_revision": 1,
+        "source": {
+          "source_binding_id": "018f0000-0000-7000-8000-000000000071",
+          "source_binding_generation": 1,
+          "manifest_sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "objects_total": 1,
+          "bytes_total": 12,
+          "credentials": "must-not-cross-the-boundary"
+        },
+        "objects": [
+          {
+            "source_object_id": "018f0000-0000-7000-8000-000000000072",
+            "logical_path": "documents/readme.txt",
+            "expected_size_bytes": 12,
+            "content_sha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "declared_media_type": "text/plain"
+          }
+        ]
+      },
+      "expected": "invalid"
+    },
+    {
+      "name": "terminal_export_receipt_contains_only_safe_artifact_metadata",
+      "schema": "PortabilityJob",
+      "instance": {
+        "job_id": "018f0000-0000-7000-8000-000000000073",
+        "environment_id": "018f0000-0000-7000-8000-000000000074",
+        "collection_instance_id": "018f0000-0000-7000-8000-000000000075",
+        "kind": "export",
+        "source": null,
+        "destination_prefix": null,
+        "inventory_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "phase": "succeeded",
+        "progress": {
+          "objects_total": 1,
+          "bytes_total": 12,
+          "objects_transferred": 1,
+          "bytes_transferred": 12,
+          "objects_verified": 1,
+          "objects_rejected": 0
+        },
+        "failure": null,
+        "artifact": {
+          "artifact_id": "018f0000-0000-7000-8000-000000000076",
+          "manifest_sha256": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "content_sha256": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "size_bytes": 64,
+          "expires_at": "2099-10-17T00:00:00Z"
+        },
+        "expected_collection_revision": 1,
+        "revision": 2,
+        "created_at": "2026-10-17T00:00:00Z",
+        "updated_at": "2026-10-17T00:01:00Z",
+        "completed_at": "2026-10-17T00:01:00Z"
+      },
+      "expected": "valid"
+    },
+    {
+      "name": "export_download_must_be_one_use",
+      "schema": "PortableDownloadDescriptor",
+      "instance": {
+        "descriptor_id": "018f0000-0000-7000-8000-000000000077",
+        "method": "GET",
+        "url": "https://transfer.example.invalid/export",
+        "headers": [],
+        "expected_size_bytes": 64,
+        "content_sha256": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "one_use": false,
+        "expires_at": "2099-10-17T00:00:00Z"
+      },
+      "expected": "invalid"
+    },
+    {
       "name": "safe_error_envelope",
       "schema": "Error",
       "instance": {
@@ -1223,6 +1324,36 @@
       "condition": "an administrative review is requested for a generation that FileService has not blocked",
       "code": "ALMIRA_PROTECTION_STATE_CONFLICT",
       "http_status": 409
+    },
+    {
+      "name": "one_active_import_per_collection",
+      "condition": "another non-terminal import already owns the collection import lane",
+      "code": "ALMIRA_PORTABILITY_ALREADY_ACTIVE",
+      "http_status": 409
+    },
+    {
+      "name": "import_path_reservation_conflicts",
+      "condition": "an import destination path is already live or reserved in the collection",
+      "code": "ALMIRA_PORTABILITY_PATH_CONFLICT",
+      "http_status": 409
+    },
+    {
+      "name": "export_download_waits_for_terminal_artifact",
+      "condition": "a download is requested before FileService has produced the export artifact",
+      "code": "ALMIRA_PORTABILITY_ARTIFACT_NOT_READY",
+      "http_status": 409
+    },
+    {
+      "name": "expired_export_artifact_is_gone",
+      "condition": "a download is requested after the export artifact retention window",
+      "code": "ALMIRA_PORTABILITY_ARTIFACT_EXPIRED",
+      "http_status": 410
+    },
+    {
+      "name": "malformed_portability_owner_response_fails_closed",
+      "condition": "FileService returns an invalid manifest result or replayable download instruction",
+      "code": "ALMIRA_PORTABILITY_OWNER_RESPONSE_INVALID",
+      "http_status": 503
     }
   ]
 }

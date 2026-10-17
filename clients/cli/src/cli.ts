@@ -1,5 +1,9 @@
 import { parseArgs } from "node:util";
-import { readFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { createWriteStream } from "node:fs";
+import { link, readFile, unlink } from "node:fs/promises";
+import { Readable, Transform } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import { parse as parseYaml } from "yaml";
 
 import {
@@ -7,8 +11,10 @@ import {
   AlmiraClient,
   AlmiraClientError,
   AlmiraConfigurationError,
+  AlmiraTransferError,
   applyConfiguration,
   createOperationId,
+  openPortableExport,
   previewConfiguration,
   type AccessSimulation,
   type CreateShareRequest,
@@ -21,6 +27,8 @@ import {
   type ReplaceEntryMetadataRequest,
   type RotateLocalIssuerKeyRequest,
   type SearchInput,
+  type StartCollectionImportRequest,
+  type PortableExportStream,
   type TenancyProjectGetResponse,
 } from "@metamorph-labs/almira-sdk";
 
@@ -60,6 +68,11 @@ Commands:
   collection get          Read one collection
   collection migrate      Migrate a collection to another storage class
   migration get           Read durable storage-migration progress
+  import start            Start an import from a FileService-issued source manifest
+  export start            Build a retained-generation portable export
+  export download         Stream and verify a completed export to --output
+  portability list        List collection import and export jobs
+  portability get         Read one import or export job
   extraction get          Read collection extraction controls
   extraction set          Replace collection extraction controls from --input JSON
   extraction status       Read safe exact-generation extraction status
@@ -108,6 +121,7 @@ Common identifiers:
   --environment UUID      Almira environment UUIDv7
   --collection UUID       Almira collection-instance UUIDv7
   --migration UUID        Almira storage-migration UUIDv7
+  --portability-job UUID  Almira import/export job UUIDv7
   --entry UUID            Almira file-entry UUIDv7
   --generation UUID       Almira immutable generation UUIDv7
   --kind KIND             technical, content, ocr, or transcription
@@ -115,6 +129,7 @@ Common identifiers:
   --issuer UUID           Almira local-issuer UUIDv7
   --job UUID              Almira media-processing job UUIDv7
   --input PATH            Exact JSON request body for structured operations
+  --output PATH           New local file for a verified portable export
   --path PATH             Canonical logical file path
   --include-deleted       Include entries still inside their recycle window
   --file PATH             almira.yaml path for config preview/apply
@@ -156,11 +171,13 @@ const options = {
   "media-type": { type: "string" },
   "minimum-size": { type: "string" },
   migration: { type: "string" },
+  output: { type: "string" },
   "operation-id": { type: "string" },
   origin: { type: "string", multiple: true },
   "path-prefix": { type: "string" },
   path: { type: "string" },
   project: { type: "string" },
+  "portability-job": { type: "string" },
   revision: { type: "string" },
   scan: { type: "string" },
   state: { type: "string" },
@@ -306,6 +323,53 @@ export async function runCli(arguments_: string[], dependencies: CliDependencies
         ...collectionReference(values, tenantId, projectId),
         migrationId: required(values, "migration"),
       });
+    } else if (noun === "import" && verb === "start") {
+      operationId = mutationId(values);
+      mutation = true;
+      result = await client.startCollectionImport(
+        collectionReference(values, tenantId, projectId),
+        await readJson<StartCollectionImportRequest>(required(values, "input")),
+        { operationId },
+      );
+    } else if (noun === "export" && verb === "start") {
+      operationId = mutationId(values);
+      mutation = true;
+      result = await client.startCollectionExport(
+        collectionReference(values, tenantId, projectId),
+        { expected_collection_revision: positiveInteger(values, "revision") },
+        { operationId },
+      );
+    } else if (noun === "portability" && verb === "list") {
+      const kind = stringValue(values, "kind");
+      if (kind !== undefined && kind !== "import" && kind !== "export") throw new CliUsageError();
+      result = await client.listPortabilityJobs(
+        collectionReference(values, tenantId, projectId),
+        { ...page(values), ...(kind === undefined ? {} : { kind }) },
+      );
+    } else if (noun === "portability" && verb === "get") {
+      result = await client.getPortabilityJob({
+        ...collectionReference(values, tenantId, projectId),
+        jobId: required(values, "portability-job"),
+      });
+    } else if (noun === "export" && verb === "download") {
+      operationId = mutationId(values);
+      mutation = true;
+      const reference = {
+        ...collectionReference(values, tenantId, projectId),
+        jobId: required(values, "portability-job"),
+      };
+      const descriptor = await client.createPortabilityExportDownload(reference, { operationId });
+      const stream = await openPortableExport(descriptor, {
+        ...(dependencies.fetch === undefined ? {} : { fetch: dependencies.fetch }),
+      });
+      const output = required(values, "output");
+      await savePortableExport(output, descriptor.descriptor_id, stream);
+      result = {
+        job_id: reference.jobId,
+        output,
+        size_bytes: stream.sizeBytes,
+        content_sha256: stream.contentSha256,
+      };
     } else if (noun === "extraction" && verb === "get") {
       result = await client.getCollectionExtraction(collectionReference(values, tenantId, projectId));
     } else if (noun === "extraction" && verb === "set") {
@@ -622,6 +686,18 @@ class CliConfigError extends Error {
   }
 }
 
+class CliDownloadError extends Error {
+  readonly code:
+    | "ALMIRA_CLI_OUTPUT_EXISTS"
+    | "ALMIRA_CLI_OUTPUT_INVALID"
+    | "ALMIRA_CLI_OUTPUT_WRITE_FAILED";
+
+  constructor(code: CliDownloadError["code"]) {
+    super(code);
+    this.code = code;
+  }
+}
+
 const commandOptions = new Map<string, ReadonlySet<string>>([
   ["project:bootstrap", new Set(["base-url", "operation-id", "project", "tenant", "tenancy-project"])],
   ["environment:list", new Set(["base-url", "project", "tenant"])],
@@ -638,6 +714,11 @@ const commandOptions = new Map<string, ReadonlySet<string>>([
   ["collection:get", new Set(["base-url", "collection", "environment", "project", "tenant"])],
   ["collection:migrate", new Set(["base-url", "class", "collection", "environment", "operation-id", "project", "revision", "tenant"])],
   ["migration:get", new Set(["base-url", "collection", "environment", "migration", "project", "tenant"])],
+  ["import:start", collectionCommandOptions("input", "operation-id")],
+  ["export:start", collectionCommandOptions("operation-id", "revision")],
+  ["export:download", collectionCommandOptions("operation-id", "output", "portability-job")],
+  ["portability:list", collectionCommandOptions("cursor", "kind", "limit")],
+  ["portability:get", collectionCommandOptions("portability-job")],
   ["extraction:get", collectionCommandOptions()],
   ["extraction:set", collectionCommandOptions("input", "operation-id")],
   ["extraction:status", collectionCommandOptions("entry", "generation", "kind")],
@@ -838,6 +919,49 @@ async function readJson<T>(path: string): Promise<T> {
   }
 }
 
+async function savePortableExport(
+  output: string,
+  descriptorId: string,
+  stream: PortableExportStream,
+): Promise<void> {
+  if (output.length === 0 || output.length > 4096 || /[\u0000\r\n]/u.test(output)) {
+    throw new CliDownloadError("ALMIRA_CLI_OUTPUT_INVALID");
+  }
+  const temporary = `${output}.almira-${descriptorId}.partial`;
+  const hash = createHash("sha256");
+  let size = 0;
+  const meter = new Transform({
+    transform(chunk: Buffer, _encoding, callback) {
+      size += chunk.length;
+      hash.update(chunk);
+      callback(null, chunk);
+    },
+  });
+  try {
+    await pipeline(
+      Readable.fromWeb(stream.body as Parameters<typeof Readable.fromWeb>[0]),
+      meter,
+      createWriteStream(temporary, { flags: "wx", mode: 0o600 }),
+    );
+    if (size !== stream.sizeBytes || `sha256:${hash.digest("hex")}` !== stream.contentSha256) {
+      throw new CliDownloadError("ALMIRA_CLI_OUTPUT_INVALID");
+    }
+    await link(temporary, output);
+    await unlink(temporary).catch(() => undefined);
+  } catch (error) {
+    await unlink(temporary).catch(() => undefined);
+    if (error instanceof CliDownloadError) throw error;
+    if (isFileSystemError(error) && error.code === "EEXIST") {
+      throw new CliDownloadError("ALMIRA_CLI_OUTPUT_EXISTS");
+    }
+    throw new CliDownloadError("ALMIRA_CLI_OUTPUT_WRITE_FAILED");
+  }
+}
+
+function isFileSystemError(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && "code" in error;
+}
+
 function writeJson(output: { write(value: string): unknown }, value: unknown): void {
   output.write(`${JSON.stringify(value)}\n`);
 }
@@ -861,6 +985,16 @@ function report(
     });
     return 2;
   }
+  if (error instanceof CliDownloadError) {
+    writeJson(output, {
+      code: error.code,
+      ...(operationId === null ? {} : { operation_id: operationId }),
+      recovery: error.code === "ALMIRA_CLI_OUTPUT_EXISTS"
+        ? "choose a new --output path"
+        : "verify the output path and retry with a fresh download operation",
+    });
+    return error.code === "ALMIRA_CLI_OUTPUT_EXISTS" ? 5 : 8;
+  }
   if (error instanceof AlmiraApiError) {
     const exitCode = apiExitCode(error.status);
     writeJson(output, {
@@ -878,6 +1012,14 @@ function report(
       code: error.code,
       ...(operationId === null ? {} : { operation_id: operationId }),
       recovery: error.code === "ALMIRA_CLIENT_NETWORK" ? "retry with the same operation_id" : "fix local configuration or input",
+    });
+    return 8;
+  }
+  if (error instanceof AlmiraTransferError) {
+    writeJson(output, {
+      code: error.code,
+      ...(operationId === null ? {} : { operation_id: operationId }),
+      recovery: "request a fresh one-use export download and retry",
     });
     return 8;
   }

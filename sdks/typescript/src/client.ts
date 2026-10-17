@@ -57,6 +57,12 @@ import type {
   MutationOptions,
   MutateProcessingJobRequest,
   PageOptions,
+  PortabilityJob,
+  PortabilityJobOutcome,
+  PortabilityJobPage,
+  PortabilityJobPageOptions,
+  PortabilityJobReference,
+  PortableDownloadDescriptor,
   PrivateFileResponse,
   ProcessingJobPage,
   ProcessingJobReference,
@@ -87,6 +93,8 @@ import type {
   StorageRealizationCatalog,
   StartStorageMigrationOutcome,
   StartStorageMigrationRequest,
+  StartCollectionExportRequest,
+  StartCollectionImportRequest,
   StorageMigration,
   StorageMigrationReference,
   SubjectReadOptions,
@@ -473,6 +481,71 @@ export class AlmiraClient {
     return this.#json(
       collectionPath(reference, `/storage-migrations/${uuid(reference.migrationId)}`),
       { method: "GET", signal: options.signal },
+      reference.tenantId,
+    );
+  }
+
+  async startCollectionImport(
+    reference: CollectionReference,
+    request: StartCollectionImportRequest,
+    options: MutationOptions,
+  ): Promise<PortabilityJobOutcome> {
+    return this.#json(collectionPath(reference, "/imports"), {
+      method: "POST",
+      headers: mutationHeaders(options.operationId),
+      body: request,
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async startCollectionExport(
+    reference: CollectionReference,
+    request: StartCollectionExportRequest,
+    options: MutationOptions,
+  ): Promise<PortabilityJobOutcome> {
+    return this.#json(collectionPath(reference, "/exports"), {
+      method: "POST",
+      headers: mutationHeaders(options.operationId),
+      body: request,
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async listPortabilityJobs(
+    reference: CollectionReference,
+    options: PortabilityJobPageOptions = {},
+  ): Promise<PortabilityJobPage> {
+    const query = new URLSearchParams();
+    appendPage(query, options);
+    if (options.kind !== undefined) query.set("kind", options.kind);
+    return this.#json(withQuery(collectionPath(reference, "/portability-jobs"), query), {
+      method: "GET",
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async getPortabilityJob(
+    reference: PortabilityJobReference,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<PortabilityJob> {
+    return this.#json(
+      collectionPath(reference, `/portability-jobs/${uuid(reference.jobId)}`),
+      { method: "GET", signal: options.signal },
+      reference.tenantId,
+    );
+  }
+
+  async createPortabilityExportDownload(
+    reference: PortabilityJobReference,
+    options: MutationOptions,
+  ): Promise<PortableDownloadDescriptor> {
+    return this.#json(
+      collectionPath(reference, `/portability-jobs/${uuid(reference.jobId)}/download`),
+      {
+        method: "POST",
+        headers: mutationHeaders(options.operationId),
+        signal: options.signal,
+      },
       reference.tenantId,
     );
   }

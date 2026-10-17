@@ -15,6 +15,6 @@ export {
   previewConfiguration,
 } from "./configuration.js";
 export type * from "./configuration.js";
-export { uploadDirect } from "./transfer.js";
-export type { DirectUploadBody, DirectUploadOptions } from "./transfer.js";
+export { openPortableExport, uploadDirect } from "./transfer.js";
+export type { DirectUploadBody, DirectUploadOptions, PortableExportStream } from "./transfer.js";
 export type * from "./types.js";

@@ -28,6 +28,12 @@ placed in model context; application integration uses the SDK. Mutating tools ac
 Collection creation accepts `storage_class` as `normal` (the default) or `express`; agents should
 first verify that the selected environment advertises the requested class.
 
+Portability tools start credential-free FileService-bound imports, start safe retained-generation
+exports, and inspect durable job progress. Imports accept no provider credential or storage target.
+`almira_portability_export_download` consumes the completed export's one-use bearer inside the MCP
+process, streams and verifies it into a new `output_path`, refuses overwrite, and returns only the
+path, byte count and SHA-256 receipt. Neither the bearer nor file bytes enter model context.
+
 File management tools list retained immutable generations, rename stable entries, select a
 retained generation, move an entry into its recycle window, and restore it before expiry. Deleted
 entries are visible only when a management caller explicitly requests `include_deleted`; these

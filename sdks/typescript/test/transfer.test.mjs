@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { AlmiraTransferError, uploadDirect } from "../dist/index.js";
+import { AlmiraTransferError, openPortableExport, uploadDirect } from "../dist/index.js";
 
 const descriptorId = "018f0000-0000-7000-8000-000000000001";
 const digest = `sha256:${"a".repeat(64)}`;
@@ -124,5 +124,61 @@ test("ambiguous provider failures expose no URL or signed header", async () => {
       error.code === "ALMIRA_TRANSFER_OUTCOME_UNKNOWN" &&
       error.partNumber === 1 &&
       !/opaque|secret/u.test(error.message),
+  );
+});
+
+test("portable export opens a credential-free verified-size stream", async () => {
+  let call;
+  const result = await openPortableExport({
+    descriptor_id: descriptorId,
+    method: "GET",
+    url: "https://opaque.example/export?signature=secret",
+    headers: [{ name: "X-Export-Token", value: "secret" }],
+    expected_size_bytes: 4,
+    content_sha256: digest,
+    one_use: true,
+    expires_at: "2030-01-01T00:00:00Z",
+  }, {
+    now: () => 1_800_000_000_000,
+    fetch: async (input, init) => {
+      call = { input, init };
+      return new Response(new Uint8Array([1, 2, 3, 4]), {
+        headers: { "content-length": "4" },
+      });
+    },
+  });
+  assert.equal(call.init.credentials, "omit");
+  assert.equal(call.init.redirect, "error");
+  assert.equal(call.init.headers.get("authorization"), null);
+  assert.equal(call.init.headers.get("x-export-token"), "secret");
+  assert.equal(result.sizeBytes, 4);
+  assert.equal(result.contentSha256, digest);
+  assert.deepEqual(
+    new Uint8Array(await new Response(result.body).arrayBuffer()),
+    new Uint8Array([1, 2, 3, 4]),
+  );
+});
+
+test("portable export refuses replayable and length-mismatched descriptors safely", async () => {
+  const base = {
+    descriptor_id: descriptorId,
+    method: "GET",
+    url: "https://opaque.example/export?signature=secret",
+    headers: [],
+    expected_size_bytes: 4,
+    content_sha256: digest,
+    one_use: true,
+    expires_at: "2030-01-01T00:00:00Z",
+  };
+  await assert.rejects(
+    openPortableExport({ ...base, one_use: false }),
+    (error) => error instanceof AlmiraTransferError && error.code === "ALMIRA_TRANSFER_DESCRIPTOR_INVALID",
+  );
+  await assert.rejects(
+    openPortableExport(base, {
+      now: () => 1_800_000_000_000,
+      fetch: async () => new Response(new Uint8Array([1, 2]), { headers: { "content-length": "2" } }),
+    }),
+    (error) => error instanceof AlmiraTransferError && error.code === "ALMIRA_TRANSFER_RESPONSE_INVALID",
   );
 });

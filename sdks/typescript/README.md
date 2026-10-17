@@ -48,6 +48,17 @@ const migrationStatus = await almira.getStorageMigration({
   migrationId: migration.migration.migration_id,
 });
 
+const exported = await almira.startCollectionExport(
+  {
+    tenantId,
+    projectId,
+    environmentId: environments[0].environment_id,
+    collectionInstanceId: collection.collection.collection_instance_id,
+  },
+  { expected_collection_revision: collection.collection.revision },
+  { operationId: exportOperationId },
+);
+
 const preview = await almira.createEnvironment(
   { tenantId, projectId },
   { environment_key: "preview-one", display_name: "Preview one" },
@@ -80,6 +91,15 @@ collection reports `migrating`.
 
 Direct transfer URLs and headers returned by `createUpload` are sensitive, one-use capabilities.
 The SDK returns them only to the caller and never logs or persists them.
+
+`startCollectionImport` accepts only a FileService-issued opaque source binding and a bounded safe
+manifest; it does not accept source credentials or provider coordinates. `startCollectionExport`,
+`listPortabilityJobs`, and `getPortabilityJob` expose durable transfer and verification progress.
+A succeeded export can issue a fresh one-use instruction through
+`createPortabilityExportDownload`. Pass that descriptor directly to `openPortableExport`, stream
+the returned body, and accept the local artifact only after its exact byte count and SHA-256 match
+the returned expectations. The helper never sends the Almira credential to the object endpoint
+and never includes its bearer URL or signed headers in an error.
 
 Files have stable entry identities and immutable generations. Use `createFileVersion` to add bytes
 to an existing entry, `listFileGenerations` to inspect retained history, `renameFile` to move the

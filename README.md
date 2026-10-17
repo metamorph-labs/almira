@@ -43,9 +43,16 @@ there is intentionally no release operation. Bounded customer metadata and exact
 filters are available across every surface; protected extracted text remains behind its distinct
 authorization.
 
+Governed collection imports use only an opaque FileService source binding and a bounded safe
+manifest—never cloud credentials, buckets, endpoints, or target coordinates. Portable exports
+contain retained generations and derivatives that remain available and safety-admitted. Their
+one-use download bearer is consumed only by the SDK transfer helper, CLI, or MCP process; CLI/MCP
+return a verified local-file receipt without placing the bearer in model context.
+
 The stdio MCP server is in [`clients/mcp`](clients/mcp). It presents the same bounded management
 slice to external coding agents, leaves approvals with the MCP host and deliberately keeps
-one-use transfer capabilities and file bytes out of model context.
+one-use transfer capabilities and file bytes out of model context. Its export-download tool
+streams and verifies bytes into a new local file and refuses to overwrite an existing path.
 
 The installable agent integrations are in [`plugins/codex`](plugins/codex) and
 [`plugins/claude-code`](plugins/claude-code). Both use the public MCP package and the same

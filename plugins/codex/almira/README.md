@@ -9,7 +9,9 @@ the plugin. The token may be a PAT or SAK for setup work. Application runtimes u
 Metamorph workload evidence instead.
 
 The MCP server package is pinned in `.mcp.json`. One-use direct-transfer capabilities remain in the
-application process and are never returned by the management tools.
+application or MCP process and are never returned in model context. Governed imports accept only
+opaque FileService bindings and safe manifests; portable-export downloads produce verified new
+local files without exposing signed URLs or overwriting existing paths.
 
 The management catalog includes collection protection, safe scan-case inspection, exact-generation
 rescan, and content-free review tools. FileService remains authoritative for verdicts and

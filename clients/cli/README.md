@@ -48,6 +48,23 @@ almira migration get \
   --environment 018f0000-0000-7000-8000-000000000004 \
   --collection 018f0000-0000-7000-8000-000000000012 \
   --migration 018f0000-0000-7000-8000-000000000013
+almira import start \
+  --tenant 018f0000-0000-7000-8000-000000000002 \
+  --project 018f0000-0000-7000-8000-000000000003 \
+  --environment 018f0000-0000-7000-8000-000000000004 \
+  --collection 018f0000-0000-7000-8000-000000000012 \
+  --input ./import.json
+almira export start \
+  --tenant 018f0000-0000-7000-8000-000000000002 \
+  --project 018f0000-0000-7000-8000-000000000003 \
+  --environment 018f0000-0000-7000-8000-000000000004 \
+  --collection 018f0000-0000-7000-8000-000000000012 \
+  --revision 4
+almira portability list \
+  --tenant 018f0000-0000-7000-8000-000000000002 \
+  --project 018f0000-0000-7000-8000-000000000003 \
+  --environment 018f0000-0000-7000-8000-000000000004 \
+  --collection 018f0000-0000-7000-8000-000000000012
 almira protection set \
   --tenant 018f0000-0000-7000-8000-000000000002 \
   --project 018f0000-0000-7000-8000-000000000003 \
@@ -84,6 +101,16 @@ the provider target remains opaque. Uploads pause while that collection is migra
 emitted operation ID after an ambiguous start and use `migration get` until the durable receipt is
 `succeeded` or `failed`; retrying the start with that same ID exactly replays even after the
 collection reports `migrating`.
+
+`import start --input FILE` accepts the exact credential-free import request: current collection
+revision, opaque FileService source binding, and at most 100 safe manifest entries. Provider
+credentials, bucket names, endpoints, target coordinates, and download bearers do not belong in
+that file. `export start` snapshots only retained generations and derivatives that are currently
+available and safety-admitted. Follow either job with `portability list|get`. For a succeeded
+export, `export download --portability-job UUID --output PATH` obtains and consumes a fresh one-use
+descriptor internally, streams into a mode-0600 temporary file, verifies size and SHA-256, and
+admits it atomically. It refuses to overwrite `PATH` and its JSON receipt never contains the
+descriptor URL or signed headers.
 
 `config preview` reads current state without mutation and returns a digest-bound deterministic
 diff. `config apply` is additive: omitted environments, origins, and collections are preserved.

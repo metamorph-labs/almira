@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 
 import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
@@ -25,6 +28,7 @@ async function connected(fetch) {
       credential: "mm_sak_v1.test",
       fetch,
     }),
+    { fetch },
   );
   const client = new Client({ name: "almira-test", version: "1.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
@@ -51,9 +55,11 @@ test("tool catalog is closed and marks destructive behavior accurately", async (
       "almira_browser_origins_get",
       "almira_browser_origins_replace",
       "almira_collection_create",
+      "almira_collection_export_start",
       "almira_collection_extraction_get",
       "almira_collection_extraction_replace",
       "almira_collection_get",
+      "almira_collection_import_start",
       "almira_collection_list",
       "almira_collection_media_get",
       "almira_collection_media_replace",
@@ -88,6 +94,9 @@ test("tool catalog is closed and marks destructive behavior accurately", async (
       "almira_policy_get",
       "almira_policy_replace",
       "almira_policy_simulate",
+      "almira_portability_export_download",
+      "almira_portability_job_get",
+      "almira_portability_jobs_list",
       "almira_processing_job_cancel",
       "almira_processing_job_retry",
       "almira_processing_jobs_list",
@@ -651,6 +660,144 @@ test("storage migration tools preserve exact scope, revision, and replay identit
       body: undefined,
     },
   ]);
+});
+
+test("portability tools keep source credentials out and verify downloads before local admission", async (context) => {
+  const directory = await mkdtemp(join(tmpdir(), "almira-mcp-portability-"));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const environmentId = "018f0000-0000-7000-8000-000000000004";
+  const collectionId = "018f0000-0000-7000-8000-000000000012";
+  const jobId = "018f0000-0000-7000-8000-000000000013";
+  const descriptorId = "018f0000-0000-7000-8000-000000000014";
+  const sourceBindingId = "018f0000-0000-7000-8000-000000000015";
+  const sourceObjectId = "018f0000-0000-7000-8000-000000000016";
+  const operationId = "018f0000-0000-7000-8000-000000000007";
+  const outputPath = join(directory, "portable.tar");
+  const bytes = new TextEncoder().encode("portable archive");
+  const digest = `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
+  const providerUrl = "https://objects.example/one-use?signature=sensitive";
+  const requests = [];
+  const connection = await connected(async (input, init) => {
+    requests.push({ input, init });
+    if (input === providerUrl) {
+      return new Response(bytes, { headers: { "content-length": String(bytes.length) } });
+    }
+    if (input.endsWith("/download")) {
+      return json({
+        descriptor_id: descriptorId,
+        method: "GET",
+        url: providerUrl,
+        headers: [{ name: "x-export-token", value: "sensitive" }],
+        expected_size_bytes: bytes.length,
+        content_sha256: digest,
+        one_use: true,
+        expires_at: "2099-01-01T00:00:00Z",
+      }, 201);
+    }
+    if (input.endsWith("/imports") || input.endsWith("/exports")) {
+      return json({ disposition: "applied", job: { job_id: jobId } }, 201);
+    }
+    return json(input.includes("?") ? { jobs: [], next_cursor: null } : { job_id: jobId });
+  });
+  context.after(async () => {
+    await connection.client.close();
+    await connection.server.close();
+  });
+  const scope = {
+    tenant_id: tenantId,
+    project_id: projectId,
+    environment_id: environmentId,
+    collection_instance_id: collectionId,
+  };
+  const importRequest = {
+    expected_collection_revision: 4,
+    source: {
+      source_binding_id: sourceBindingId,
+      source_binding_generation: 1,
+      manifest_sha256: `sha256:${"a".repeat(64)}`,
+      objects_total: 1,
+      bytes_total: 5,
+    },
+    objects: [{
+      source_object_id: sourceObjectId,
+      logical_path: "seed/hello.txt",
+      expected_size_bytes: 5,
+      content_sha256: `sha256:${"b".repeat(64)}`,
+      declared_media_type: "text/plain",
+    }],
+  };
+
+  await connection.client.callTool({
+    name: "almira_collection_import_start",
+    arguments: { ...scope, request: importRequest, operation_id: operationId },
+  });
+  await connection.client.callTool({
+    name: "almira_collection_export_start",
+    arguments: { ...scope, expected_collection_revision: 5, operation_id: operationId },
+  });
+  await connection.client.callTool({
+    name: "almira_portability_jobs_list",
+    arguments: { ...scope, kind: "export", limit: 25 },
+  });
+  await connection.client.callTool({
+    name: "almira_portability_job_get",
+    arguments: { ...scope, portability_job_id: jobId },
+  });
+  const downloaded = await connection.client.callTool({
+    name: "almira_portability_export_download",
+    arguments: {
+      ...scope,
+      portability_job_id: jobId,
+      output_path: outputPath,
+      operation_id: operationId,
+    },
+  });
+
+  assert.equal(downloaded.isError, undefined);
+  assert.deepEqual(downloaded.structuredContent, {
+    operation_id: operationId,
+    result: {
+      job_id: jobId,
+      output_path: outputPath,
+      size_bytes: bytes.length,
+      content_sha256: digest,
+    },
+  });
+  assert.deepEqual(new Uint8Array(await readFile(outputPath)), bytes);
+  assert.doesNotMatch(JSON.stringify(downloaded), /signature|sensitive/iu);
+  assert.equal(requests.at(-1).init.headers.get("authorization"), null);
+  assert.equal(requests.at(-1).init.headers.get("x-export-token"), "sensitive");
+
+  const base = `https://almira.test/v1/projects/${projectId}/environments/${environmentId}/collections/${collectionId}`;
+  assert.deepEqual(requests.slice(0, 4).map(({ input, init }) => ({
+    input,
+    method: init.method,
+    body: init.body === undefined ? undefined : JSON.parse(init.body),
+  })), [
+    { input: `${base}/imports`, method: "POST", body: importRequest },
+    {
+      input: `${base}/exports`, method: "POST",
+      body: { expected_collection_revision: 5 },
+    },
+    { input: `${base}/portability-jobs?limit=25&kind=export`, method: "GET", body: undefined },
+    { input: `${base}/portability-jobs/${jobId}`, method: "GET", body: undefined },
+  ]);
+
+  const repeated = await connection.client.callTool({
+    name: "almira_portability_export_download",
+    arguments: {
+      ...scope,
+      portability_job_id: jobId,
+      output_path: outputPath,
+      operation_id: operationId,
+    },
+  });
+  assert.equal(repeated.isError, true);
+  assert.deepEqual(JSON.parse(repeated.content[0].text), {
+    code: "ALMIRA_MCP_OUTPUT_EXISTS",
+    operation_id: operationId,
+  });
+  assert.doesNotMatch(repeated.content[0].text, /signature|sensitive/iu);
 });
 
 test("environment tools call the exact public lifecycle operations", async (context) => {

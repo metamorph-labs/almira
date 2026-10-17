@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Almira API",
-    "version": "0.1.0-dev.26",
+    "version": "0.1.0-dev.27",
     "description": "Provider-neutral application file storage management and data API."
   },
   "servers": [
@@ -776,6 +776,323 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/imports": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "post": {
+        "operationId": "startCollectionImport",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/OperationId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartCollectionImportRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Credential-free FileService-owned import started or exactly replayed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortabilityJobOutcome"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/exports": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "post": {
+        "operationId": "startCollectionExport",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/OperationId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartCollectionExportRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Portable FileService-owned export started or exactly replayed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortabilityJobOutcome"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/portability-jobs": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "get": {
+        "operationId": "listPortabilityJobs",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "import",
+                "export"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deterministically ordered import and export receipts.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortabilityJobPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/portability-jobs/{job_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "get": {
+        "operationId": "getPortabilityJob",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/PortabilityJobId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Durable bulk-transfer progress and terminal receipt.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortabilityJob"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/portability-jobs/{job_id}/download": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "post": {
+        "operationId": "createPortabilityExportDownload",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/PortabilityJobId"
+          },
+          {
+            "$ref": "#/components/parameters/OperationId"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Fresh one-use FileService download instruction for a completed export.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortableDownloadDescriptor"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/Gone"
           },
           "503": {
             "$ref": "#/components/responses/Unavailable"
@@ -3420,6 +3737,14 @@
           "$ref": "#/components/schemas/UuidV7"
         }
       },
+      "PortabilityJobId": {
+        "name": "job_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/UuidV7"
+        }
+      },
       "TransferSessionId": {
         "name": "transfer_session_id",
         "in": "path",
@@ -5918,6 +6243,433 @@
           },
           "migration": {
             "$ref": "#/components/schemas/StorageMigration"
+          }
+        }
+      },
+      "ImportSourceBinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_binding_id",
+          "source_binding_generation",
+          "manifest_sha256",
+          "objects_total",
+          "bytes_total"
+        ],
+        "properties": {
+          "source_binding_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "source_binding_generation": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "manifest_sha256": {
+            "$ref": "#/components/schemas/ContentSha256"
+          },
+          "objects_total": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "bytes_total": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        }
+      },
+      "ImportManifestObject": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_object_id",
+          "logical_path",
+          "expected_size_bytes",
+          "content_sha256",
+          "declared_media_type"
+        ],
+        "properties": {
+          "source_object_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "logical_path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024,
+            "pattern": "^[A-Za-z0-9._~-]+(/[A-Za-z0-9._~-]+)*$"
+          },
+          "expected_size_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10737418240
+          },
+          "content_sha256": {
+            "$ref": "#/components/schemas/ContentSha256"
+          },
+          "declared_media_type": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 127,
+            "pattern": "^[a-z0-9!#$&^_.+-]+/[a-z0-9!#$&^_.+-]+$"
+          }
+        }
+      },
+      "StartCollectionImportRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "expected_collection_revision",
+          "source",
+          "objects"
+        ],
+        "properties": {
+          "expected_collection_revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "source": {
+            "$ref": "#/components/schemas/ImportSourceBinding"
+          },
+          "objects": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/ImportManifestObject"
+            }
+          },
+          "destination_prefix": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024,
+            "pattern": "^[A-Za-z0-9._~-]+(/[A-Za-z0-9._~-]+)*$"
+          }
+        }
+      },
+      "StartCollectionExportRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "expected_collection_revision"
+        ],
+        "properties": {
+          "expected_collection_revision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "PortabilityProgress": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "objects_total",
+          "bytes_total",
+          "objects_transferred",
+          "bytes_transferred",
+          "objects_verified",
+          "objects_rejected"
+        ],
+        "properties": {
+          "objects_total": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "bytes_total": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "objects_transferred": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "bytes_transferred": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "objects_verified": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "objects_rejected": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        }
+      },
+      "PortableExportArtifact": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "artifact_id",
+          "manifest_sha256",
+          "content_sha256",
+          "size_bytes",
+          "expires_at"
+        ],
+        "properties": {
+          "artifact_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "manifest_sha256": {
+            "$ref": "#/components/schemas/ContentSha256"
+          },
+          "content_sha256": {
+            "$ref": "#/components/schemas/ContentSha256"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "expires_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        }
+      },
+      "PortabilityJob": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "job_id",
+          "environment_id",
+          "collection_instance_id",
+          "kind",
+          "source",
+          "destination_prefix",
+          "inventory_digest",
+          "phase",
+          "progress",
+          "failure",
+          "artifact",
+          "expected_collection_revision",
+          "revision",
+          "created_at",
+          "updated_at",
+          "completed_at"
+        ],
+        "properties": {
+          "job_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "environment_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "collection_instance_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "import",
+              "export"
+            ]
+          },
+          "source": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ImportSourceBinding"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "destination_prefix": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 1024,
+            "pattern": "^[A-Za-z0-9._~-]+(/[A-Za-z0-9._~-]+)*$"
+          },
+          "inventory_digest": {
+            "$ref": "#/components/schemas/ContentSha256"
+          },
+          "phase": {
+            "type": "string",
+            "enum": [
+              "starting",
+              "transferring",
+              "verifying",
+              "packaging",
+              "succeeded",
+              "failed"
+            ]
+          },
+          "progress": {
+            "$ref": "#/components/schemas/PortabilityProgress"
+          },
+          "failure": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "source_unavailable",
+              "source_changed",
+              "target_unavailable",
+              "verification_failed",
+              "owner_failed",
+              null
+            ]
+          },
+          "artifact": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PortableExportArtifact"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expected_collection_revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "updated_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "completed_at": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Timestamp"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "PortabilityJobOutcome": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "disposition",
+          "job"
+        ],
+        "properties": {
+          "disposition": {
+            "type": "string",
+            "enum": [
+              "applied",
+              "exact_replay"
+            ]
+          },
+          "job": {
+            "$ref": "#/components/schemas/PortabilityJob"
+          }
+        }
+      },
+      "PortabilityJobPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "jobs",
+          "next_cursor"
+        ],
+        "properties": {
+          "jobs": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/PortabilityJob"
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2048
+          }
+        }
+      },
+      "PortableDownloadHeader": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "value"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_-]+$"
+          },
+          "value": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 8192,
+            "x-sensitive": true
+          }
+        }
+      },
+      "PortableDownloadDescriptor": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "descriptor_id",
+          "method",
+          "url",
+          "headers",
+          "expected_size_bytes",
+          "content_sha256",
+          "one_use",
+          "expires_at"
+        ],
+        "properties": {
+          "descriptor_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "method": {
+            "const": "GET"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "pattern": "^https://",
+            "x-sensitive": true
+          },
+          "headers": {
+            "type": "array",
+            "maxItems": 16,
+            "items": {
+              "$ref": "#/components/schemas/PortableDownloadHeader"
+            }
+          },
+          "expected_size_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "content_sha256": {
+            "$ref": "#/components/schemas/ContentSha256"
+          },
+          "one_use": {
+            "const": true
+          },
+          "expires_at": {
+            "$ref": "#/components/schemas/Timestamp"
           }
         }
       },
