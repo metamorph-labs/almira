@@ -13,7 +13,8 @@ pub use server::{
     CreateUploadRequest, DirectUploadDescriptor, DirectUploadHeader, DirectUploadPart,
     DirectUploadPartCompletion, FinalizeUploadRequest, ReadAccessOperation, ServerClient,
     ServerClientOptions, SubjectBinding, SubjectBindingOutcome, SubjectBindingPage,
-    SubjectBindingPageOptions, SubjectProjectReference, SubjectReference,
+    SubjectBindingPageOptions, SubjectLifecycleItem, SubjectLifecycleOperation,
+    SubjectLifecycleOutcome, SubjectLifecyclePage, SubjectProjectReference, SubjectReference,
 };
 pub use transfer::{
     DirectUploadResponse, DirectUploadTransport, ReqwestDirectUploadTransport, TransferError,
@@ -24,4 +25,4 @@ pub use webhook::{
     VerifiedWebhook, WebhookHeaders, WebhookVerificationOptions, verify_webhook_signature,
 };
 
-pub const CONTRACT_VERSION: &str = "0.1.0-dev.38";
+pub const CONTRACT_VERSION: &str = "0.1.0-dev.40";

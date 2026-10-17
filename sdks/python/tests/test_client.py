@@ -430,6 +430,22 @@ class AlmiraPythonSdkTest(unittest.TestCase):
             calls.append((method, url, dict(headers), body))
             if url.endswith("/subject-bindings"):
                 return response({"disposition": "applied", "binding": binding}, 201)
+            lifecycle = {
+                "operation_id": REQUEST,
+                "kind": "delete",
+                "state": "pending",
+                "subject": {"namespace": "auth0:primary", "subject_id": "opaque|user-42"},
+                "matched_entries": 1,
+                "completed_entries": 0,
+                "pending_entries": 1,
+                "manifest_digest": f"sha256:{'a' * 64}",
+                "created_at": "2026-10-17T12:00:00Z",
+                "updated_at": "2026-10-17T12:00:00Z",
+            }
+            if url.endswith("/subject-lifecycle-operations"):
+                return response({"operation": lifecycle}, 202)
+            if url.endswith("/subject-lifecycle-operations/search"):
+                return response({"operation": lifecycle, "items": [], "next_cursor": None})
             return response({"items": [binding], "next_cursor": None})
 
         server = AlmiraServerClient(
@@ -445,11 +461,27 @@ class AlmiraPythonSdkTest(unittest.TestCase):
             limit=25,
             cursor="next",
         )
+        lifecycle = server.start_subject_lifecycle_operation(
+            SubjectProjectReference(TENANT, PROJECT),
+            subject,
+            "delete",
+            operation_id=REQUEST,
+        )
+        manifest = server.read_subject_lifecycle_operation(
+            SubjectProjectReference(TENANT, PROJECT),
+            REQUEST,
+            limit=25,
+            cursor="manifest-next",
+        )
         self.assertEqual(outcome.binding.entry_id, ENTRY)
         self.assertEqual(len(page.items), 1)
+        self.assertEqual(lifecycle.operation.state, "pending")
+        self.assertEqual(manifest.operation.operation_id, REQUEST)
         self.assertNotIn("opaque|user-42", repr(subject))
         self.assertEqual(calls[0][2]["idempotency-key"], REQUEST)
         self.assertNotIn("idempotency-key", calls[1][2])
+        self.assertEqual(calls[2][2]["idempotency-key"], REQUEST)
+        self.assertNotIn("idempotency-key", calls[3][2])
         self.assertEqual(
             [json.loads(call[3] or b"{}") for call in calls],
             [
@@ -458,6 +490,15 @@ class AlmiraPythonSdkTest(unittest.TestCase):
                     "subject": {"namespace": "auth0:primary", "subject_id": "opaque|user-42"},
                     "limit": 25,
                     "cursor": "next",
+                },
+                {
+                    "subject": {"namespace": "auth0:primary", "subject_id": "opaque|user-42"},
+                    "kind": "delete",
+                },
+                {
+                    "operation_id": REQUEST,
+                    "limit": 25,
+                    "cursor": "manifest-next",
                 },
             ],
         )

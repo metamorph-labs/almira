@@ -81,6 +81,46 @@ type SubjectBindingPageOptions struct {
 	Cursor string
 }
 
+type SubjectLifecycleOperation struct {
+	OperationID      string           `json:"operation_id"`
+	Kind             string           `json:"kind"`
+	State            string           `json:"state"`
+	Subject          SubjectReference `json:"subject"`
+	MatchedEntries   uint64           `json:"matched_entries"`
+	CompletedEntries uint64           `json:"completed_entries"`
+	PendingEntries   uint64           `json:"pending_entries"`
+	ManifestDigest   string           `json:"manifest_digest"`
+	CreatedAt        string           `json:"created_at"`
+	UpdatedAt        string           `json:"updated_at"`
+}
+
+func (operation SubjectLifecycleOperation) String() string {
+	return "SubjectLifecycleOperation{OperationID:" + operation.OperationID + ", Subject:[REDACTED], State:" + operation.State + "}"
+}
+
+func (operation SubjectLifecycleOperation) GoString() string { return operation.String() }
+
+type SubjectLifecycleOutcome struct {
+	Operation SubjectLifecycleOperation `json:"operation"`
+}
+
+type SubjectLifecycleItem struct {
+	BindingID            string  `json:"binding_id"`
+	EnvironmentID        string  `json:"environment_id"`
+	CollectionInstanceID string  `json:"collection_instance_id"`
+	EntryID              string  `json:"entry_id"`
+	EntryRevision        int64   `json:"entry_revision"`
+	Disposition          string  `json:"disposition"`
+	ContentPath          *string `json:"content_path"`
+	RecycleUntil         *string `json:"recycle_until"`
+}
+
+type SubjectLifecyclePage struct {
+	Operation  SubjectLifecycleOperation `json:"operation"`
+	Items      []SubjectLifecycleItem     `json:"items"`
+	NextCursor *string                    `json:"next_cursor"`
+}
+
 type CapabilityResource struct {
 	Kind       string `json:"kind"`
 	PathPrefix string `json:"path_prefix,omitempty"`
@@ -398,6 +438,84 @@ func (c *ServerClient) ListSubjectBindings(
 	return page, nil
 }
 
+func (c *ServerClient) StartSubjectLifecycleOperation(
+	ctx context.Context,
+	reference SubjectProjectReference,
+	subject SubjectReference,
+	kind string,
+	operationID string,
+) (SubjectLifecycleOutcome, error) {
+	var zero SubjectLifecycleOutcome
+	if !validSubjectReference(subject) || kind != "restrict" && kind != "export" && kind != "delete" {
+		return zero, invalidInput()
+	}
+	projectID, err := uuid(reference.ProjectID)
+	if err != nil {
+		return zero, err
+	}
+	body := struct {
+		Subject SubjectReference `json:"subject"`
+		Kind    string           `json:"kind"`
+	}{Subject: subject, Kind: kind}
+	outcome, err := serverRequestJSON[SubjectLifecycleOutcome](
+		c, ctx, http.MethodPost, "/v1/projects/"+projectID+"/subject-lifecycle-operations",
+		reference.TenantID, operationID, body, http.StatusCreated, http.StatusAccepted,
+	)
+	if err != nil {
+		return zero, err
+	}
+	if !validSubjectLifecycleOperation(outcome.Operation) {
+		return zero, invalidResponse()
+	}
+	return outcome, nil
+}
+
+func (c *ServerClient) ReadSubjectLifecycleOperation(
+	ctx context.Context,
+	reference SubjectProjectReference,
+	lifecycleOperationID string,
+	options SubjectBindingPageOptions,
+) (SubjectLifecyclePage, error) {
+	var zero SubjectLifecyclePage
+	limit := options.Limit
+	if limit == 0 {
+		limit = 50
+	}
+	if limit < 1 || limit > 100 || len(options.Cursor) > 2048 {
+		return zero, invalidInput()
+	}
+	projectID, err := uuid(reference.ProjectID)
+	if err != nil {
+		return zero, err
+	}
+	lifecycleOperationID, err = uuid(lifecycleOperationID)
+	if err != nil {
+		return zero, err
+	}
+	body := struct {
+		OperationID string `json:"operation_id"`
+		Limit       int    `json:"limit"`
+		Cursor      string `json:"cursor,omitempty"`
+	}{OperationID: lifecycleOperationID, Limit: limit, Cursor: options.Cursor}
+	page, err := serverReadJSON[SubjectLifecyclePage](
+		c, ctx, http.MethodPost, "/v1/projects/"+projectID+"/subject-lifecycle-operations/search",
+		reference.TenantID, body, http.StatusOK,
+	)
+	if err != nil {
+		return zero, err
+	}
+	if !validSubjectLifecycleOperation(page.Operation) || len(page.Items) > 100 ||
+		page.NextCursor != nil && (len(*page.NextCursor) < 1 || len(*page.NextCursor) > 2048) {
+		return zero, invalidResponse()
+	}
+	for _, item := range page.Items {
+		if !validSubjectLifecycleItem(item) {
+			return zero, invalidResponse()
+		}
+	}
+	return page, nil
+}
+
 func (c *ServerClient) CreateCapabilityDataClient(
 	ctx context.Context,
 	reference CollectionReference,
@@ -447,9 +565,9 @@ func serverRequestJSON[T any](
 	ctx context.Context,
 	method, path, tenantID, operationID string,
 	value any,
-	expectedStatus int,
+	expectedStatus ...int,
 ) (T, error) {
-	return serverJSON[T](c, ctx, method, path, tenantID, operationID, true, value, expectedStatus)
+	return serverJSON[T](c, ctx, method, path, tenantID, operationID, true, value, expectedStatus...)
 }
 
 func serverReadJSON[T any](
@@ -457,9 +575,9 @@ func serverReadJSON[T any](
 	ctx context.Context,
 	method, path, tenantID string,
 	value any,
-	expectedStatus int,
+	expectedStatus ...int,
 ) (T, error) {
-	return serverJSON[T](c, ctx, method, path, tenantID, "", false, value, expectedStatus)
+	return serverJSON[T](c, ctx, method, path, tenantID, "", false, value, expectedStatus...)
 }
 
 func serverJSON[T any](
@@ -468,7 +586,7 @@ func serverJSON[T any](
 	method, path, tenantID, operationID string,
 	requireOperation bool,
 	value any,
-	expectedStatus int,
+	expectedStatus ...int,
 ) (T, error) {
 	var zero T
 	if ctx == nil {
@@ -527,7 +645,11 @@ func serverJSON[T any](
 		}
 		return zero, invalidResponse()
 	}
-	if response.StatusCode != expectedStatus {
+	statusAccepted := false
+	for _, status := range expectedStatus {
+		statusAccepted = statusAccepted || response.StatusCode == status
+	}
+	if !statusAccepted {
 		return zero, parseAPIError(response)
 	}
 	mediaType, _, mediaErr := mime.ParseMediaType(response.Header.Get("Content-Type"))
@@ -565,6 +687,29 @@ func validSubjectBinding(binding SubjectBinding) bool {
 		uuidV7Pattern.MatchString(binding.EntryID) &&
 		(binding.EntryLifecycle == "active" || binding.EntryLifecycle == "restricted" || binding.EntryLifecycle == "deleted") &&
 		validTimestamp(binding.CreatedAt)
+}
+
+func validSubjectLifecycleOperation(operation SubjectLifecycleOperation) bool {
+	return uuidV7Pattern.MatchString(operation.OperationID) && validSubjectReference(operation.Subject) &&
+		(operation.Kind == "restrict" || operation.Kind == "export" || operation.Kind == "delete") &&
+		(operation.State == "complete" || operation.State == "pending") &&
+		operation.CompletedEntries+operation.PendingEntries == operation.MatchedEntries &&
+		(operation.State == "complete") == (operation.PendingEntries == 0) &&
+		contentSHA256Pattern.MatchString(operation.ManifestDigest) &&
+		validTimestamp(operation.CreatedAt) && validTimestamp(operation.UpdatedAt)
+}
+
+func validSubjectLifecycleItem(item SubjectLifecycleItem) bool {
+	validDisposition := item.Disposition == "export_ready" || item.Disposition == "restricted" ||
+		item.Disposition == "already_restricted" || item.Disposition == "already_deleted" ||
+		item.Disposition == "deleted_pending_retention" || item.Disposition == "shared_resource_restricted" ||
+		item.Disposition == "export_pending_bundle" || item.Disposition == "export_pending_restriction" ||
+		item.Disposition == "export_pending_retention"
+	validContentPath := item.ContentPath == nil || strings.HasPrefix(*item.ContentPath, "/v1/projects/") && len(*item.ContentPath) <= 512
+	return uuidV7Pattern.MatchString(item.BindingID) && uuidV7Pattern.MatchString(item.EnvironmentID) &&
+		uuidV7Pattern.MatchString(item.CollectionInstanceID) && uuidV7Pattern.MatchString(item.EntryID) &&
+		item.EntryRevision > 0 && validDisposition && (item.Disposition == "export_ready") == (item.ContentPath != nil) &&
+		validContentPath && (item.RecycleUntil == nil || validTimestamp(*item.RecycleUntil))
 }
 
 func validateCapabilityRequest(request CreateCapabilitySessionRequest) error {

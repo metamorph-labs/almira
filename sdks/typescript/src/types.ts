@@ -634,7 +634,7 @@ export interface VerificationCheck {
 
 export interface VerificationReceipt {
   receipt_version: "almira.verification.v1";
-  contract_version: "0.1.0-dev.38";
+  contract_version: "0.1.0-dev.40";
   verification_id: UuidV7;
   realm_id: UuidV7;
   tenant_id: UuidV7;
@@ -1008,6 +1008,53 @@ export interface SubjectBindingOutcome {
 
 export interface SubjectBindingPage {
   items: SubjectBinding[];
+  next_cursor: string | null;
+}
+
+export type SubjectLifecycleKind = "restrict" | "export" | "delete";
+export type SubjectLifecycleState = "complete" | "pending";
+export type SubjectLifecycleItemDisposition =
+  | "export_ready"
+  | "restricted"
+  | "already_restricted"
+  | "already_deleted"
+  | "deleted_pending_retention"
+  | "shared_resource_restricted"
+  | "export_pending_bundle"
+  | "export_pending_restriction"
+  | "export_pending_retention";
+
+export interface SubjectLifecycleOperation {
+  operation_id: UuidV7;
+  kind: SubjectLifecycleKind;
+  state: SubjectLifecycleState;
+  subject: SubjectReference;
+  matched_entries: number;
+  completed_entries: number;
+  pending_entries: number;
+  manifest_digest: string;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+}
+
+export interface SubjectLifecycleOutcome {
+  operation: SubjectLifecycleOperation;
+}
+
+export interface SubjectLifecycleItem {
+  binding_id: UuidV7;
+  environment_id: UuidV7;
+  collection_instance_id: UuidV7;
+  entry_id: UuidV7;
+  entry_revision: number;
+  disposition: SubjectLifecycleItemDisposition;
+  content_path: string | null;
+  recycle_until: Timestamp | null;
+}
+
+export interface SubjectLifecyclePage {
+  operation: SubjectLifecycleOperation;
+  items: SubjectLifecycleItem[];
   next_cursor: string | null;
 }
 

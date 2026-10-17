@@ -81,6 +81,44 @@ class SubjectBindingPage:
 
 
 @dataclass(frozen=True, slots=True)
+class SubjectLifecycleOperation:
+    operation_id: str
+    kind: str
+    state: str
+    subject: SubjectReference = field(repr=False)
+    matched_entries: int
+    completed_entries: int
+    pending_entries: int
+    manifest_digest: str
+    created_at: str
+    updated_at: str
+
+
+@dataclass(frozen=True, slots=True)
+class SubjectLifecycleOutcome:
+    operation: SubjectLifecycleOperation
+
+
+@dataclass(frozen=True, slots=True)
+class SubjectLifecycleItem:
+    binding_id: str
+    environment_id: str
+    collection_instance_id: str
+    entry_id: str
+    entry_revision: int
+    disposition: str
+    content_path: str | None
+    recycle_until: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class SubjectLifecyclePage:
+    operation: SubjectLifecycleOperation
+    items: tuple[SubjectLifecycleItem, ...]
+    next_cursor: str | None
+
+
+@dataclass(frozen=True, slots=True)
 class CapabilityResource:
     kind: str
     path_prefix: str | None = None
@@ -325,6 +363,56 @@ class AlmiraServerClient:
         )
         return _subject_binding_page(value)
 
+    def start_subject_lifecycle_operation(
+        self,
+        reference: SubjectProjectReference,
+        subject: SubjectReference,
+        kind: str,
+        *,
+        operation_id: str,
+    ) -> SubjectLifecycleOutcome:
+        if not isinstance(reference, SubjectProjectReference) or kind not in {"restrict", "export", "delete"}:
+            _invalid_input()
+        value = self._json(
+            "POST",
+            f"/v1/projects/{_uuid(reference.project_id)}/subject-lifecycle-operations",
+            reference.tenant_id,
+            operation_id,
+            {"subject": _subject_payload(subject), "kind": kind},
+            (201, 202),
+        )
+        return _subject_lifecycle_outcome(value)
+
+    def read_subject_lifecycle_operation(
+        self,
+        reference: SubjectProjectReference,
+        lifecycle_operation_id: str,
+        *,
+        limit: int = 50,
+        cursor: str | None = None,
+    ) -> SubjectLifecyclePage:
+        if (
+            not isinstance(reference, SubjectProjectReference)
+            or isinstance(limit, bool)
+            or not 1 <= limit <= 100
+            or cursor is not None
+            and (not isinstance(cursor, str) or not 1 <= len(cursor) <= 2048)
+        ):
+            _invalid_input()
+        value = self._json(
+            "POST",
+            f"/v1/projects/{_uuid(reference.project_id)}/subject-lifecycle-operations/search",
+            reference.tenant_id,
+            None,
+            {
+                "operation_id": _uuid(lifecycle_operation_id),
+                "limit": limit,
+                **({} if cursor is None else {"cursor": cursor}),
+            },
+            200,
+        )
+        return _subject_lifecycle_page(value)
+
     def create_capability_data_client(
         self,
         reference: CollectionReference,
@@ -375,7 +463,7 @@ class AlmiraServerClient:
         tenant_id: str,
         operation_id: str | None,
         value: object | None,
-        expected_status: int,
+        expected_status: int | tuple[int, ...],
     ) -> Any:
         tenant_id = _uuid(tenant_id)
         if operation_id is not None:
@@ -403,7 +491,8 @@ class AlmiraServerClient:
         except Exception as error:
             raise AlmiraClientError("ALMIRA_CLIENT_NETWORK") from error
         _validate_response(response)
-        if response.status != expected_status:
+        expected_statuses = (expected_status,) if isinstance(expected_status, int) else expected_status
+        if response.status not in expected_statuses:
             _raise_api_error(response)
         content_type = response.headers.get("content-type", "").split(";", 1)[0].strip()
         if content_type != "application/json":
@@ -586,6 +675,112 @@ def _subject_binding_page(value: object) -> SubjectBindingPage:
     ):
         _invalid_response()
     return SubjectBindingPage(tuple(_subject_binding(item) for item in items), cursor)
+
+
+def _subject_lifecycle_operation(value: object) -> SubjectLifecycleOperation:
+    expected = {
+        "operation_id", "kind", "state", "subject", "matched_entries",
+        "completed_entries", "pending_entries", "manifest_digest", "created_at", "updated_at",
+    }
+    if not isinstance(value, dict) or set(value) != expected:
+        _invalid_response()
+    raw_subject = value["subject"]
+    counts = (value["matched_entries"], value["completed_entries"], value["pending_entries"])
+    if (
+        not isinstance(value["operation_id"], str)
+        or UUID_V7.fullmatch(value["operation_id"]) is None
+        or value["kind"] not in {"restrict", "export", "delete"}
+        or value["state"] not in {"complete", "pending"}
+        or not isinstance(raw_subject, dict)
+        or set(raw_subject) != {"namespace", "subject_id"}
+        or not isinstance(raw_subject["namespace"], str)
+        or SUBJECT_NAMESPACE.fullmatch(raw_subject["namespace"]) is None
+        or not _opaque(raw_subject["subject_id"])
+        or any(isinstance(count, bool) or not isinstance(count, int) or count < 0 for count in counts)
+        or counts[1] + counts[2] != counts[0]
+        or (value["state"] == "complete") != (counts[2] == 0)
+        or not isinstance(value["manifest_digest"], str)
+        or CONTENT_SHA256.fullmatch(value["manifest_digest"]) is None
+        or not isinstance(value["created_at"], str)
+        or not _timestamp(value["created_at"])
+        or not isinstance(value["updated_at"], str)
+        or not _timestamp(value["updated_at"])
+    ):
+        _invalid_response()
+    return SubjectLifecycleOperation(
+        value["operation_id"],
+        value["kind"],
+        value["state"],
+        SubjectReference(raw_subject["namespace"], raw_subject["subject_id"]),
+        counts[0],
+        counts[1],
+        counts[2],
+        value["manifest_digest"],
+        value["created_at"],
+        value["updated_at"],
+    )
+
+
+def _subject_lifecycle_outcome(value: object) -> SubjectLifecycleOutcome:
+    if not isinstance(value, dict) or set(value) != {"operation"}:
+        _invalid_response()
+    return SubjectLifecycleOutcome(_subject_lifecycle_operation(value["operation"]))
+
+
+def _subject_lifecycle_item(value: object) -> SubjectLifecycleItem:
+    expected = {
+        "binding_id", "environment_id", "collection_instance_id", "entry_id", "entry_revision",
+        "disposition", "content_path", "recycle_until",
+    }
+    dispositions = {
+        "export_ready", "restricted", "already_restricted", "already_deleted",
+        "deleted_pending_retention", "shared_resource_restricted",
+        "export_pending_bundle", "export_pending_restriction", "export_pending_retention",
+    }
+    if not isinstance(value, dict) or set(value) != expected:
+        _invalid_response()
+    content_path = value["content_path"]
+    recycle_until = value["recycle_until"]
+    if (
+        any(
+            not isinstance(value[key], str) or UUID_V7.fullmatch(value[key]) is None
+            for key in ("binding_id", "environment_id", "collection_instance_id", "entry_id")
+        )
+        or isinstance(value["entry_revision"], bool)
+        or not isinstance(value["entry_revision"], int)
+        or value["entry_revision"] < 1
+        or value["disposition"] not in dispositions
+        or (value["disposition"] == "export_ready") != isinstance(content_path, str)
+        or isinstance(content_path, str)
+        and (not content_path.startswith("/v1/projects/") or len(content_path) > 512)
+        or recycle_until is not None
+        and (not isinstance(recycle_until, str) or not _timestamp(recycle_until))
+    ):
+        _invalid_response()
+    return SubjectLifecycleItem(
+        value["binding_id"], value["environment_id"], value["collection_instance_id"],
+        value["entry_id"], value["entry_revision"], value["disposition"],
+        content_path, recycle_until,
+    )
+
+
+def _subject_lifecycle_page(value: object) -> SubjectLifecyclePage:
+    if not isinstance(value, dict) or set(value) != {"operation", "items", "next_cursor"}:
+        _invalid_response()
+    items = value["items"]
+    cursor = value["next_cursor"]
+    if (
+        not isinstance(items, list)
+        or len(items) > 100
+        or cursor is not None
+        and (not isinstance(cursor, str) or not 1 <= len(cursor) <= 2048)
+    ):
+        _invalid_response()
+    return SubjectLifecyclePage(
+        _subject_lifecycle_operation(value["operation"]),
+        tuple(_subject_lifecycle_item(item) for item in items),
+        cursor,
+    )
 
 
 def _grant(value: object) -> CapabilitySessionGrant:

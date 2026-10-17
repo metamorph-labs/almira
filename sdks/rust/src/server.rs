@@ -93,6 +93,66 @@ pub struct SubjectBindingPageOptions {
     pub cursor: Option<String>,
 }
 
+#[derive(Clone, Eq, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SubjectLifecycleOperation {
+    pub operation_id: String,
+    pub kind: String,
+    pub state: String,
+    pub subject: SubjectReference,
+    pub matched_entries: u64,
+    pub completed_entries: u64,
+    pub pending_entries: u64,
+    pub manifest_digest: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+impl Debug for SubjectLifecycleOperation {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("SubjectLifecycleOperation")
+            .field("operation_id", &self.operation_id)
+            .field("kind", &self.kind)
+            .field("state", &self.state)
+            .field("subject", &"[REDACTED]")
+            .field("matched_entries", &self.matched_entries)
+            .field("completed_entries", &self.completed_entries)
+            .field("pending_entries", &self.pending_entries)
+            .field("manifest_digest", &self.manifest_digest)
+            .field("created_at", &self.created_at)
+            .field("updated_at", &self.updated_at)
+            .finish()
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SubjectLifecycleOutcome {
+    pub operation: SubjectLifecycleOperation,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SubjectLifecycleItem {
+    pub binding_id: String,
+    pub environment_id: String,
+    pub collection_instance_id: String,
+    pub entry_id: String,
+    pub entry_revision: i64,
+    pub disposition: String,
+    pub content_path: Option<String>,
+    pub recycle_until: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SubjectLifecyclePage {
+    pub operation: SubjectLifecycleOperation,
+    pub items: Vec<SubjectLifecycleItem>,
+    pub next_cursor: Option<String>,
+}
+
 impl Default for SubjectBindingPageOptions {
     fn default() -> Self {
         Self {
@@ -514,6 +574,101 @@ impl ServerClient {
         Ok(page)
     }
 
+    pub async fn start_subject_lifecycle_operation(
+        &self,
+        reference: &SubjectProjectReference,
+        subject: &SubjectReference,
+        kind: &str,
+        operation_id: &str,
+    ) -> Result<SubjectLifecycleOutcome, Error> {
+        if !valid_uuid_v7(&reference.project_id)
+            || !valid_subject_reference(subject)
+            || !matches!(kind, "restrict" | "export" | "delete")
+        {
+            return Err(invalid_input());
+        }
+        #[derive(Serialize)]
+        #[serde(deny_unknown_fields)]
+        struct Request<'a> {
+            subject: &'a SubjectReference,
+            kind: &'a str,
+        }
+        let path = format!(
+            "/v1/projects/{}/subject-lifecycle-operations",
+            reference.project_id
+        );
+        let outcome: SubjectLifecycleOutcome = self
+            .request_json_any(
+                Method::POST,
+                &path,
+                &reference.tenant_id,
+                Some(operation_id),
+                Some(&Request { subject, kind }),
+                &[StatusCode::CREATED, StatusCode::ACCEPTED],
+            )
+            .await?;
+        if !valid_subject_lifecycle_operation(&outcome.operation) {
+            return Err(invalid_response());
+        }
+        Ok(outcome)
+    }
+
+    pub async fn read_subject_lifecycle_operation(
+        &self,
+        reference: &SubjectProjectReference,
+        lifecycle_operation_id: &str,
+        options: &SubjectBindingPageOptions,
+    ) -> Result<SubjectLifecyclePage, Error> {
+        if !valid_uuid_v7(&reference.project_id)
+            || !valid_uuid_v7(lifecycle_operation_id)
+            || options.limit == 0
+            || options.limit > 100
+            || options
+                .cursor
+                .as_ref()
+                .is_some_and(|value| value.is_empty() || value.len() > 2048)
+        {
+            return Err(invalid_input());
+        }
+        #[derive(Serialize)]
+        #[serde(deny_unknown_fields)]
+        struct Request<'a> {
+            operation_id: &'a str,
+            limit: u16,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            cursor: Option<&'a str>,
+        }
+        let path = format!(
+            "/v1/projects/{}/subject-lifecycle-operations/search",
+            reference.project_id
+        );
+        let page: SubjectLifecyclePage = self
+            .request_json(
+                Method::POST,
+                &path,
+                &reference.tenant_id,
+                None,
+                Some(&Request {
+                    operation_id: lifecycle_operation_id,
+                    limit: options.limit,
+                    cursor: options.cursor.as_deref(),
+                }),
+                StatusCode::OK,
+            )
+            .await?;
+        if !valid_subject_lifecycle_operation(&page.operation)
+            || page.items.len() > 100
+            || page
+                .next_cursor
+                .as_ref()
+                .is_some_and(|value| value.is_empty() || value.len() > 2048)
+            || page.items.iter().any(|item| !valid_subject_lifecycle_item(item))
+        {
+            return Err(invalid_response());
+        }
+        Ok(page)
+    }
+
     pub async fn create_capability_data_client(
         &self,
         reference: &CollectionReference,
@@ -570,6 +725,26 @@ impl ServerClient {
         body: Option<&B>,
         expected_status: StatusCode,
     ) -> Result<T, Error> {
+        self.request_json_any(
+            method,
+            path,
+            tenant_id,
+            operation_id,
+            body,
+            &[expected_status],
+        )
+        .await
+    }
+
+    async fn request_json_any<B: Serialize + ?Sized, T: DeserializeOwned>(
+        &self,
+        method: Method,
+        path: &str,
+        tenant_id: &str,
+        operation_id: Option<&str>,
+        body: Option<&B>,
+        expected_statuses: &[StatusCode],
+    ) -> Result<T, Error> {
         if !valid_uuid_v7(tenant_id) || operation_id.is_some_and(|value| !valid_uuid_v7(value)) {
             return Err(invalid_input());
         }
@@ -612,7 +787,7 @@ impl ServerClient {
             .send()
             .await
             .map_err(|_| client_error("ALMIRA_CLIENT_NETWORK"))?;
-        if response.status() != expected_status {
+        if !expected_statuses.contains(&response.status()) {
             return Err(api_error(response).await);
         }
         let content_type = response
@@ -839,6 +1014,47 @@ fn valid_subject_binding(binding: &SubjectBinding) -> bool {
             "active" | "restricted" | "deleted"
         )
         && valid_timestamp(&binding.created_at)
+}
+
+fn valid_subject_lifecycle_operation(operation: &SubjectLifecycleOperation) -> bool {
+    valid_uuid_v7(&operation.operation_id)
+        && valid_subject_reference(&operation.subject)
+        && matches!(operation.kind.as_str(), "restrict" | "export" | "delete")
+        && matches!(operation.state.as_str(), "complete" | "pending")
+        && operation.completed_entries.checked_add(operation.pending_entries)
+            == Some(operation.matched_entries)
+        && (operation.state == "complete") == (operation.pending_entries == 0)
+        && valid_content_sha256(&operation.manifest_digest)
+        && valid_timestamp(&operation.created_at)
+        && valid_timestamp(&operation.updated_at)
+}
+
+fn valid_subject_lifecycle_item(item: &SubjectLifecycleItem) -> bool {
+    valid_uuid_v7(&item.binding_id)
+        && valid_uuid_v7(&item.environment_id)
+        && valid_uuid_v7(&item.collection_instance_id)
+        && valid_uuid_v7(&item.entry_id)
+        && item.entry_revision > 0
+        && matches!(
+            item.disposition.as_str(),
+            "export_ready"
+                | "restricted"
+                | "already_restricted"
+                | "already_deleted"
+                | "deleted_pending_retention"
+                | "shared_resource_restricted"
+                | "export_pending_bundle"
+                | "export_pending_restriction"
+                | "export_pending_retention"
+        )
+        && (item.disposition == "export_ready") == item.content_path.is_some()
+        && item.content_path.as_ref().is_none_or(|path| {
+            path.starts_with("/v1/projects/") && path.len() <= 512
+        })
+        && item
+            .recycle_until
+            .as_ref()
+            .is_none_or(|value| valid_timestamp(value))
 }
 
 fn valid_content_sha256(value: &str) -> bool {

@@ -50,7 +50,9 @@ accepted by `finalize_upload`.
 `bind_subject` and `list_subject_bindings` let the builder workload associate a namespaced opaque
 end-user identifier with retained files and discover those bindings for privacy workflows. They use
 workload evidence, not browser capabilities; the subject is lifecycle metadata and never becomes
-an Almira authorization identity. Opaque subject identifiers are redacted from `Debug` output.
+an Almira authorization identity. Opaque subject identifiers are redacted from `Debug` output. Use
+`start_subject_lifecycle_operation` and `read_subject_lifecycle_operation` for idempotent
+restrict/export/delete requests and their immutable paged manifests.
 
 `verify_webhook_signature` verifies APP-01's common HMAC-SHA256 signature over the exact raw body
 before JSON parsing. Supply the five original `Metamorph-Webhook-*` header values and a bounded

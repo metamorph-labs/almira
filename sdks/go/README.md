@@ -45,7 +45,9 @@ evidence accepted by `FinalizeUpload`.
 `BindSubject` and `ListSubjectBindings` persist and discover namespaced opaque builder-user
 lifecycle associations under workload evidence. They support the builder's privacy workflows;
 subjects are lifecycle metadata, never Almira authorization identities, and opaque identifiers are
-redacted from SDK formatting.
+redacted from SDK formatting. `StartSubjectLifecycleOperation` and
+`ReadSubjectLifecycleOperation` expose safe restrict/export/delete handling with immutable, paged
+complete/pending manifests.
 
 Use `VerifyWebhookSignature` with the exact raw request body, APP-01 signing secret and original
 HTTP headers before decoding a webhook. It verifies the common HMAC-SHA256 transcript, UUIDv7

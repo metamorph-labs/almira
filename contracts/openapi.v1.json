@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Almira API",
-    "version": "0.1.0-dev.38",
+    "version": "0.1.0-dev.40",
     "description": "Provider-neutral application file storage management and data API."
   },
   "servers": [
@@ -145,6 +145,133 @@
           },
           "403": {
             "$ref": "#/components/responses/Forbidden"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/subject-lifecycle-operations": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "post": {
+        "operationId": "startSubjectLifecycleOperation",
+        "security": [
+          {
+            "customerWorkload": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/OperationId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartSubjectLifecycleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Lifecycle operation completed synchronously with no pending entries.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubjectLifecycleOutcome"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Lifecycle operation safely applied its immediate fences and retained an exact pending manifest.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubjectLifecycleOutcome"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/subject-lifecycle-operations/search": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "post": {
+        "operationId": "readSubjectLifecycleOperation",
+        "security": [
+          {
+            "customerWorkload": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReadSubjectLifecycleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "One immutable page from the exact lifecycle manifest.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubjectLifecyclePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
           },
           "503": {
             "$ref": "#/components/responses/Unavailable"
@@ -7516,7 +7643,7 @@
             "const": "almira.verification.v1"
           },
           "contract_version": {
-            "const": "0.1.0-dev.38"
+            "const": "0.1.0-dev.40"
           },
           "verification_id": {
             "$ref": "#/components/schemas/UuidV7"
@@ -9689,6 +9816,222 @@
             "maxItems": 100,
             "items": {
               "$ref": "#/components/schemas/SubjectBinding"
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 2048
+          }
+        }
+      },
+      "StartSubjectLifecycleRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "subject",
+          "kind"
+        ],
+        "properties": {
+          "subject": {
+            "$ref": "#/components/schemas/SubjectReference"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "restrict",
+              "export",
+              "delete"
+            ]
+          }
+        }
+      },
+      "ReadSubjectLifecycleRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operation_id",
+          "limit"
+        ],
+        "properties": {
+          "operation_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "cursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 2048
+          }
+        }
+      },
+      "SubjectLifecycleOperation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operation_id",
+          "kind",
+          "state",
+          "subject",
+          "matched_entries",
+          "completed_entries",
+          "pending_entries",
+          "manifest_digest",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "operation_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "restrict",
+              "export",
+              "delete"
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "complete",
+              "pending"
+            ]
+          },
+          "subject": {
+            "$ref": "#/components/schemas/SubjectReference"
+          },
+          "matched_entries": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "completed_entries": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "pending_entries": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "manifest_digest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "updated_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        },
+        "description": "Durable exact summary. Pending never means complete; counts cover the immutable paged manifest."
+      },
+      "SubjectLifecycleOutcome": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operation"
+        ],
+        "properties": {
+          "operation": {
+            "$ref": "#/components/schemas/SubjectLifecycleOperation"
+          }
+        }
+      },
+      "SubjectLifecycleItem": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "binding_id",
+          "environment_id",
+          "collection_instance_id",
+          "entry_id",
+          "entry_revision",
+          "disposition",
+          "content_path",
+          "recycle_until"
+        ],
+        "properties": {
+          "binding_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "environment_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "collection_instance_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "entry_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "entry_revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "disposition": {
+            "type": "string",
+            "enum": [
+              "export_ready",
+              "restricted",
+              "already_restricted",
+              "already_deleted",
+              "deleted_pending_retention",
+              "shared_resource_restricted",
+              "export_pending_bundle",
+              "export_pending_restriction",
+              "export_pending_retention"
+            ]
+          },
+          "content_path": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 512,
+            "pattern": "^/v1/projects/"
+          },
+          "recycle_until": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Timestamp"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "description": "Content paths are authenticated Almira-relative routes, never provider URLs or credentials."
+      },
+      "SubjectLifecyclePage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operation",
+          "items",
+          "next_cursor"
+        ],
+        "properties": {
+          "operation": {
+            "$ref": "#/components/schemas/SubjectLifecycleOperation"
+          },
+          "items": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/SubjectLifecycleItem"
             }
           },
           "next_cursor": {

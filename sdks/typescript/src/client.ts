@@ -108,6 +108,9 @@ import type {
   SubjectReadOptions,
   SubjectBindingOutcome,
   SubjectBindingPage,
+  SubjectLifecycleKind,
+  SubjectLifecycleOutcome,
+  SubjectLifecyclePage,
   SubjectReference,
   TokenMutationDisposition,
   UpdateEnvironmentRequest,
@@ -624,6 +627,43 @@ export class AlmiraClient {
       method: "POST",
       body: {
         subject,
+        limit,
+        ...(options.cursor === undefined ? {} : { cursor: options.cursor }),
+      },
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async startSubjectLifecycleOperation(
+    reference: ProjectReference,
+    subject: SubjectReference,
+    kind: SubjectLifecycleKind,
+    options: MutationOptions,
+  ): Promise<SubjectLifecycleOutcome> {
+    validateSubjectReference(subject);
+    if (!(["restrict", "export", "delete"] as const).includes(kind)) invalidInput();
+    return this.#json(projectPath(reference, "/subject-lifecycle-operations"), {
+      method: "POST",
+      headers: mutationHeaders(options.operationId),
+      body: { subject, kind },
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async readSubjectLifecycleOperation(
+    reference: ProjectReference,
+    lifecycleOperationId: UuidV7,
+    options: PageOptions = {},
+  ): Promise<SubjectLifecyclePage> {
+    const limit = options.limit ?? 50;
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) invalidInput();
+    if (options.cursor !== undefined && (options.cursor.length === 0 || options.cursor.length > 2048)) {
+      invalidInput();
+    }
+    return this.#json(projectPath(reference, "/subject-lifecycle-operations/search"), {
+      method: "POST",
+      body: {
+        operation_id: uuid(lifecycleOperationId),
         limit,
         ...(options.cursor === undefined ? {} : { cursor: options.cursor }),
       },

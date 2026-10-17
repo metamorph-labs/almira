@@ -413,14 +413,39 @@ test("workload-only subject bindings stay distinct from authorization identity",
     workloadSession: "workload_session",
     fetch: async (input, init) => {
       calls.push({ input, init });
-      return calls.length === 1
-        ? json({ disposition: "applied", binding }, { status: 201 })
-        : json({ items: [binding], next_cursor: null });
+      if (calls.length === 1) return json({ disposition: "applied", binding }, { status: 201 });
+      if (calls.length === 2) return json({ items: [binding], next_cursor: null });
+      const lifecycle = {
+        operation_id: operationId,
+        kind: "delete",
+        state: "pending",
+        subject,
+        matched_entries: 1,
+        completed_entries: 0,
+        pending_entries: 1,
+        manifest_digest: `sha256:${"a".repeat(64)}`,
+        created_at: "2026-10-17T12:00:00Z",
+        updated_at: "2026-10-17T12:00:00Z",
+      };
+      return calls.length === 3
+        ? json({ operation: lifecycle }, { status: 202 })
+        : json({ operation: lifecycle, items: [], next_cursor: null });
     },
   });
   const collection = { tenantId, projectId, environmentId, collectionInstanceId };
   await client.bindSubject({ ...collection, entryId }, subject, { operationId });
   await client.listSubjectBindings({ tenantId, projectId }, subject, { limit: 25, cursor: "next" });
+  await client.startSubjectLifecycleOperation(
+    { tenantId, projectId },
+    subject,
+    "delete",
+    { operationId },
+  );
+  await client.readSubjectLifecycleOperation(
+    { tenantId, projectId },
+    operationId,
+    { limit: 25, cursor: "manifest-next" },
+  );
   assert.deepEqual(calls.map(({ input, init }) => ({
     input,
     authorization: init.headers.get("authorization"),
@@ -438,6 +463,18 @@ test("workload-only subject bindings stay distinct from authorization identity",
       authorization: "MetamorphWorkload workload_session",
       operation: null,
       body: { subject, limit: 25, cursor: "next" },
+    },
+    {
+      input: `/v1/projects/${projectId}/subject-lifecycle-operations`,
+      authorization: "MetamorphWorkload workload_session",
+      operation: operationId,
+      body: { subject, kind: "delete" },
+    },
+    {
+      input: `/v1/projects/${projectId}/subject-lifecycle-operations/search`,
+      authorization: "MetamorphWorkload workload_session",
+      operation: null,
+      body: { operation_id: operationId, limit: 25, cursor: "manifest-next" },
     },
   ]);
   await assert.rejects(

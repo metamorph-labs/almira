@@ -103,7 +103,7 @@ function validReceipt(receipt: VerificationReceipt): boolean {
         "receipt_version", "safety_state", "signing_key_id", "tenant_id", "verification_id",
       ]) ||
       receipt.receipt_version !== "almira.verification.v1" ||
-      receipt.contract_version !== "0.1.0-dev.38" ||
+      receipt.contract_version !== "0.1.0-dev.40" ||
       !KEY_ID.test(receipt.signing_key_id) ||
       !CONTENT_SHA256.test(receipt.content_sha256) ||
       !Number.isSafeInteger(receipt.expected_size_bytes) ||

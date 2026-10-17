@@ -30,6 +30,10 @@ from .server import (
     SubjectBinding,
     SubjectBindingOutcome,
     SubjectBindingPage,
+    SubjectLifecycleItem,
+    SubjectLifecycleOperation,
+    SubjectLifecycleOutcome,
+    SubjectLifecyclePage,
     SubjectProjectReference,
     SubjectReference,
 )
@@ -64,6 +68,10 @@ __all__ = [
     "SubjectBinding",
     "SubjectBindingOutcome",
     "SubjectBindingPage",
+    "SubjectLifecycleItem",
+    "SubjectLifecycleOperation",
+    "SubjectLifecycleOutcome",
+    "SubjectLifecyclePage",
     "SubjectProjectReference",
     "SubjectReference",
     "AlmiraTransferError",
@@ -73,5 +81,5 @@ __all__ = [
     "verify_webhook_signature",
 ]
 
-__version__ = "0.1.0.dev36"
-__contract_version__ = "0.1.0-dev.38"
+__version__ = "0.1.0.dev38"
+__contract_version__ = "0.1.0-dev.40"

@@ -1,7 +1,7 @@
 {
   "schema_id": "almira.public.api-conformance-vectors.v1",
   "format_version": 1,
-  "openapi": "0.1.0-dev.38",
+  "openapi": "0.1.0-dev.40",
   "schema_vectors": [
     {
       "name": "additional_environment_is_managed_by_default",
@@ -1327,6 +1327,46 @@
       "expected": "invalid"
     },
     {
+      "name": "subject_lifecycle_request_is_workload_asserted_and_project_scoped",
+      "schema": "StartSubjectLifecycleRequest",
+      "instance": {
+        "subject": {
+          "namespace": "auth0:primary",
+          "subject_id": "opaque|user-42"
+        },
+        "kind": "delete"
+      },
+      "expected": "valid"
+    },
+    {
+      "name": "subject_lifecycle_request_has_no_unsafe_shared_delete_override",
+      "schema": "StartSubjectLifecycleRequest",
+      "instance": {
+        "subject": {
+          "namespace": "auth0:primary",
+          "subject_id": "opaque|user-42"
+        },
+        "kind": "delete",
+        "delete_shared": true
+      },
+      "expected": "invalid"
+    },
+    {
+      "name": "subject_export_manifest_never_contains_provider_urls",
+      "schema": "SubjectLifecycleItem",
+      "instance": {
+        "binding_id": "018f0000-0000-7000-8000-000000000101",
+        "environment_id": "018f0000-0000-7000-8000-000000000102",
+        "collection_instance_id": "018f0000-0000-7000-8000-000000000103",
+        "entry_id": "018f0000-0000-7000-8000-000000000104",
+        "entry_revision": 2,
+        "disposition": "export_ready",
+        "content_path": "https://provider.invalid/presigned-secret",
+        "recycle_until": null
+      },
+      "expected": "invalid"
+    },
+    {
       "name": "verification_read_is_bounded",
       "schema": "CreateVerificationReceiptRequest",
       "instance": {
@@ -1543,6 +1583,12 @@
     {
       "name": "subject_bindings_require_customer_workload_authority",
       "condition": "a browser user, PAT, or SAK attempts to bind or discover a builder application's end-user reference",
+      "code": "ALMIRA_SUBJECT_AUTHORIZATION_MISMATCH",
+      "http_status": 403
+    },
+    {
+      "name": "subject_lifecycle_requires_customer_workload_authority",
+      "condition": "a browser user, PAT, or SAK attempts to restrict, export, delete, or read a builder-subject lifecycle manifest",
       "code": "ALMIRA_SUBJECT_AUTHORIZATION_MISMATCH",
       "http_status": 403
     },
