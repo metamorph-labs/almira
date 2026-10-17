@@ -6,6 +6,7 @@ import {
   uploadDirect,
   verifyReceiptWithClient,
   type CollectionReference,
+  type DeleteFileOutcome,
   type FileGeneration,
   type SignedVerificationReceipt,
 } from "@metamorph-labs/almira-sdk";
@@ -47,6 +48,10 @@ export interface VerifiedUploadFileInput extends UploadFileInput {
 export interface VerifiedUploadFileResult {
   generation: FileGeneration;
   receipt: SignedVerificationReceipt;
+}
+
+export interface CleanedVerifiedUploadFileResult extends VerifiedUploadFileResult {
+  cleanup: DeleteFileOutcome;
 }
 
 /** Runs the application upload and asks Almira to exercise and sign the required behavior. */
@@ -97,4 +102,29 @@ export async function uploadAndVerifyFile(
     throw new Error("ALMIRA_EXAMPLE_VERIFICATION_FAILED");
   }
   return { generation, receipt };
+}
+
+/** Runs the verification canary and immediately moves it into the configured recycle window. */
+export async function uploadVerifyAndCleanupFile(
+  input: VerifiedUploadFileInput,
+): Promise<CleanedVerifiedUploadFileResult> {
+  const verified = await uploadAndVerifyFile(input);
+  const cleanup = await cleanupVerifiedUpload(input, verified.generation);
+  return { ...verified, cleanup };
+}
+
+/** Cleans up one verified canary using a fresh authoritative file revision. */
+export async function cleanupVerifiedUpload(
+  input: Pick<VerifiedUploadFileInput, "client" | "tenantId" | "projectId" | "environmentId" | "collectionInstanceId">,
+  generation: FileGeneration,
+): Promise<DeleteFileOutcome> {
+  const reference = {
+    tenantId: input.tenantId,
+    projectId: input.projectId,
+    environmentId: input.environmentId,
+    collectionInstanceId: input.collectionInstanceId,
+    entryId: generation.entry_id,
+  };
+  const entry = await input.client.getFileMetadata(reference);
+  return input.client.deleteFile(reference, entry.revision, { operationId: createOperationId() });
 }

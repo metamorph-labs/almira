@@ -3,7 +3,7 @@ import { basename } from "node:path";
 
 import { AlmiraClient } from "@metamorph-labs/almira-sdk";
 
-import { uploadAndVerifyFile } from "./upload.js";
+import { uploadVerifyAndCleanupFile } from "./upload.js";
 
 const [filePath, tenantId, projectId, environmentId, collectionInstanceId, refusalEnvironmentId, logicalPath] = process.argv.slice(2);
 const baseUrl = process.env.ALMIRA_BASE_URL;
@@ -26,7 +26,7 @@ if (
 } else {
   try {
     const bytes = await readFile(filePath);
-    const entry = await uploadAndVerifyFile({
+    const entry = await uploadVerifyAndCleanupFile({
       client: new AlmiraClient({ baseUrl, credential }),
       tenantId,
       projectId,

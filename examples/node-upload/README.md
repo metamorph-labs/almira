@@ -2,7 +2,8 @@
 
 This executable example demonstrates the complete application path: create an Almira upload,
 execute its one-use provider request without forwarding Metamorph credentials, finalize the
-immutable generation, and obtain and cryptographically verify Almira's signed behavior receipt.
+immutable generation, obtain and cryptographically verify Almira's signed behavior receipt, and
+move the command-line canary into its configured recycle window using a fresh file revision.
 
 ```sh
 export ALMIRA_BASE_URL=https://almira.example
@@ -22,6 +23,9 @@ and signs a receipt bound to the resource and contract version. The example fetc
 from the same Almira origin and verifies the Ed25519 signature offline before reporting success.
 Files above 8 MiB should use application-specific verification sampling; the V1 canonical receipt
 intentionally refuses them instead of turning verification into an unbounded download.
+The command-line example performs cleanup after verification and reports the deletion outcome. The
+reusable `uploadAndVerifyFile` helper and Next.js route retain ordinary user uploads; callers choose
+their own application lifecycle rather than inheriting canary cleanup.
 
 `src/next-route-handler.ts` is a Next.js App Router-compatible server handler factory for the
 representative `avatar`, `private_document`, and `video` flows. Supply the application's own

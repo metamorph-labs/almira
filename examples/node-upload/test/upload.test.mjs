@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { AlmiraClient } from "@metamorph-labs/almira-sdk";
 
-import { uploadAndVerifyFile, uploadFile } from "../dist/upload.js";
+import { cleanupVerifiedUpload, uploadAndVerifyFile, uploadFile } from "../dist/upload.js";
 import { createNextUploadRoute } from "../dist/next-route-handler.js";
 
 const projectId = "018f0000-0000-7000-8000-000000000003";
@@ -213,4 +213,42 @@ test("Next.js-compatible route delegates app authorization before storage work",
   }));
   assert.equal(invalid.status, 400);
   assert.deepEqual(await invalid.json(), { code: "ALMIRA_EXAMPLE_INPUT_INVALID" });
+});
+
+test("verified canary cleanup reads the current revision before deletion", async () => {
+  const calls = [];
+  const cleanup = await cleanupVerifiedUpload({
+    client: {
+      async getFileMetadata(reference) {
+        calls.push(["get", reference]);
+        return { entry_id: entryId, revision: 7 };
+      },
+      async deleteFile(reference, revision, options) {
+        calls.push(["delete", reference, revision, options]);
+        return {
+          disposition: "applied",
+          entry: { entry_id: entryId, revision: 8, lifecycle: "deleted" },
+        };
+      },
+    },
+    tenantId,
+    projectId,
+    environmentId,
+    collectionInstanceId,
+  }, {
+    entry_id: entryId,
+    generation_id: generationId,
+  });
+  assert.equal(calls.length, 2);
+  assert.deepEqual(calls[0], ["get", {
+    tenantId,
+    projectId,
+    environmentId,
+    collectionInstanceId,
+    entryId,
+  }]);
+  assert.equal(calls[1][0], "delete");
+  assert.equal(calls[1][2], 7);
+  assert.match(calls[1][3].operationId, /^[0-9a-f-]{36}$/u);
+  assert.equal(cleanup.entry.lifecycle, "deleted");
 });
