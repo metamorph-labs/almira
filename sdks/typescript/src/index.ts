@@ -8,6 +8,11 @@ export type {
   DataReadOptions,
   ImmutableGenerationReference,
 } from "./data-client.js";
+export { createCapabilityDataClient } from "./capability-session.js";
+export type {
+  CapabilityDataClientOptions,
+  CapabilityDataClientSession,
+} from "./capability-session.js";
 export { AlmiraApiError, AlmiraClientError, AlmiraTransferError } from "./errors.js";
 export {
   AlmiraConfigurationError,

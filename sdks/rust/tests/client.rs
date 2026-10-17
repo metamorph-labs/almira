@@ -1,10 +1,12 @@
 use metamorph_almira::{
-    ApiError, CONTRACT_VERSION, Client, ClientError, ClientOptions, CollectionReference,
+    ApiError, BuilderSubject, CONTRACT_VERSION, CapabilityDataClientOptions, CapabilityResource,
+    Client, ClientError, ClientOptions, CollectionReference, CreateCapabilitySessionRequest,
     CustomMetadataValue, DerivativeReference, Error, FileReference, ImmutableGenerationReference,
-    ListFilesOptions, ReadOptions, RetryPolicy, SearchInput,
+    ListFilesOptions, ReadAccessOperation, ReadOptions, RetryPolicy, SearchInput, ServerClient,
+    ServerClientOptions,
 };
 use serde_json::Value;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::sync::Arc;
@@ -359,6 +361,92 @@ async fn opt_in_retry_re_resolves_capability_and_replays_safe_request() {
         second.headers["authorization"]
     );
     assert_eq!(first.target, second.target);
+}
+
+#[tokio::test]
+async fn workload_exchange_returns_capability_only_client_and_revokes_exactly() {
+    let (base_url, requests) = serve(
+        3,
+        Arc::new(|request| match request.method.as_str() {
+            "POST" => Response {
+                status: "201 Created",
+                content_type: "application/json",
+                headers: vec![],
+                body: format!(
+                    r#"{{"session_id":"{REQUEST}","token":"{CAPABILITY}","operations":["metadata_read"],"resource":{{"kind":"collection"}},"audience":"https://app.example","policy_revision":1,"issuer_epoch":1,"expires_at":"2026-10-17T12:00:00Z"}}"#
+                ),
+            },
+            "DELETE" => Response {
+                status: "200 OK",
+                content_type: "application/json",
+                headers: vec![],
+                body: r#""applied""#.into(),
+            },
+            _ => Response {
+                status: "200 OK",
+                content_type: "application/json",
+                headers: vec![],
+                body: file_entry(),
+            },
+        }),
+    );
+    let server = ServerClient::new(ServerClientOptions::new(
+        &base_url,
+        "workload_session_evidence",
+    ))
+    .unwrap();
+    let request = CreateCapabilitySessionRequest {
+        subject: BuilderSubject {
+            subject_id: "user_42".into(),
+            organization_id: None,
+            roles: BTreeSet::new(),
+            attributes: BTreeMap::new(),
+        },
+        operations: vec![ReadAccessOperation::MetadataRead],
+        resource: CapabilityResource::Collection,
+        audience: "https://app.example".into(),
+        lifetime_seconds: 300,
+    };
+    let session = server
+        .create_capability_data_client(
+            &collection(),
+            &request,
+            GENERATION,
+            CapabilityDataClientOptions::default(),
+        )
+        .await
+        .unwrap();
+    session
+        .data_client
+        .get_file_metadata_with_capability(&generation().file)
+        .await
+        .unwrap();
+    assert_eq!(
+        server
+            .revoke_capability_session(&collection(), REQUEST, GENERATION)
+            .await
+            .unwrap(),
+        "applied"
+    );
+    let exchange = requests.recv().unwrap();
+    let data = requests.recv().unwrap();
+    let revoke = requests.recv().unwrap();
+    assert_eq!(
+        exchange.headers["authorization"],
+        "MetamorphWorkload workload_session_evidence"
+    );
+    assert_eq!(exchange.headers["x-almira-tenant-id"], TENANT);
+    assert_eq!(
+        data.headers["authorization"],
+        format!("Bearer {CAPABILITY}")
+    );
+    assert_eq!(data.headers["origin"], "https://app.example");
+    assert!(!data.headers.contains_key("x-almira-tenant-id"));
+    assert_eq!(revoke.method, "DELETE");
+    assert_eq!(
+        revoke.headers["authorization"],
+        "MetamorphWorkload workload_session_evidence"
+    );
 }
 
 fn collection() -> CollectionReference {

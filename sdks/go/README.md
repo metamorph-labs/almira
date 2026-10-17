@@ -32,4 +32,9 @@ client re-resolves capability providers per attempt, retries only network failur
 429/502/503/504 responses, bounds numeric `Retry-After`, and never replays a stream after returning
 its body.
 
+`ServerClient` accepts only short-lived `MetamorphWorkload` session evidence. Its
+`CreateCapabilityDataClient` exchange returns the bounded sensitive grant and a ready data client;
+the workload evidence is never copied into capability requests. Revocation retains an explicit
+operation identity and is never retried implicitly.
+
 Run `go test ./...` in this directory, or `pnpm check` at the public repository root.

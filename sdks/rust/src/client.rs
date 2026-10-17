@@ -437,7 +437,10 @@ enum CapabilityMode {
     Forbidden,
 }
 
-async fn bounded_body(mut response: reqwest::Response, limit: usize) -> Result<Vec<u8>, Error> {
+pub(crate) async fn bounded_body(
+    mut response: reqwest::Response,
+    limit: usize,
+) -> Result<Vec<u8>, Error> {
     let mut body = Vec::new();
     while let Some(chunk) = response
         .chunk()
@@ -462,7 +465,7 @@ struct ApiErrorBody {
     request_id: String,
 }
 
-async fn api_error(response: reqwest::Response) -> Error {
+pub(crate) async fn api_error(response: reqwest::Response) -> Error {
     let status = response.status().as_u16();
     let retry_after_seconds = header(&response, RETRY_AFTER).and_then(|value| retry_after(&value));
     let body = match bounded_body(response, 64 * 1024).await {
@@ -575,7 +578,7 @@ fn validate_filter(filter: &FileMetadataFilter) -> Result<(), Error> {
     Ok(())
 }
 
-fn endpoint(value: &str, origin: bool) -> Result<Url, Error> {
+pub(crate) fn endpoint(value: &str, origin: bool) -> Result<Url, Error> {
     if value.is_empty() || has_url_control(value) || origin && value.ends_with('/') {
         return Err(invalid_input());
     }
@@ -633,7 +636,7 @@ fn uuid(value: &str) -> Result<&str, Error> {
     }
 }
 
-fn valid_uuid_v7(value: &str) -> bool {
+pub(crate) fn valid_uuid_v7(value: &str) -> bool {
     let bytes = value.as_bytes();
     bytes.len() == 36
         && bytes[8] == b'-'
@@ -673,7 +676,7 @@ fn variant(value: &str) -> Result<String, Error> {
     Ok(value.to_owned())
 }
 
-fn valid_logical_path(value: &str) -> bool {
+pub(crate) fn valid_logical_path(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= 1024
         && value.split('/').all(|segment| {
@@ -709,7 +712,7 @@ fn valid_media_part(value: &str) -> bool {
         })
 }
 
-fn valid_timestamp(value: &str) -> bool {
+pub(crate) fn valid_timestamp(value: &str) -> bool {
     let bytes = value.as_bytes();
     if !(20..=64).contains(&bytes.len())
         || !matches!(bytes.get(4), Some(b'-'))
@@ -770,7 +773,7 @@ fn valid_facet(value: &str) -> bool {
             .is_some_and(valid_metadata_name)
 }
 
-fn valid_capability(value: &str) -> bool {
+pub(crate) fn valid_capability(value: &str) -> bool {
     let Some((prefix, payload)) = value.split_once('.') else {
         return false;
     };

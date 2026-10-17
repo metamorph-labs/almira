@@ -27,21 +27,24 @@ The dependency-light TypeScript client is in [`sdks/typescript`](sdks/typescript
 operation in the promoted contract and supports same-origin browser sessions, PATs, SAKs and
 short-lived workload evidence through the standard Fetch API. Its separate `AlmiraDataClient`
 accepts only end-user capability tokens and exposes capability-backed metadata, immutable CDN
-generation reads, and share reads without admitting management credentials. Run `pnpm check` for
-the complete local repository gate.
+generation reads, and share reads without admitting management credentials. The server-side
+capability helper exchanges current workload evidence for that isolated data client in one call.
+Run `pnpm check` for the complete local repository gate.
 
 The Python 3.11+ application data SDK is in [`sdks/python`](sdks/python). It covers the promoted
 capability-only data-plane contract exactly, streams immutable generation and derivative responses,
 keeps share reads credential-free, and has no runtime dependency outside the Python standard
-library.
+library. Its server client adds only the workload-to-capability exchange and explicit revocation.
 
 The dependency-free Go 1.23+ application data SDK is in [`sdks/go`](sdks/go). It provides typed
 metadata and search results, complete structured filtering, safe capability providers and closable
-streaming bodies while preserving the same capability-only and credential-free-share boundaries.
+streaming bodies while preserving the same capability-only and credential-free-share boundaries;
+its distinct server client performs workload-to-capability exchange without credential crossover.
 
 The async Rust application data SDK is in [`sdks/rust`](sdks/rust). It provides contract-shaped
 types, per-request capability refresh, bounded JSON/error handling and owned streaming responses;
-its dependency graph is locked and checked with formatting, tests and strict Clippy.
+its distinct server client performs the same bounded workload exchange, and its dependency graph is
+locked and checked with formatting, tests and strict Clippy.
 
 The first management commands are in [`clients/cli`](clients/cli). The CLI uses predictable
 noun/verb commands, JSON-only stdout, stable exit codes and environment-backed credentials; it

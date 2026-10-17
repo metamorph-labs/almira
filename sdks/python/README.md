@@ -38,6 +38,11 @@ Pass `retry=RetryPolicy(...)` to opt safe reads and read-only search into bounde
 are disabled by default, re-resolve rotating capabilities on each attempt, honor bounded numeric
 `Retry-After`, and never retry after a streaming response has been handed to the caller.
 
+`AlmiraServerClient` accepts only short-lived `MetamorphWorkload` session evidence. Its
+`create_capability_data_client` exchange returns the sensitive bounded grant and a ready
+capability-only client, without copying workload evidence into browser/mobile requests. Revoke the
+session with the original explicit operation identity when it is no longer needed.
+
 Management and resource provisioning remain in the Almira CLI/MCP or the management client. The
 builder application's backend obtains bounded capability sessions under its short-lived Metamorph
 customer-workload identity; this data client does not create an authentication system for the

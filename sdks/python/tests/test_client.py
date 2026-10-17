@@ -15,7 +15,11 @@ from almira import (  # noqa: E402
     AlmiraApiError,
     AlmiraClientError,
     AlmiraDataClient,
+    AlmiraServerClient,
+    BuilderSubject,
+    CapabilityResource,
     CollectionReference,
+    CreateCapabilitySessionRequest,
     DerivativeReference,
     FileReference,
     HttpResponse,
@@ -250,6 +254,62 @@ class AlmiraPythonSdkTest(unittest.TestCase):
         self.assertEqual(credential_calls, 2)
         self.assertEqual(len(calls), 2)
         self.assertNotEqual(calls[0], calls[1])
+
+    def test_workload_exchange_returns_capability_only_client_and_revokes_exactly(self) -> None:
+        calls: list[tuple[str, str, dict[str, str], bytes | None]] = []
+
+        def exchange(
+            method: str,
+            url: str,
+            headers: dict[str, str],
+            body: bytes | None,
+        ) -> HttpResponse:
+            calls.append((method, url, dict(headers), body))
+            if method == "POST":
+                return response(
+                    {
+                        "session_id": REQUEST,
+                        "token": CAPABILITY,
+                        "operations": ["metadata_read"],
+                        "resource": {"kind": "collection"},
+                        "audience": "https://app.example",
+                        "policy_revision": 1,
+                        "issuer_epoch": 1,
+                        "expires_at": "2026-10-17T12:00:00Z",
+                    },
+                    201,
+                )
+            if method == "DELETE":
+                return response("applied")
+            return response({"entry_id": ENTRY})
+
+        server = AlmiraServerClient(
+            base_url="https://almira.test",
+            workload_session="workload_session_evidence",
+            transport=exchange,
+        )
+        session = server.create_capability_data_client(
+            self.collection,
+            CreateCapabilitySessionRequest(
+                subject=BuilderSubject("user_42"),
+                operations=("metadata_read",),
+                resource=CapabilityResource("collection"),
+                audience="https://app.example",
+                lifetime_seconds=300,
+            ),
+            operation_id=GENERATION,
+            data_transport=exchange,
+        )
+        self.assertEqual(session.grant.token, CAPABILITY)
+        session.data_client.get_file_metadata_with_capability(self.file)
+        self.assertEqual(server.revoke_capability_session(self.collection, REQUEST, operation_id=GENERATION), "applied")
+        self.assertEqual(calls[0][2]["authorization"], "MetamorphWorkload workload_session_evidence")
+        self.assertEqual(calls[0][2]["x-almira-tenant-id"], TENANT)
+        self.assertEqual(calls[1][2]["authorization"], f"Bearer {CAPABILITY}")
+        self.assertEqual(calls[1][2]["origin"], "https://app.example")
+        self.assertNotIn("x-almira-tenant-id", calls[1][2])
+        self.assertEqual(calls[2][2]["authorization"], "MetamorphWorkload workload_session_evidence")
+        self.assertEqual(calls[2][0], "DELETE")
 
     def test_malformed_transport_response_is_stable_and_closed(self) -> None:
         body = io.StringIO("not bytes")

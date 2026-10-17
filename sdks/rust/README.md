@@ -36,4 +36,9 @@ bounded retries. Capabilities are resolved again per attempt; only network failu
 429/502/503/504 responses are retried, numeric `Retry-After` is capped, and a response stream is
 never replayed after it has been returned.
 
+`ServerClient` accepts only short-lived `MetamorphWorkload` session evidence. Its
+`create_capability_data_client` exchange returns the bounded sensitive grant and a ready data
+client without copying workload evidence into capability requests. Revocation is explicit and is
+never retried implicitly.
+
 Run `cargo test` in this directory, or `pnpm check` at the public repository root.

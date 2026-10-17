@@ -301,6 +301,71 @@ func TestOptInRetryReResolvesCapabilityAndReplaysSafeRequest(t *testing.T) {
 	}
 }
 
+func TestWorkloadExchangeReturnsCapabilityOnlyClientAndRevokesExactly(t *testing.T) {
+	var calls []recordedCall
+	transport := roundTripperFunc(func(request *http.Request) (*http.Response, error) {
+		raw, _ := io.ReadAll(request.Body)
+		calls = append(calls, recordedCall{
+			method: request.Method, path: request.URL.Path, header: request.Header.Clone(), body: string(raw),
+		})
+		status := http.StatusOK
+		body := `{}`
+		switch {
+		case request.Method == http.MethodPost:
+			status = http.StatusCreated
+			body = `{"session_id":"` + requestID + `","token":"` + capability + `","operations":["metadata_read"],"resource":{"kind":"collection"},"audience":"https://app.example","policy_revision":1,"issuer_epoch":1,"expires_at":"2026-10-17T12:00:00Z"}`
+		case request.Method == http.MethodDelete:
+			body = `"applied"`
+		}
+		return &http.Response{
+			StatusCode: status,
+			Header:     http.Header{"Content-Type": {"application/json"}},
+			Body:       io.NopCloser(strings.NewReader(body)),
+		}, nil
+	})
+	server, err := NewServerClient(ServerClientOptions{
+		BaseURL: "https://almira.test", WorkloadSession: "workload_session_evidence", Transport: transport,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	session, err := server.CreateCapabilityDataClient(
+		context.Background(),
+		collection,
+		CreateCapabilitySessionRequest{
+			Subject:    BuilderSubject{SubjectID: "user_42", Roles: []string{}, Attributes: map[string]string{}},
+			Operations: []string{"metadata_read"}, Resource: CapabilityResource{Kind: "collection"},
+			Audience: "https://app.example", LifetimeSeconds: 300,
+		},
+		generationID,
+		CapabilityDataClientOptions{Transport: transport},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := session.DataClient.GetFileMetadataWithCapability(context.Background(), file); err != nil {
+		t.Fatal(err)
+	}
+	if disposition, err := server.RevokeCapabilitySession(context.Background(), collection, requestID, generationID); err != nil || disposition != "applied" {
+		t.Fatalf("revoke = %q, %v", disposition, err)
+	}
+	if len(calls) != 3 {
+		t.Fatalf("calls = %#v", calls)
+	}
+	if calls[0].header.Get("Authorization") != "MetamorphWorkload workload_session_evidence" ||
+		calls[0].header.Get("X-Almira-Tenant-Id") != tenantID {
+		t.Fatalf("wrong exchange authority: %#v", calls[0].header)
+	}
+	if calls[1].header.Get("Authorization") != "Bearer "+capability ||
+		calls[1].header.Get("Origin") != "https://app.example" ||
+		calls[1].header.Get("X-Almira-Tenant-Id") != "" {
+		t.Fatalf("credential crossover: %#v", calls[1].header)
+	}
+	if calls[2].method != http.MethodDelete || calls[2].header.Get("Authorization") != "MetamorphWorkload workload_session_evidence" {
+		t.Fatalf("wrong revoke request: %#v", calls[2])
+	}
+}
+
 type roundTripperFunc func(*http.Request) (*http.Response, error)
 
 func (function roundTripperFunc) RoundTrip(request *http.Request) (*http.Response, error) {

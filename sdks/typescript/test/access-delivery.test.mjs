@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { AlmiraClient, AlmiraDataClient } from "../dist/index.js";
+import {
+  AlmiraClient,
+  AlmiraDataClient,
+  createCapabilityDataClient,
+} from "../dist/index.js";
 
 const tenantId = "018f0000-0000-7000-8000-000000000002";
 const projectId = "018f0000-0000-7000-8000-000000000003";
@@ -195,4 +199,54 @@ test("opt-in data retries re-resolve capability and replay only the safe request
     calls[0].init.headers.get("authorization"),
     calls[1].init.headers.get("authorization"),
   );
+});
+
+test("workload exchange returns a capability-only data client without credential crossover", async () => {
+  const calls = [];
+  const grant = {
+    session_id: "018f0000-0000-7000-8000-000000000011",
+    token: `alm_cap_v1.${"a".repeat(43)}`,
+    operations: ["metadata_read"],
+    resource: { kind: "collection" },
+    audience: "https://app.example",
+    policy_revision: 1,
+    issuer_epoch: 1,
+    expires_at: "2026-10-17T12:00:00Z",
+  };
+  const exchangeFetch = async (input, init) => {
+    calls.push({ input, init });
+    return new Response(JSON.stringify(grant), {
+      status: 201,
+      headers: { "content-type": "application/json" },
+    });
+  };
+  const dataFetch = async (input, init) => {
+    calls.push({ input, init });
+    return json({ entry_id: entryId });
+  };
+  const managementClient = new AlmiraClient({
+    baseUrl: "https://almira.test",
+    workloadSession: "workload_session_evidence",
+    fetch: exchangeFetch,
+  });
+  const session = await createCapabilityDataClient(
+    managementClient,
+    collection,
+    {
+      subject: { subject_id: "user_42" },
+      operations: ["metadata_read"],
+      resource: { kind: "collection" },
+      audience: "https://app.example",
+      lifetime_seconds: 300,
+    },
+    { operationId },
+    { baseUrl: "https://almira.test", fetch: dataFetch },
+  );
+  assert.deepEqual(session.grant, grant);
+  await session.dataClient.getFileMetadataWithCapability({ ...collection, entryId });
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].init.headers.get("authorization"), "MetamorphWorkload workload_session_evidence");
+  assert.equal(calls[1].init.headers.get("authorization"), `Bearer ${grant.token}`);
+  assert.equal(calls[1].init.headers.get("origin"), grant.audience);
+  assert.equal(calls[1].init.headers.has("x-almira-tenant-id"), false);
 });

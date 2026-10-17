@@ -97,6 +97,11 @@ Application data reads and read-only search can opt into bounded retries with `r
 network failures and 429/502/503/504 responses, and resolve the capability provider again for every
 attempt. A response body already returned to the caller is never replayed mid-stream.
 
+On the builder backend, `createCapabilityDataClient` exchanges the current `workloadSession` for
+one audience- and resource-bounded capability session and returns a ready capability-only data
+client. The workload evidence is never copied into that client, and the sensitive grant remains an
+in-memory return value for the builder to deliver through its own authenticated application flow.
+
 After a bounded canary upload (at most 8 MiB), retain its transfer ID, completion evidence and
 finalize operation ID and call `createVerificationReceipt` with a distinct environment as the
 refusal target. Almira replays finalization, hashes the exact private read, requires the
