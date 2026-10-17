@@ -2,7 +2,7 @@
 name = "metamorph-almira"
 version = "0.1.0-dev.40"
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.88"
 description = "Official Rust application SDK for Almira file storage"
 license = "Apache-2.0"
 repository = "https://github.com/metamorph-labs/almira"
@@ -15,7 +15,7 @@ reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
-time = { version = "0.3", features = ["parsing"] }
+time = { version = "0.3.47", features = ["parsing"] }
 tokio = { version = "1", features = ["time", "fs", "io-util"] }
 tokio-util = { version = "0.7", features = ["io"] }
 url = "2"
