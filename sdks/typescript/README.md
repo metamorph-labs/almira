@@ -92,6 +92,11 @@ collection reports `migrating`.
 Direct transfer URLs and headers returned by `createUpload` are sensitive, one-use capabilities.
 The SDK returns them only to the caller and never logs or persists them.
 
+Application data reads and read-only search can opt into bounded retries with `retry` on
+`AlmiraDataClient`. Retries are off by default, honor a bounded numeric `Retry-After`, cover only
+network failures and 429/502/503/504 responses, and resolve the capability provider again for every
+attempt. A response body already returned to the caller is never replayed mid-stream.
+
 After a bounded canary upload (at most 8 MiB), retain its transfer ID, completion evidence and
 finalize operation ID and call `createVerificationReceipt` with a distinct environment as the
 refusal target. Almira replays finalization, hashes the exact private read, requires the

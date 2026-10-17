@@ -26,6 +26,25 @@ pub struct ClientOptions {
     capability: Option<Capability>,
     origin: Option<String>,
     timeout: Duration,
+    retry: RetryPolicy,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct RetryPolicy {
+    pub max_attempts: u8,
+    pub base_delay: Duration,
+    pub maximum_delay: Duration,
+}
+
+impl RetryPolicy {
+    #[must_use]
+    pub const fn new(max_attempts: u8, base_delay: Duration, maximum_delay: Duration) -> Self {
+        Self {
+            max_attempts,
+            base_delay,
+            maximum_delay,
+        }
+    }
 }
 
 impl ClientOptions {
@@ -35,6 +54,7 @@ impl ClientOptions {
             capability: None,
             origin: None,
             timeout: Duration::from_secs(30),
+            retry: RetryPolicy::new(1, Duration::from_millis(100), Duration::from_secs(2)),
         }
     }
 
@@ -60,6 +80,11 @@ impl ClientOptions {
         self.timeout = timeout;
         self
     }
+
+    pub fn retry(mut self, retry: RetryPolicy) -> Self {
+        self.retry = retry;
+        self
+    }
 }
 
 #[derive(Clone)]
@@ -68,6 +93,7 @@ pub struct Client {
     capability: Option<Capability>,
     origin: Option<HeaderValue>,
     http: reqwest::Client,
+    retry: RetryPolicy,
 }
 
 impl Client {
@@ -83,6 +109,14 @@ impl Client {
         if options.timeout.is_zero() || options.timeout > Duration::from_secs(300) {
             return Err(invalid_input());
         }
+        if options.retry.max_attempts == 0
+            || options.retry.max_attempts > 5
+            || options.retry.base_delay > Duration::from_secs(10)
+            || options.retry.maximum_delay < options.retry.base_delay
+            || options.retry.maximum_delay > Duration::from_secs(60)
+        {
+            return Err(invalid_input());
+        }
         let http = reqwest::Client::builder()
             .redirect(reqwest::redirect::Policy::none())
             .timeout(options.timeout)
@@ -93,6 +127,7 @@ impl Client {
             capability: options.capability,
             origin,
             http,
+            retry: options.retry,
         })
     }
 
@@ -303,43 +338,61 @@ impl Client {
         &self,
         method: Method,
         url: Url,
-        mut headers: HeaderMap,
+        headers: HeaderMap,
         body: Option<Vec<u8>>,
         mode: CapabilityMode,
     ) -> Result<reqwest::Response, Error> {
-        if mode != CapabilityMode::Forbidden {
-            if let Some(origin) = &self.origin {
-                headers.insert(ORIGIN, origin.clone());
-            }
-            let capability = match &self.capability {
-                Some(Capability::Token(value)) => Some(value.clone()),
-                Some(Capability::Provider(provider)) => Some(
-                    provider()
-                        .ok_or_else(|| client_error("ALMIRA_CLIENT_CREDENTIAL_UNAVAILABLE"))?,
-                ),
-                None => None,
-            };
-            if let Some(capability) = capability {
-                if !valid_capability(&capability) {
+        for attempt in 1..=self.retry.max_attempts {
+            let mut request_headers = headers.clone();
+            if mode != CapabilityMode::Forbidden {
+                if let Some(origin) = &self.origin {
+                    request_headers.insert(ORIGIN, origin.clone());
+                }
+                let capability = match &self.capability {
+                    Some(Capability::Token(value)) => Some(value.clone()),
+                    Some(Capability::Provider(provider)) => Some(
+                        provider()
+                            .ok_or_else(|| client_error("ALMIRA_CLIENT_CREDENTIAL_UNAVAILABLE"))?,
+                    ),
+                    None => None,
+                };
+                if let Some(capability) = capability {
+                    if !valid_capability(&capability) {
+                        return Err(invalid_input());
+                    }
+                    request_headers.insert(
+                        AUTHORIZATION,
+                        HeaderValue::from_str(&format!("Bearer {capability}"))
+                            .map_err(|_| invalid_input())?,
+                    );
+                } else if mode == CapabilityMode::Required {
                     return Err(invalid_input());
                 }
-                headers.insert(
-                    AUTHORIZATION,
-                    HeaderValue::from_str(&format!("Bearer {capability}"))
-                        .map_err(|_| invalid_input())?,
-                );
-            } else if mode == CapabilityMode::Required {
-                return Err(invalid_input());
+            }
+            let mut request = self
+                .http
+                .request(method.clone(), url.clone())
+                .headers(request_headers);
+            if let Some(body) = body.clone() {
+                request = request.body(body);
+            }
+            match request.send().await {
+                Ok(response)
+                    if attempt < self.retry.max_attempts && retryable_status(response.status()) =>
+                {
+                    let retry_after_seconds =
+                        header(&response, RETRY_AFTER).and_then(|value| retry_after(&value));
+                    drop(response);
+                    tokio::time::sleep(retry_delay(self.retry, attempt, retry_after_seconds)).await;
+                }
+                Ok(response) => return Ok(response),
+                Err(_) if attempt < self.retry.max_attempts => {
+                    tokio::time::sleep(retry_delay(self.retry, attempt, None)).await;
+                }
+                Err(_) => return Err(client_error("ALMIRA_CLIENT_NETWORK")),
             }
         }
-        let mut request = self.http.request(method, url).headers(headers);
-        if let Some(body) = body {
-            request = request.body(body);
-        }
-        request
-            .send()
-            .await
-            .map_err(|_| client_error("ALMIRA_CLIENT_NETWORK"))
+        Err(client_error("ALMIRA_CLIENT_NETWORK"))
     }
 
     fn url(&self, path: &str) -> Result<Url, Error> {
@@ -349,6 +402,32 @@ impl Client {
         url.set_fragment(None);
         Ok(url)
     }
+}
+
+fn retryable_status(status: StatusCode) -> bool {
+    matches!(
+        status,
+        StatusCode::TOO_MANY_REQUESTS
+            | StatusCode::BAD_GATEWAY
+            | StatusCode::SERVICE_UNAVAILABLE
+            | StatusCode::GATEWAY_TIMEOUT
+    )
+}
+
+fn retry_delay(
+    policy: RetryPolicy,
+    failed_attempt: u8,
+    retry_after_seconds: Option<u32>,
+) -> Duration {
+    retry_after_seconds.map_or_else(
+        || {
+            policy
+                .base_delay
+                .saturating_mul(1_u32 << u32::from(failed_attempt.saturating_sub(1)))
+                .min(policy.maximum_delay)
+        },
+        |seconds| Duration::from_secs(u64::from(seconds)).min(policy.maximum_delay),
+    )
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]

@@ -34,6 +34,10 @@ application origin. Binary responses remain streaming file objects and should be
 with a context manager. API errors expose only the stable error code, request ID, status, and safe
 `Retry-After` value.
 
+Pass `retry=RetryPolicy(...)` to opt safe reads and read-only search into bounded retries. Retries
+are disabled by default, re-resolve rotating capabilities on each attempt, honor bounded numeric
+`Retry-After`, and never retry after a streaming response has been handed to the caller.
+
 Management and resource provisioning remain in the Almira CLI/MCP or the management client. The
 builder application's backend obtains bounded capability sessions under its short-lived Metamorph
 customer-workload identity; this data client does not create an authentication system for the

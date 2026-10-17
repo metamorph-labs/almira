@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from dataclasses import dataclass
 from datetime import datetime
 from email.message import Message
@@ -128,6 +129,15 @@ class Transport(Protocol):
 CapabilityProvider = Callable[[], str]
 
 
+@dataclass(frozen=True, slots=True)
+class RetryPolicy:
+    """Opt-in retry policy for safe data reads and read-only search."""
+
+    max_attempts: int
+    base_delay_seconds: float = 0.1
+    maximum_delay_seconds: float = 2.0
+
+
 class _NoRedirect(HTTPRedirectHandler):
     def redirect_request(self, *_: object, **__: object) -> None:
         return None
@@ -170,6 +180,7 @@ class AlmiraDataClient:
         origin: str | None = None,
         transport: Transport | None = None,
         timeout: float = 30.0,
+        retry: RetryPolicy | None = None,
     ) -> None:
         parsed = urlsplit(base_url)
         if (
@@ -198,10 +209,24 @@ class AlmiraDataClient:
                 _invalid_input()
         if timeout <= 0 or timeout > 300:
             _invalid_input()
+        retry = retry or RetryPolicy(max_attempts=1)
+        if (
+            isinstance(retry.max_attempts, bool)
+            or not isinstance(retry.max_attempts, int)
+            or not 1 <= retry.max_attempts <= 5
+            or isinstance(retry.base_delay_seconds, bool)
+            or not isinstance(retry.base_delay_seconds, (int, float))
+            or not 0 <= retry.base_delay_seconds <= 10
+            or isinstance(retry.maximum_delay_seconds, bool)
+            or not isinstance(retry.maximum_delay_seconds, (int, float))
+            or not retry.base_delay_seconds <= retry.maximum_delay_seconds <= 60
+        ):
+            _invalid_input()
         self._base_url = base_url.rstrip("/")
         self._capability = capability
         self._origin = origin
         self._transport = transport or _UrllibTransport(timeout)
+        self._retry = retry
 
     def list_files_with_capability(
         self,
@@ -398,48 +423,72 @@ class AlmiraDataClient:
         *,
         capability_mode: str,
     ) -> HttpResponse:
-        if capability_mode != "forbidden" and self._origin is not None:
-            headers["origin"] = self._origin
-        if capability_mode != "forbidden" and self._capability is not None:
-            try:
-                capability = self._capability() if callable(self._capability) else self._capability
-            except Exception as error:
-                raise AlmiraClientError("ALMIRA_CLIENT_CREDENTIAL_UNAVAILABLE") from error
-            if not isinstance(capability, str) or not CAPABILITY.fullmatch(capability):
+        for attempt in range(1, self._retry.max_attempts + 1):
+            request_headers = dict(headers)
+            if capability_mode != "forbidden" and self._origin is not None:
+                request_headers["origin"] = self._origin
+            if capability_mode != "forbidden" and self._capability is not None:
+                try:
+                    capability = self._capability() if callable(self._capability) else self._capability
+                except Exception as error:
+                    raise AlmiraClientError("ALMIRA_CLIENT_CREDENTIAL_UNAVAILABLE") from error
+                if not isinstance(capability, str) or not CAPABILITY.fullmatch(capability):
+                    _invalid_input()
+                request_headers["authorization"] = f"Bearer {capability}"
+            elif capability_mode == "required":
                 _invalid_input()
-            headers["authorization"] = f"Bearer {capability}"
-        elif capability_mode == "required":
-            _invalid_input()
-        try:
-            response = self._transport(method, f"{self._base_url}{path}", headers, body)
-        except AlmiraClientError:
-            raise
-        except Exception as error:
-            raise AlmiraClientError("ALMIRA_CLIENT_NETWORK") from error
-        if (
-            not isinstance(response, HttpResponse)
-            or isinstance(response.status, bool)
-            or not isinstance(response.status, int)
-            or not 100 <= response.status <= 599
-            or not callable(getattr(response.body, "read", None))
-            or not callable(getattr(response.body, "close", None))
-        ):
-            _invalid_response()
-        try:
-            items = response.headers.items()
-            headers = {
-                key.lower(): value
-                for key, value in items
-                if isinstance(key, str) and isinstance(value, str)
-            }
-        except Exception as error:
+            try:
+                response = self._transport(
+                    method,
+                    f"{self._base_url}{path}",
+                    request_headers,
+                    body,
+                )
+            except AlmiraClientError as error:
+                if error.code != "ALMIRA_CLIENT_NETWORK" or attempt == self._retry.max_attempts:
+                    raise
+                self._wait_before_retry(attempt, None)
+                continue
+            except Exception as error:
+                if attempt == self._retry.max_attempts:
+                    raise AlmiraClientError("ALMIRA_CLIENT_NETWORK") from error
+                self._wait_before_retry(attempt, None)
+                continue
+            if (
+                not isinstance(response, HttpResponse)
+                or isinstance(response.status, bool)
+                or not isinstance(response.status, int)
+                or not 100 <= response.status <= 599
+                or not callable(getattr(response.body, "read", None))
+                or not callable(getattr(response.body, "close", None))
+            ):
+                _invalid_response()
+            try:
+                items = response.headers.items()
+                normalized_headers = {
+                    key.lower(): value
+                    for key, value in items
+                    if isinstance(key, str) and isinstance(value, str)
+                }
+            except Exception as error:
+                response.close()
+                raise AlmiraClientError("ALMIRA_CLIENT_RESPONSE_INVALID") from error
+            if len(normalized_headers) != len(response.headers):
+                response.close()
+                _invalid_response()
+            response.headers = normalized_headers
+            if response.status not in {429, 502, 503, 504} or attempt == self._retry.max_attempts:
+                return response
             response.close()
-            raise AlmiraClientError("ALMIRA_CLIENT_RESPONSE_INVALID") from error
-        if len(headers) != len(response.headers):
-            response.close()
-            _invalid_response()
-        response.headers = headers
-        return response
+            self._wait_before_retry(attempt, normalized_headers.get("retry-after"))
+        raise AlmiraClientError("ALMIRA_CLIENT_NETWORK")
+
+    def _wait_before_retry(self, failed_attempt: int, retry_after: str | None) -> None:
+        if retry_after is not None and re.fullmatch(r"0|[1-9][0-9]{0,7}", retry_after):
+            delay = float(int(retry_after))
+        else:
+            delay = self._retry.base_delay_seconds * (2 ** (failed_attempt - 1))
+        time.sleep(min(delay, self._retry.maximum_delay_seconds))
 
     def _raise_api_error(self, response: HttpResponse) -> None:
         raw = _bounded_read(response, 64 * 1024)

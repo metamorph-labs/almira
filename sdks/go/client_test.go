@@ -10,6 +10,7 @@ import (
 	"os"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -255,6 +256,48 @@ func TestCredentialProviderFailureIsRedacted(t *testing.T) {
 	assertClientCode(t, err, "ALMIRA_CLIENT_CREDENTIAL_UNAVAILABLE")
 	if strings.Contains(err.Error(), "secret detail") {
 		t.Fatal("credential detail leaked")
+	}
+}
+
+func TestOptInRetryReResolvesCapabilityAndReplaysSafeRequest(t *testing.T) {
+	credentialCalls := 0
+	transportCalls := 0
+	var authorizations []string
+	client, err := NewClient(ClientOptions{
+		BaseURL: "https://almira.test",
+		CapabilityProvider: func(context.Context) (string, error) {
+			credentialCalls++
+			return "alm_cap_v1." + strings.Repeat("a", 42) + strconv.Itoa(credentialCalls), nil
+		},
+		Retry: &RetryPolicy{MaxAttempts: 3, BaseDelay: 0, MaxDelay: 0},
+		Transport: roundTripperFunc(func(request *http.Request) (*http.Response, error) {
+			transportCalls++
+			authorizations = append(authorizations, request.Header.Get("Authorization"))
+			status := http.StatusOK
+			body := `{}`
+			if transportCalls == 1 {
+				status = http.StatusServiceUnavailable
+				body = `{"code":"ALMIRA_TEMPORARILY_UNAVAILABLE","request_id":"` + requestID + `"}`
+			}
+			return &http.Response{
+				StatusCode: status,
+				Header: http.Header{
+					"Content-Type": {"application/json"},
+					"Retry-After":  {"0"},
+				},
+				Body: io.NopCloser(strings.NewReader(body)),
+			}, nil
+		}),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := client.GetFileMetadataWithCapability(context.Background(), file); err != nil {
+		t.Fatal(err)
+	}
+	if credentialCalls != 2 || transportCalls != 2 || len(authorizations) != 2 ||
+		authorizations[0] == authorizations[1] {
+		t.Fatalf("retry did not refresh exact request authority: %d %d %#v", credentialCalls, transportCalls, authorizations)
 	}
 }
 

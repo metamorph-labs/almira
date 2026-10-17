@@ -31,4 +31,9 @@ reads never forward a capability or origin. Redirects are refused, JSON and API 
 and errors expose only stable safe fields. Management and provisioning remain in the Almira CLI,
 MCP server and management SDK.
 
+Use `ClientOptions::retry(RetryPolicy::new(...))` to opt safe reads and read-only search into
+bounded retries. Capabilities are resolved again per attempt; only network failures and
+429/502/503/504 responses are retried, numeric `Retry-After` is capped, and a response stream is
+never replayed after it has been returned.
+
 Run `cargo test` in this directory, or `pnpm check` at the public repository root.

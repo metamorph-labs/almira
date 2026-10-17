@@ -38,6 +38,7 @@ type ClientOptions struct {
 	Origin             string
 	Transport          http.RoundTripper
 	Timeout            time.Duration
+	Retry              *RetryPolicy
 }
 
 type Client struct {
@@ -46,6 +47,7 @@ type Client struct {
 	capabilityProvider CapabilityProvider
 	origin             string
 	http               *http.Client
+	retry              RetryPolicy
 }
 
 func NewClient(options ClientOptions) (*Client, error) {
@@ -72,6 +74,14 @@ func NewClient(options ClientOptions) (*Client, error) {
 	if transport == nil {
 		transport = http.DefaultTransport
 	}
+	retry := RetryPolicy{MaxAttempts: 1, BaseDelay: 100 * time.Millisecond, MaxDelay: 2 * time.Second}
+	if options.Retry != nil {
+		retry = *options.Retry
+		if retry.MaxAttempts < 1 || retry.MaxAttempts > 5 || retry.BaseDelay < 0 ||
+			retry.BaseDelay > 10*time.Second || retry.MaxDelay < retry.BaseDelay || retry.MaxDelay > time.Minute {
+			return nil, invalidInput()
+		}
+	}
 	return &Client{
 		baseURL:            strings.TrimSuffix(base.String(), "/"),
 		capability:         options.Capability,
@@ -84,6 +94,7 @@ func NewClient(options ClientOptions) (*Client, error) {
 				return http.ErrUseLastResponse
 			},
 		},
+		retry: retry,
 	}, nil
 }
 
@@ -297,46 +308,92 @@ func (c *Client) do(
 	if ctx == nil {
 		return nil, invalidInput()
 	}
-	if mode != capabilityForbidden && c.origin != "" {
-		headers.Set("Origin", c.origin)
-	}
-	if mode != capabilityForbidden {
-		capability := c.capability
-		if c.capabilityProvider != nil {
-			var err error
-			capability, err = c.capabilityProvider(ctx)
-			if err != nil {
-				return nil, clientFailure("ALMIRA_CLIENT_CREDENTIAL_UNAVAILABLE")
-			}
+	for attempt := 1; attempt <= c.retry.MaxAttempts; attempt++ {
+		requestHeaders := headers.Clone()
+		if mode != capabilityForbidden && c.origin != "" {
+			requestHeaders.Set("Origin", c.origin)
 		}
-		if capability != "" {
-			if !validCapability(capability) {
+		if mode != capabilityForbidden {
+			capability := c.capability
+			if c.capabilityProvider != nil {
+				var err error
+				capability, err = c.capabilityProvider(ctx)
+				if err != nil {
+					return nil, clientFailure("ALMIRA_CLIENT_CREDENTIAL_UNAVAILABLE")
+				}
+			}
+			if capability != "" {
+				if !validCapability(capability) {
+					return nil, invalidInput()
+				}
+				requestHeaders.Set("Authorization", "Bearer "+capability)
+			} else if mode == capabilityRequired {
 				return nil, invalidInput()
 			}
-			headers.Set("Authorization", "Bearer "+capability)
-		} else if mode == capabilityRequired {
+		}
+		request, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, bytes.NewReader(body))
+		if err != nil {
 			return nil, invalidInput()
 		}
-	}
-	request, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, bytes.NewReader(body))
-	if err != nil {
-		return nil, invalidInput()
-	}
-	request.Header = headers
-	response, err := c.http.Do(request)
-	if err != nil {
-		if ctx.Err() != nil {
-			return nil, clientFailure("ALMIRA_CLIENT_ABORTED")
+		request.Header = requestHeaders
+		response, err := c.http.Do(request)
+		if err != nil {
+			if ctx.Err() != nil {
+				return nil, clientFailure("ALMIRA_CLIENT_ABORTED")
+			}
+			if attempt == c.retry.MaxAttempts {
+				return nil, clientFailure("ALMIRA_CLIENT_NETWORK")
+			}
+			if err := waitForRetry(ctx, retryDelay(c.retry, attempt, "")); err != nil {
+				return nil, err
+			}
+			continue
 		}
-		return nil, clientFailure("ALMIRA_CLIENT_NETWORK")
-	}
-	if response == nil || response.Body == nil || response.StatusCode < 100 || response.StatusCode > 599 {
-		if response != nil && response.Body != nil {
-			response.Body.Close()
+		if response == nil || response.Body == nil || response.StatusCode < 100 || response.StatusCode > 599 {
+			if response != nil && response.Body != nil {
+				response.Body.Close()
+			}
+			return nil, invalidResponse()
 		}
-		return nil, invalidResponse()
+		if attempt == c.retry.MaxAttempts || !retryableStatus(response.StatusCode) {
+			return response, nil
+		}
+		response.Body.Close()
+		if err := waitForRetry(ctx, retryDelay(c.retry, attempt, response.Header.Get("Retry-After"))); err != nil {
+			return nil, err
+		}
 	}
-	return response, nil
+	return nil, clientFailure("ALMIRA_CLIENT_NETWORK")
+}
+
+func retryableStatus(status int) bool {
+	return status == http.StatusTooManyRequests || status == http.StatusBadGateway ||
+		status == http.StatusServiceUnavailable || status == http.StatusGatewayTimeout
+}
+
+func retryDelay(policy RetryPolicy, failedAttempt int, retryAfterHeader string) time.Duration {
+	if seconds := retryAfter(retryAfterHeader); seconds != nil {
+		return min(time.Duration(*seconds)*time.Second, policy.MaxDelay)
+	}
+	delay := policy.BaseDelay
+	for attempt := 1; attempt < failedAttempt && delay < policy.MaxDelay; attempt++ {
+		delay = min(delay*2, policy.MaxDelay)
+	}
+	return delay
+}
+
+func waitForRetry(ctx context.Context, delay time.Duration) error {
+	if delay == 0 {
+		return nil
+	}
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+		return nil
+	case <-ctx.Done():
+		return clientFailure("ALMIRA_CLIENT_ABORTED")
+	}
 }
 
 func parseAPIError(response *http.Response) error {

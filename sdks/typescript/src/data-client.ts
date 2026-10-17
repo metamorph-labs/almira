@@ -22,12 +22,23 @@ const API_ERROR = /^ALMIRA_[A-Z0-9_]{1,120}$/u;
 const BYTE_RANGE = /^bytes=[0-9]+-[0-9]*$/u;
 type CapabilityProvider = () => string | Promise<string>;
 
+export interface DataRetryPolicy {
+  /** Total attempts, including the first request. */
+  maxAttempts: number;
+  /** Delay before the first retry. Defaults to 100 milliseconds. */
+  baseDelayMilliseconds?: number;
+  /** Maximum local or Retry-After delay. Defaults to 2 seconds. */
+  maximumDelayMilliseconds?: number;
+}
+
 export interface AlmiraDataClientOptions {
   baseUrl?: string;
   capability?: string | CapabilityProvider;
   /** Canonical application origin for non-browser runtimes. Browsers supply Origin themselves. */
   origin?: string;
   fetch?: typeof globalThis.fetch;
+  /** Opt-in retries for safe data-plane reads and read-only search. */
+  retry?: DataRetryPolicy;
 }
 
 export interface ImmutableGenerationReference extends FileReference {
@@ -68,6 +79,7 @@ export class AlmiraDataClient {
   readonly #capability: CapabilityProvider | null;
   readonly #origin: string | null;
   readonly #fetch: typeof globalThis.fetch;
+  readonly #retry: Required<DataRetryPolicy>;
 
   constructor(options: AlmiraDataClientOptions = {}) {
     const baseUrl = options.baseUrl ?? "";
@@ -83,6 +95,7 @@ export class AlmiraDataClient {
     this.#origin = options.origin ?? null;
     this.#fetch = options.fetch ?? globalThis.fetch;
     if (typeof this.#fetch !== "function") invalidInput();
+    this.#retry = retryPolicy(options.retry);
   }
 
   async listFilesWithCapability(
@@ -239,36 +252,95 @@ export class AlmiraDataClient {
     method: "GET" | "POST" = "GET",
     body?: string,
   ): Promise<Response> {
-    const headers = headersOrAccept instanceof Headers ? headersOrAccept : new Headers({ accept: headersOrAccept });
-    if (capabilityMode !== "forbidden" && this.#origin !== null) headers.set("origin", this.#origin);
-    if (capabilityMode !== "forbidden" && this.#capability !== null) {
-      let capability: string;
+    const initialHeaders = headersOrAccept instanceof Headers
+      ? headersOrAccept
+      : new Headers({ accept: headersOrAccept });
+    for (let attempt = 1; attempt <= this.#retry.maxAttempts; attempt += 1) {
+      const headers = new Headers(initialHeaders);
+      if (capabilityMode !== "forbidden" && this.#origin !== null) headers.set("origin", this.#origin);
+      if (capabilityMode !== "forbidden" && this.#capability !== null) {
+        let capability: string;
+        try {
+          capability = await this.#capability();
+        } catch {
+          throw new AlmiraClientError("ALMIRA_CLIENT_CREDENTIAL_UNAVAILABLE");
+        }
+        if (!/^alm_(?:cap|local)_v1\.[A-Za-z0-9_.-]{20,24576}$/u.test(capability)) invalidInput();
+        headers.set("authorization", `Bearer ${capability}`);
+      } else if (capabilityMode === "required") {
+        invalidInput();
+      }
       try {
-        capability = await this.#capability();
-      } catch {
-        throw new AlmiraClientError("ALMIRA_CLIENT_CREDENTIAL_UNAVAILABLE");
+        const response = await this.#fetch(`${this.#baseUrl}${path}`, {
+          method,
+          headers,
+          ...(body === undefined ? {} : { body }),
+          credentials: "omit",
+          redirect: "error",
+          ...(signal === undefined ? {} : { signal }),
+        });
+        if (attempt === this.#retry.maxAttempts || !RETRYABLE_STATUS.has(response.status)) {
+          return response;
+        }
+        await response.body?.cancel().catch(() => undefined);
+        await retryDelay(this.#retry, attempt, response.headers.get("retry-after"), signal);
+      } catch (error) {
+        if (signal?.aborted || (error instanceof DOMException && error.name === "AbortError")) {
+          throw new AlmiraClientError("ALMIRA_CLIENT_ABORTED");
+        }
+        if (attempt === this.#retry.maxAttempts) {
+          throw new AlmiraClientError("ALMIRA_CLIENT_NETWORK");
+        }
+        await retryDelay(this.#retry, attempt, null, signal);
       }
-      if (!/^alm_(?:cap|local)_v1\.[A-Za-z0-9_.-]{20,24576}$/u.test(capability)) invalidInput();
-      headers.set("authorization", `Bearer ${capability}`);
-    } else if (capabilityMode === "required") {
-      invalidInput();
     }
-    try {
-      return await this.#fetch(`${this.#baseUrl}${path}`, {
-        method,
-        headers,
-        ...(body === undefined ? {} : { body }),
-        credentials: "omit",
-        redirect: "error",
-        ...(signal === undefined ? {} : { signal }),
-      });
-    } catch (error) {
-      if (signal?.aborted || (error instanceof DOMException && error.name === "AbortError")) {
-        throw new AlmiraClientError("ALMIRA_CLIENT_ABORTED");
-      }
-      throw new AlmiraClientError("ALMIRA_CLIENT_NETWORK");
-    }
+    throw new AlmiraClientError("ALMIRA_CLIENT_NETWORK");
   }
+}
+
+const RETRYABLE_STATUS = new Set([429, 502, 503, 504]);
+
+function retryPolicy(value: DataRetryPolicy | undefined): Required<DataRetryPolicy> {
+  const policy = {
+    maxAttempts: value?.maxAttempts ?? 1,
+    baseDelayMilliseconds: value?.baseDelayMilliseconds ?? 100,
+    maximumDelayMilliseconds: value?.maximumDelayMilliseconds ?? 2_000,
+  };
+  if (
+    !Number.isSafeInteger(policy.maxAttempts) || policy.maxAttempts < 1 || policy.maxAttempts > 5 ||
+    !Number.isSafeInteger(policy.baseDelayMilliseconds) || policy.baseDelayMilliseconds < 0 ||
+      policy.baseDelayMilliseconds > 10_000 ||
+    !Number.isSafeInteger(policy.maximumDelayMilliseconds) ||
+      policy.maximumDelayMilliseconds < policy.baseDelayMilliseconds ||
+      policy.maximumDelayMilliseconds > 60_000
+  ) invalidInput();
+  return policy;
+}
+
+async function retryDelay(
+  policy: Required<DataRetryPolicy>,
+  failedAttempt: number,
+  retryAfter: string | null,
+  signal: AbortSignal | undefined,
+): Promise<void> {
+  const seconds = retryAfter !== null && /^(?:0|[1-9][0-9]{0,7})$/u.test(retryAfter)
+    ? Number(retryAfter) * 1_000
+    : null;
+  const exponential = policy.baseDelayMilliseconds * 2 ** (failedAttempt - 1);
+  const delay = Math.min(seconds ?? exponential, policy.maximumDelayMilliseconds);
+  if (delay === 0) return;
+  await new Promise<void>((resolve, reject) => {
+    const timeout = setTimeout(done, delay);
+    signal?.addEventListener("abort", aborted, { once: true });
+    function done(): void {
+      signal?.removeEventListener("abort", aborted);
+      resolve();
+    }
+    function aborted(): void {
+      clearTimeout(timeout);
+      reject(new AlmiraClientError("ALMIRA_CLIENT_ABORTED"));
+    }
+  });
 }
 
 function dataCollectionPath(reference: CollectionReference, suffix: string): string {

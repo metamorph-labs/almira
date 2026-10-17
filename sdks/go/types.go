@@ -3,9 +3,17 @@ package almira
 import (
 	"io"
 	"net/http"
+	"time"
 )
 
 const ContractVersion = "0.1.0-dev.33"
+
+// RetryPolicy opts safe data reads and read-only search into bounded retries.
+type RetryPolicy struct {
+	MaxAttempts int
+	BaseDelay   time.Duration
+	MaxDelay    time.Duration
+}
 
 type CollectionReference struct {
 	TenantID             string

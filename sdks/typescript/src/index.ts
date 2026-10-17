@@ -3,6 +3,7 @@ export type { AlmiraClientOptions } from "./client.js";
 export { AlmiraDataClient } from "./data-client.js";
 export type {
   AlmiraDataClientOptions,
+  DataRetryPolicy,
   DataFileResponse,
   DataReadOptions,
   ImmutableGenerationReference,

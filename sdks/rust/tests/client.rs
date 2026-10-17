@@ -1,15 +1,17 @@
 use metamorph_almira::{
     ApiError, CONTRACT_VERSION, Client, ClientError, ClientOptions, CollectionReference,
     CustomMetadataValue, DerivativeReference, Error, FileReference, ImmutableGenerationReference,
-    ListFilesOptions, ReadOptions, SearchInput,
+    ListFilesOptions, ReadOptions, RetryPolicy, SearchInput,
 };
 use serde_json::Value;
 use std::collections::BTreeMap;
 use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::{self, Receiver};
 use std::thread;
+use std::time::Duration;
 
 const TENANT: &str = "018f0000-0000-7000-8000-000000000002";
 const PROJECT: &str = "018f0000-0000-7000-8000-000000000003";
@@ -306,6 +308,57 @@ async fn api_errors_are_bounded_and_typed() {
         }
         other => panic!("unexpected error: {other:?}"),
     }
+}
+
+#[tokio::test]
+async fn opt_in_retry_re_resolves_capability_and_replays_safe_request() {
+    let transport_calls = Arc::new(AtomicUsize::new(0));
+    let transport_counter = Arc::clone(&transport_calls);
+    let (base_url, requests) = serve(
+        2,
+        Arc::new(move |_| {
+            if transport_counter.fetch_add(1, Ordering::SeqCst) == 0 {
+                return Response {
+                    status: "503 Service Unavailable",
+                    content_type: "application/json",
+                    headers: vec![("Retry-After", "0")],
+                    body: format!(
+                        r#"{{"code":"ALMIRA_TEMPORARILY_UNAVAILABLE","request_id":"{REQUEST}"}}"#
+                    ),
+                };
+            }
+            Response {
+                status: "200 OK",
+                content_type: "application/json",
+                headers: vec![],
+                body: file_entry(),
+            }
+        }),
+    );
+    let credential_calls = Arc::new(AtomicUsize::new(0));
+    let credential_counter = Arc::clone(&credential_calls);
+    let client = Client::new(
+        ClientOptions::new(base_url)
+            .capability_provider(Arc::new(move || {
+                let call = credential_counter.fetch_add(1, Ordering::SeqCst) + 1;
+                Some(format!("alm_cap_v1.{}{call}", "a".repeat(42)))
+            }))
+            .retry(RetryPolicy::new(3, Duration::ZERO, Duration::ZERO)),
+    )
+    .unwrap();
+    client
+        .get_file_metadata_with_capability(&generation().file)
+        .await
+        .unwrap();
+    let first = requests.recv().unwrap();
+    let second = requests.recv().unwrap();
+    assert_eq!(transport_calls.load(Ordering::SeqCst), 2);
+    assert_eq!(credential_calls.load(Ordering::SeqCst), 2);
+    assert_ne!(
+        first.headers["authorization"],
+        second.headers["authorization"]
+    );
+    assert_eq!(first.target, second.target);
 }
 
 fn collection() -> CollectionReference {

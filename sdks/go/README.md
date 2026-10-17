@@ -27,4 +27,9 @@ Share reads never forward the configured capability or origin. It refuses redire
 responses and errors, and returns stable redacted `ClientError` or `APIError` values. Management
 and provisioning remain in the Almira CLI, MCP server, and management SDK.
 
+Set `ClientOptions.Retry` to opt safe reads and read-only search into at most five attempts. The
+client re-resolves capability providers per attempt, retries only network failures and
+429/502/503/504 responses, bounds numeric `Retry-After`, and never replays a stream after returning
+its body.
+
 Run `go test ./...` in this directory, or `pnpm check` at the public repository root.

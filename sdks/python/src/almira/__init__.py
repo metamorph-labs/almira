@@ -10,6 +10,7 @@ from .client import (
     FileReference,
     HttpResponse,
     ImmutableGenerationReference,
+    RetryPolicy,
 )
 
 __all__ = [
@@ -22,6 +23,7 @@ __all__ = [
     "FileReference",
     "HttpResponse",
     "ImmutableGenerationReference",
+    "RetryPolicy",
 ]
 
 __version__ = "0.1.0.dev31"

@@ -165,3 +165,34 @@ test("data client refuses path-like derivative variant keys locally", async () =
     (error) => error.code === "ALMIRA_CLIENT_INPUT_INVALID",
   );
 });
+
+test("opt-in data retries re-resolve capability and replay only the safe request", async () => {
+  const calls = [];
+  let credentialCalls = 0;
+  const client = new AlmiraDataClient({
+    baseUrl: "https://almira.test",
+    capability: () => {
+      credentialCalls += 1;
+      return `alm_cap_v1.${"a".repeat(42)}${credentialCalls}`;
+    },
+    retry: { maxAttempts: 3, baseDelayMilliseconds: 0, maximumDelayMilliseconds: 0 },
+    fetch: async (input, init) => {
+      calls.push({ input, init });
+      if (calls.length === 1) {
+        return new Response(JSON.stringify({ code: "ALMIRA_TEMPORARILY_UNAVAILABLE", request_id: operationId }), {
+          status: 503,
+          headers: { "content-type": "application/json", "retry-after": "0" },
+        });
+      }
+      return json({ entries: [], next_cursor: null });
+    },
+  });
+  await client.listFilesWithCapability(collection);
+  assert.equal(calls.length, 2);
+  assert.equal(credentialCalls, 2);
+  assert.equal(calls[0].input, calls[1].input);
+  assert.notEqual(
+    calls[0].init.headers.get("authorization"),
+    calls[1].init.headers.get("authorization"),
+  );
+});

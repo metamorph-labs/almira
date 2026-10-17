@@ -2,7 +2,7 @@ mod client;
 mod error;
 mod types;
 
-pub use client::{Client, ClientOptions};
+pub use client::{Client, ClientOptions, RetryPolicy};
 pub use error::{ApiError, ClientError, Error};
 pub use types::*;
 

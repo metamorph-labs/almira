@@ -20,6 +20,7 @@ from almira import (  # noqa: E402
     FileReference,
     HttpResponse,
     ImmutableGenerationReference,
+    RetryPolicy,
 )
 from almira import __contract_version__  # noqa: E402
 
@@ -214,6 +215,41 @@ class AlmiraPythonSdkTest(unittest.TestCase):
             client.get_file_metadata_with_capability(self.file)
         self.assertNotIn("secret detail", str(caught.exception))
         self.assertEqual(self.transport.calls, [])
+
+    def test_opt_in_retry_re_resolves_capability_and_replays_safe_request(self) -> None:
+        calls: list[str] = []
+        credential_calls = 0
+
+        def capability() -> str:
+            nonlocal credential_calls
+            credential_calls += 1
+            return f"alm_cap_v1.{'a' * 42}{credential_calls}"
+
+        def transient(
+            _method: str,
+            _url: str,
+            headers: dict[str, str],
+            _body: bytes | None,
+        ) -> HttpResponse:
+            calls.append(headers["authorization"])
+            if len(calls) == 1:
+                return response(
+                    {"code": "ALMIRA_TEMPORARILY_UNAVAILABLE", "request_id": REQUEST},
+                    503,
+                    {"retry-after": "0"},
+                )
+            return response({"entry_id": ENTRY})
+
+        client = AlmiraDataClient(
+            base_url="https://almira.test",
+            capability=capability,
+            transport=transient,
+            retry=RetryPolicy(max_attempts=3, base_delay_seconds=0, maximum_delay_seconds=0),
+        )
+        self.assertEqual(client.get_file_metadata_with_capability(self.file), {"entry_id": ENTRY})
+        self.assertEqual(credential_calls, 2)
+        self.assertEqual(len(calls), 2)
+        self.assertNotEqual(calls[0], calls[1])
 
     def test_malformed_transport_response_is_stable_and_closed(self) -> None:
         body = io.StringIO("not bytes")
