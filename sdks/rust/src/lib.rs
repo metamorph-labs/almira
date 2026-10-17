@@ -1,6 +1,7 @@
 mod client;
 mod error;
 mod server;
+mod transfer;
 mod types;
 
 pub use client::{Client, ClientOptions, RetryPolicy};
@@ -11,6 +12,10 @@ pub use server::{
     CreateUploadRequest, DirectUploadDescriptor, DirectUploadHeader, DirectUploadPart,
     DirectUploadPartCompletion, FinalizeUploadRequest, ReadAccessOperation, ServerClient,
     ServerClientOptions,
+};
+pub use transfer::{
+    DirectUploadResponse, DirectUploadTransport, ReqwestDirectUploadTransport, TransferError,
+    upload_direct_file, upload_direct_file_with,
 };
 pub use types::*;
 

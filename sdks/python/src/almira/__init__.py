@@ -28,6 +28,7 @@ from .server import (
     FinalizeUploadRequest,
     FileGeneration,
 )
+from .transfer import AlmiraTransferError, DirectUploadResponse, upload_direct
 
 __all__ = [
     "AlmiraApiError",
@@ -54,6 +55,9 @@ __all__ = [
     "DirectUploadPartCompletion",
     "FinalizeUploadRequest",
     "FileGeneration",
+    "AlmiraTransferError",
+    "DirectUploadResponse",
+    "upload_direct",
 ]
 
 __version__ = "0.1.0.dev31"

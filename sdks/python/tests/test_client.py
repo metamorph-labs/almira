@@ -7,6 +7,7 @@ import pathlib
 import re
 import sys
 import unittest
+from datetime import datetime, timezone
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "sdks" / "python" / "src"))
@@ -21,13 +22,18 @@ from almira import (  # noqa: E402
     CollectionReference,
     CreateCapabilitySessionRequest,
     CreateUploadRequest,
+    DirectUploadDescriptor,
+    DirectUploadHeader,
+    DirectUploadPart,
     DirectUploadPartCompletion,
+    DirectUploadResponse,
     DerivativeReference,
     FileReference,
     HttpResponse,
     ImmutableGenerationReference,
     FinalizeUploadRequest,
     RetryPolicy,
+    upload_direct,
 )
 from almira import __contract_version__  # noqa: E402
 
@@ -404,6 +410,39 @@ class AlmiraPythonSdkTest(unittest.TestCase):
             "size_bytes": 5,
             "content_sha256": content_sha256,
         })
+
+    def test_direct_upload_streams_exact_parts_without_almira_credentials(self) -> None:
+        content_sha256 = f"sha256:{'a' * 64}"
+        descriptor = DirectUploadDescriptor(
+            "018f0000-0000-7000-8000-000000000011",
+            "multipart",
+            (
+                DirectUploadPart(1, 0, 2, "PUT", "https://objects.example/secret-one", (DirectUploadHeader("content-type", "text/plain"),)),
+                DirectUploadPart(2, 2, 3, "PUT", "https://objects.example/secret-two", (DirectUploadHeader("content-type", "text/plain"),)),
+            ),
+            5,
+            content_sha256,
+            True,
+            "2026-10-17T12:00:00Z",
+        )
+        transferred: list[tuple[int, bytes, tuple[str, ...]]] = []
+
+        def transfer(part: DirectUploadPart, stream: io.BytesIO) -> DirectUploadResponse:
+            transferred.append((part.part_number, stream.read(), tuple(header.name for header in part.headers)))
+            return DirectUploadResponse(200, {"etag": f'"part-{part.part_number}"'})
+
+        completion = upload_direct(
+            descriptor,
+            io.BytesIO(b"hello"),
+            size_bytes=5,
+            transport=transfer,
+            now=lambda: datetime(2026, 10, 17, 10, tzinfo=timezone.utc),
+        )
+        self.assertEqual(transferred, [(1, b"he", ("content-type",)), (2, b"llo", ("content-type",))])
+        self.assertEqual(completion.protocol, "multipart")
+        self.assertIsNone(completion.etag)
+        self.assertIsNone(completion.provider_version)
+        self.assertEqual([part.etag for part in completion.parts], ['"part-1"', '"part-2"'])
 
     def test_malformed_transport_response_is_stable_and_closed(self) -> None:
         body = io.StringIO("not bytes")

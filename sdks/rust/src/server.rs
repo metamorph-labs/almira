@@ -533,7 +533,7 @@ fn validate_create_upload_outcome(outcome: &CreateUploadOutcome) -> Result<(), E
     Ok(())
 }
 
-fn valid_direct_upload_descriptor(descriptor: &DirectUploadDescriptor) -> bool {
+pub(crate) fn valid_direct_upload_descriptor(descriptor: &DirectUploadDescriptor) -> bool {
     if !valid_uuid_v7(&descriptor.descriptor_id)
         || !matches!(descriptor.protocol.as_str(), "single_put" | "multipart")
         || descriptor.protocol == "single_put" && descriptor.requests.len() != 1
@@ -649,11 +649,11 @@ fn valid_content_sha256(value: &str) -> bool {
     })
 }
 
-fn valid_provider_receipt(value: &str) -> bool {
+pub(crate) fn valid_provider_receipt(value: &str) -> bool {
     (1..=256).contains(&value.len()) && value.bytes().all(|byte| (b'!'..=b'~').contains(&byte))
 }
 
-fn valid_provider_version(value: &str) -> bool {
+pub(crate) fn valid_provider_version(value: &str) -> bool {
     valid_provider_receipt(value)
         && !value
             .bytes()

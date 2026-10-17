@@ -39,5 +39,8 @@ operation identity and is never retried implicitly.
 `CreateUpload` and `FinalizeUpload` expose the ordinary durable upload ceremony without admitting a
 provider credential; one-use descriptor URLs, signed headers and capability tokens are redacted
 from SDK formatting.
+`UploadDirect` streams exact descriptor slices from an `io.ReaderAt` directly to the object
+provider, adds no Almira credential, refuses redirects and automatic retries, and returns the typed
+evidence accepted by `FinalizeUpload`.
 
 Run `go test ./...` in this directory, or `pnpm check` at the public repository root.

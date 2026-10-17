@@ -1,6 +1,7 @@
 package almira
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -15,6 +16,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 const (
@@ -423,6 +425,47 @@ func TestServerUploadCreateAndFinalizePreserveDescriptorEvidence(t *testing.T) {
 	}
 	if completion["descriptor_id"] != descriptorID || completion["etag"] != etag || completion["provider_version"] != providerVersion {
 		t.Fatalf("completion evidence drifted: %#v", completion)
+	}
+}
+
+func TestDirectUploadStreamsExactPartsWithoutAlmiraCredentials(t *testing.T) {
+	contentSHA256 := "sha256:" + strings.Repeat("a", 64)
+	descriptor := DirectUploadDescriptor{
+		DescriptorID: "018f0000-0000-7000-8000-000000000011",
+		Protocol:     "multipart",
+		Requests: []DirectUploadPart{
+			{PartNumber: 1, OffsetBytes: 0, LengthBytes: 2, Method: "PUT", URL: "https://objects.example/secret-one", Headers: []DirectUploadHeader{{Name: "content-type", Value: "text/plain"}}, OneUse: true},
+			{PartNumber: 2, OffsetBytes: 2, LengthBytes: 3, Method: "PUT", URL: "https://objects.example/secret-two", Headers: []DirectUploadHeader{{Name: "content-type", Value: "text/plain"}}, OneUse: true},
+		},
+		ExpectedSizeBytes: 5, ContentSHA256: contentSHA256, OneUse: true, ExpiresAt: "2026-10-17T12:00:00Z",
+	}
+	var transferred [][]byte
+	transport := roundTripperFunc(func(request *http.Request) (*http.Response, error) {
+		raw, _ := io.ReadAll(request.Body)
+		if request.Header.Get("Authorization") != "" || request.ContentLength != int64(len(raw)) {
+			t.Fatalf("credential crossover or length drift: %#v", request.Header)
+		}
+		transferred = append(transferred, raw)
+		headers := make(http.Header)
+		headers.Set("ETag", fmt.Sprintf(`"part-%d"`, len(transferred)))
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     headers,
+			Body:       io.NopCloser(strings.NewReader("")),
+		}, nil
+	})
+	completion, err := UploadDirect(
+		context.Background(), descriptor, bytes.NewReader([]byte("hello")), 5,
+		DirectUploadOptions{Transport: transport, Now: func() time.Time {
+			return time.Date(2026, 10, 17, 10, 0, 0, 0, time.UTC)
+		}},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(transferred) != 2 || string(transferred[0]) != "he" || string(transferred[1]) != "llo" ||
+		completion.ETag != nil || completion.ProviderVersion != nil || len(completion.Parts) != 2 {
+		t.Fatalf("direct transfer drifted: %#v %#v", transferred, completion)
 	}
 }
 

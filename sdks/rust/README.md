@@ -43,5 +43,8 @@ never retried implicitly.
 `create_upload` and `finalize_upload` expose the durable upload ceremony without accepting a
 provider credential; one-use descriptor URLs, signed headers and capability tokens are redacted
 from `Debug` output.
+`upload_direct_file` streams exact descriptor slices from a file directly to the object provider,
+adds no Almira credential, refuses redirects and automatic retries, and returns the typed evidence
+accepted by `finalize_upload`.
 
 Run `cargo test` in this directory, or `pnpm check` at the public repository root.

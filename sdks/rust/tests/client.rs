@@ -1,19 +1,24 @@
 use metamorph_almira::{
     ApiError, BuilderSubject, CONTRACT_VERSION, CapabilityDataClientOptions, CapabilityResource,
     Client, ClientError, ClientOptions, CollectionReference, CreateCapabilitySessionRequest,
-    CreateUploadRequest, CustomMetadataValue, DerivativeReference, DirectUploadPartCompletion,
-    Error, FileReference, FinalizeUploadRequest, ImmutableGenerationReference, ListFilesOptions,
-    ReadAccessOperation, ReadOptions, RetryPolicy, SearchInput, ServerClient, ServerClientOptions,
+    CreateUploadRequest, CustomMetadataValue, DerivativeReference, DirectUploadDescriptor,
+    DirectUploadHeader, DirectUploadPart, DirectUploadPartCompletion, DirectUploadResponse,
+    DirectUploadTransport, Error, FileReference, FinalizeUploadRequest,
+    ImmutableGenerationReference, ListFilesOptions, ReadAccessOperation, ReadOptions, RetryPolicy,
+    SearchInput, ServerClient, ServerClientOptions, TransferError, upload_direct_file_with,
 };
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
-use std::io::{Read, Write};
+use std::io::{Read, Seek, Write};
 use std::net::TcpListener;
+use std::path::Path;
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::{self, Receiver};
 use std::thread;
 use std::time::Duration;
+use time::OffsetDateTime;
 
 const TENANT: &str = "018f0000-0000-7000-8000-000000000002";
 const PROJECT: &str = "018f0000-0000-7000-8000-000000000003";
@@ -535,6 +540,99 @@ async fn server_upload_create_and_finalize_preserve_descriptor_evidence() {
     assert_eq!(completion["descriptor_id"], descriptor_id);
     assert_eq!(completion["etag"], "\"etag-one\"");
     assert_eq!(completion["provider_version"], "provider-v1");
+}
+
+struct RecordingDirectTransport {
+    bodies: Mutex<Vec<Vec<u8>>>,
+}
+
+impl DirectUploadTransport for RecordingDirectTransport {
+    #[allow(clippy::manual_async_fn)] // Match the SDK trait's explicit Send future.
+    fn put<'a>(
+        &'a self,
+        part: &'a DirectUploadPart,
+        source_path: &'a Path,
+    ) -> impl std::future::Future<Output = Result<DirectUploadResponse, TransferError>> + Send + 'a
+    {
+        async move {
+            let mut file = std::fs::File::open(source_path).unwrap();
+            file.seek(std::io::SeekFrom::Start(part.offset_bytes))
+                .unwrap();
+            let mut body = Vec::new();
+            file.take(part.length_bytes).read_to_end(&mut body).unwrap();
+            self.bodies.lock().unwrap().push(body);
+            Ok(DirectUploadResponse {
+                status: 200,
+                etag: Some(format!("\"part-{}\"", part.part_number)),
+                provider_versions: vec![],
+            })
+        }
+    }
+}
+
+#[tokio::test]
+async fn direct_upload_streams_exact_file_parts_without_almira_credentials() {
+    let path = std::env::temp_dir().join(format!(
+        "almira-rust-direct-upload-{}-{}",
+        std::process::id(),
+        REQUEST
+    ));
+    std::fs::write(&path, b"hello").unwrap();
+    let descriptor = DirectUploadDescriptor {
+        descriptor_id: "018f0000-0000-7000-8000-000000000011".into(),
+        protocol: "multipart".into(),
+        requests: vec![
+            DirectUploadPart {
+                part_number: 1,
+                offset_bytes: 0,
+                length_bytes: 2,
+                method: "PUT".into(),
+                url: "https://objects.example/secret-one".into(),
+                headers: vec![DirectUploadHeader {
+                    name: "content-type".into(),
+                    value: "text/plain".into(),
+                }],
+                one_use: true,
+            },
+            DirectUploadPart {
+                part_number: 2,
+                offset_bytes: 2,
+                length_bytes: 3,
+                method: "PUT".into(),
+                url: "https://objects.example/secret-two".into(),
+                headers: vec![DirectUploadHeader {
+                    name: "content-type".into(),
+                    value: "text/plain".into(),
+                }],
+                one_use: true,
+            },
+        ],
+        expected_size_bytes: 5,
+        content_sha256: format!("sha256:{}", "a".repeat(64)),
+        one_use: true,
+        expires_at: "2026-10-17T12:00:00Z".into(),
+    };
+    let transport = RecordingDirectTransport {
+        bodies: Mutex::new(vec![]),
+    };
+    let completion = upload_direct_file_with(&descriptor, &path, &transport, || {
+        OffsetDateTime::parse(
+            "2026-10-17T10:00:00Z",
+            &time::format_description::well_known::Rfc3339,
+        )
+        .unwrap()
+    })
+    .await
+    .unwrap();
+    std::fs::remove_file(&path).unwrap();
+    assert_eq!(
+        *transport.bodies.lock().unwrap(),
+        vec![b"he".to_vec(), b"llo".to_vec()]
+    );
+    assert_eq!(completion.protocol, "multipart");
+    assert!(completion.etag.is_none());
+    assert!(completion.provider_version.is_none());
+    assert_eq!(completion.parts.len(), 2);
 }
 
 fn collection() -> CollectionReference {
