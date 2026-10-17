@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Almira Data and Delivery API",
-    "version": "0.1.0-dev.22",
+    "version": "0.1.0-dev.24",
     "description": "Browser/mobile capability reads and immutable governed delivery. This surface never accepts PATs, SAKs, product sessions, provider credentials, or management routing headers."
   },
   "servers": [
@@ -317,6 +317,78 @@
         }
       }
     },
+    "/v1/data/{tenant_id}/{project_id}/{environment_id}/{collection_instance_id}/files/{entry_id}/versions/{generation_id}/derivatives": {
+      "get": {
+        "operationId": "listDerivativesWithCapability",
+        "description": "Lists only ready derivatives for one capability-authorized immutable source generation.",
+        "security": [
+          {
+            "capabilityBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          },
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/EntryId"
+          },
+          {
+            "$ref": "#/components/parameters/GenerationId"
+          },
+          {
+            "$ref": "#/components/parameters/Origin"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current ready variants with immutable processor provenance.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "maxItems": 64,
+                  "items": {
+                    "$ref": "./openapi.v1.json#/components/schemas/MediaDerivative"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "./openapi.v1.json#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "./openapi.v1.json#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "./openapi.v1.json#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "./openapi.v1.json#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "./openapi.v1.json#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
     "/v1/delivery/{tenant_id}/{project_id}/{environment_id}/{collection_instance_id}/{entry_id}/{generation_id}": {
       "get": {
         "operationId": "readImmutableGeneration",
@@ -372,6 +444,86 @@
           },
           "304": {
             "description": "The immutable generation ETag matches. Authorization is still evaluated before this response."
+          },
+          "400": {
+            "$ref": "./openapi.v1.json#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "./openapi.v1.json#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "./openapi.v1.json#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "./openapi.v1.json#/components/responses/NotFound"
+          },
+          "416": {
+            "$ref": "./openapi.v1.json#/components/responses/RangeNotSatisfiable"
+          },
+          "503": {
+            "$ref": "./openapi.v1.json#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/delivery/{tenant_id}/{project_id}/{environment_id}/{collection_instance_id}/{entry_id}/{generation_id}/variants/{variant_key}": {
+      "get": {
+        "operationId": "readDerivative",
+        "description": "Reads one ready derivative through the same current policy, capability, source-safety and CDN gates as its immutable source. The variant key may contain slash-separated segments.",
+        "security": [
+          {},
+          {
+            "capabilityBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          },
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/EntryId"
+          },
+          {
+            "$ref": "#/components/parameters/GenerationId"
+          },
+          {
+            "$ref": "#/components/parameters/VariantKey"
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "description": "Required with a private capability and ignored as authority for public access.",
+            "schema": {
+              "type": "string",
+              "format": "uri",
+              "maxLength": 512
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Range"
+          },
+          {
+            "$ref": "#/components/parameters/IfNoneMatch"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DerivativeContent"
+          },
+          "206": {
+            "$ref": "#/components/responses/DerivativeContent"
+          },
+          "304": {
+            "description": "The immutable derivative digest ETag matches. Authorization and source safety are still evaluated."
           },
           "400": {
             "$ref": "./openapi.v1.json#/components/responses/BadRequest"
@@ -500,6 +652,18 @@
           "$ref": "./openapi.v1.json#/components/schemas/UuidV7"
         }
       },
+      "VariantKey": {
+        "name": "variant_key",
+        "in": "path",
+        "required": true,
+        "description": "Slash-separated opaque Almira variant key; clients must percent-encode each segment independently.",
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160,
+          "pattern": "^(?!.*(?:^|/)\\.{1,2}(?:/|$))[a-z0-9]([a-z0-9._/-]*[a-z0-9])?$"
+        }
+      },
       "Origin": {
         "name": "Origin",
         "in": "header",
@@ -547,6 +711,35 @@
             "schema": {
               "type": "string",
               "pattern": "^\\\"almira-v1-[0-9a-f-]{36}\\\"$"
+            }
+          },
+          "Cache-Control": {
+            "schema": {
+              "type": "string"
+            }
+          },
+          "Access-Control-Allow-Origin": {
+            "schema": {
+              "type": "string"
+            }
+          }
+        },
+        "content": {
+          "application/octet-stream": {
+            "schema": {
+              "type": "string",
+              "contentEncoding": "binary"
+            }
+          }
+        }
+      },
+      "DerivativeContent": {
+        "description": "Authorized derivative bytes with a digest ETag and no provider-origin details.",
+        "headers": {
+          "ETag": {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\\"sha256:[0-9a-f]{64}\\\"$"
             }
           },
           "Cache-Control": {

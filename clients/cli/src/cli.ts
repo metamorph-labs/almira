@@ -15,6 +15,7 @@ import {
   type RegisterLocalIssuerRequest,
   type ReplaceAccessPolicyRequest,
   type ReplaceCollectionExtractionRequest,
+  type ReplaceCollectionMediaRequest,
   type ReplaceDeliveryConfigRequest,
   type ReplaceEntryMetadataRequest,
   type RotateLocalIssuerKeyRequest,
@@ -62,6 +63,12 @@ Commands:
   extraction set          Replace collection extraction controls from --input JSON
   extraction status       Read safe exact-generation extraction status
   extraction content      Read separately protected extracted content
+  media get               Read collection image/document/video processing controls
+  media set               Replace collection media controls from --input JSON
+  job list                List collection media-processing jobs
+  job retry               Retry a failed or cancelled media-processing job
+  job cancel              Cancel pending media-processing work
+  derivative list         List ready derivatives for one immutable generation
   file list               List and filter authoritative file metadata
   file search             Search current files with lexical, semantic, or hybrid retrieval
   file get                Read one file's metadata
@@ -100,6 +107,7 @@ Common identifiers:
   --kind KIND             technical, content, ocr, or transcription
   --share UUID            Almira share UUIDv7
   --issuer UUID           Almira local-issuer UUIDv7
+  --job UUID              Almira media-processing job UUIDv7
   --input PATH            Exact JSON request body for structured operations
   --path PATH             Canonical logical file path
   --include-deleted       Include entries still inside their recycle window
@@ -128,6 +136,7 @@ const options = {
   input: { type: "string" },
   "include-deleted": { type: "boolean" },
   issuer: { type: "string" },
+  job: { type: "string" },
   key: { type: "string" },
   kind: { type: "string" },
   limit: { type: "string" },
@@ -313,6 +322,42 @@ export async function runCli(arguments_: string[], dependencies: CliDependencies
         ...fileReference(values, tenantId, projectId),
         generationId: required(values, "generation"),
         kind,
+      });
+    } else if (noun === "media" && verb === "get") {
+      result = await client.getCollectionMedia(collectionReference(values, tenantId, projectId));
+    } else if (noun === "media" && verb === "set") {
+      operationId = mutationId(values);
+      mutation = true;
+      result = await client.replaceCollectionMedia(
+        collectionReference(values, tenantId, projectId),
+        await readJson<ReplaceCollectionMediaRequest>(required(values, "input")),
+        { operationId },
+      );
+    } else if (noun === "job" && verb === "list") {
+      result = await client.listProcessingJobs(
+        collectionReference(values, tenantId, projectId),
+        page(values),
+      );
+    } else if (noun === "job" && verb === "retry") {
+      operationId = mutationId(values);
+      mutation = true;
+      result = await client.retryProcessingJob(
+        { ...collectionReference(values, tenantId, projectId), jobId: required(values, "job") },
+        { expected_revision: positiveInteger(values, "revision") },
+        { operationId },
+      );
+    } else if (noun === "job" && verb === "cancel") {
+      operationId = mutationId(values);
+      mutation = true;
+      result = await client.cancelProcessingJob(
+        { ...collectionReference(values, tenantId, projectId), jobId: required(values, "job") },
+        { expected_revision: positiveInteger(values, "revision") },
+        { operationId },
+      );
+    } else if (noun === "derivative" && verb === "list") {
+      result = await client.listGenerationDerivatives({
+        ...fileReference(values, tenantId, projectId),
+        generationId: required(values, "generation"),
       });
     } else if (noun === "file" && verb === "list") {
       const pathPrefix = stringValue(values, "path-prefix");
@@ -537,6 +582,12 @@ const commandOptions = new Map<string, ReadonlySet<string>>([
   ["extraction:set", collectionCommandOptions("input", "operation-id")],
   ["extraction:status", collectionCommandOptions("entry", "generation", "kind")],
   ["extraction:content", collectionCommandOptions("entry", "generation", "kind")],
+  ["media:get", collectionCommandOptions()],
+  ["media:set", collectionCommandOptions("input", "operation-id")],
+  ["job:list", collectionCommandOptions("cursor", "limit")],
+  ["job:retry", collectionCommandOptions("job", "operation-id", "revision")],
+  ["job:cancel", collectionCommandOptions("job", "operation-id", "revision")],
+  ["derivative:list", collectionCommandOptions("entry", "generation")],
   ["file:list", new Set([
     "base-url", "collection", "created-after", "created-before", "cursor", "environment", "extraction-kind",
     "extraction-state", "include-deleted", "limit", "maximum-size", "media-type", "metadata-key",

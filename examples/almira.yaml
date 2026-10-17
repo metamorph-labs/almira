@@ -14,6 +14,16 @@ environments:
           ocr: true
           transcription: false
           vector_indexing: true
+        media:
+          image_presets:
+            thumbnail:
+              widths: [256, 512]
+              height: 256
+              fit: cover
+              formats: [avif, webp]
+              without_enlargement: true
+          document_previews: false
+          video_profile: null
   - key: production
     display_name: Production
     collections:
@@ -26,3 +36,13 @@ environments:
           ocr: true
           transcription: false
           vector_indexing: true
+        media:
+          image_presets:
+            thumbnail:
+              widths: [256, 512]
+              height: 256
+              fit: cover
+              formats: [avif, webp]
+              without_enlargement: true
+          document_previews: false
+          video_profile: null

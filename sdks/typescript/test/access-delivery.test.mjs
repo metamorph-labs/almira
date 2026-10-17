@@ -116,16 +116,31 @@ test("data client keeps capabilities off management headers and uses data-plane 
   });
   await client.listFilesWithCapability(collection);
   await client.searchFilesWithCapability(collection, { query: "invoice", mode: "lexical" });
+  await client.listDerivativesWithCapability({ ...collection, entryId, generationId });
+  await client.readDerivative({ ...collection, entryId, generationId, variantKey: "avatar/256.webp" });
   await client.readImmutableGeneration({ ...collection, entryId, generationId });
   await client.readShare(`alm_share_v1.${"a".repeat(43)}`);
   assert.equal(calls[0].input, `https://almira.test/v1/data/${tenantId}/${projectId}/${environmentId}/${collectionInstanceId}/files`);
   assert.equal(calls[1].input, `https://almira.test/v1/data/${tenantId}/${projectId}/${environmentId}/${collectionInstanceId}/search`);
   assert.equal(calls[1].init.method, "POST");
   assert.deepEqual(JSON.parse(calls[1].init.body), { query: "invoice", mode: "lexical" });
-  assert.equal(calls[2].input, `https://almira.test/v1/delivery/${tenantId}/${projectId}/${environmentId}/${collectionInstanceId}/${entryId}/${generationId}`);
+  assert.equal(calls[2].input, `https://almira.test/v1/data/${tenantId}/${projectId}/${environmentId}/${collectionInstanceId}/files/${entryId}/versions/${generationId}/derivatives`);
+  assert.equal(calls[3].input, `https://almira.test/v1/delivery/${tenantId}/${projectId}/${environmentId}/${collectionInstanceId}/${entryId}/${generationId}/variants/avatar/256.webp`);
+  assert.equal(calls[4].input, `https://almira.test/v1/delivery/${tenantId}/${projectId}/${environmentId}/${collectionInstanceId}/${entryId}/${generationId}`);
   assert(calls.every(({ init }) => init.headers.get("x-almira-tenant-id") === null));
-  assert(calls.slice(0, 3).every(({ init }) => init.headers.get("origin") === "https://app.example"));
-  assert(calls.slice(0, 3).every(({ init }) => init.headers.get("authorization")?.startsWith("Bearer alm_cap_v1.")));
-  assert.equal(calls[3].init.headers.get("origin"), null);
-  assert.equal(calls[3].init.headers.get("authorization"), null);
+  assert(calls.slice(0, 5).every(({ init }) => init.headers.get("origin") === "https://app.example"));
+  assert(calls.slice(0, 5).every(({ init }) => init.headers.get("authorization")?.startsWith("Bearer alm_cap_v1.")));
+  assert.equal(calls[5].init.headers.get("origin"), null);
+  assert.equal(calls[5].init.headers.get("authorization"), null);
+});
+
+test("data client refuses path-like derivative variant keys locally", async () => {
+  const client = new AlmiraDataClient({
+    capability: "alm_cap_v1.abcdefghijklmnopqrstuvwxyz0123456789",
+    fetch: async () => assert.fail("invalid variant keys must not call the API"),
+  });
+  await assert.rejects(
+    client.readDerivative({ ...collection, entryId, generationId, variantKey: "hls/../secret" }),
+    (error) => error.code === "ALMIRA_CLIENT_INPUT_INVALID",
+  );
 });

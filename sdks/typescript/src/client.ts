@@ -12,6 +12,7 @@ import type {
   CapabilitySessionReference,
   Collection,
   CollectionExtractionConfig,
+  CollectionMediaConfig,
   CollectionPage,
   CollectionReference,
   CreateCollectionOutcome,
@@ -42,14 +43,21 @@ import type {
   FinalizeUploadRequest,
   GenerationExtraction,
   GenerationExtractionReference,
+  GenerationReference,
+  JobMutationOutcome,
   LocalIssuer,
   LocalIssuerMutationOutcome,
   LocalIssuerReference,
   LocalIssuerSigningConfiguration,
   MetadataMutationOutcome,
+  MediaConfigOutcome,
+  MediaDerivative,
   MutationOptions,
+  MutateProcessingJobRequest,
   PageOptions,
   PrivateFileResponse,
+  ProcessingJobPage,
+  ProcessingJobReference,
   ProjectReference,
   ReadPrivateFileOptions,
   RegisterLocalIssuerRequest,
@@ -58,6 +66,7 @@ import type {
   ReplaceBrowserOriginsRequest,
   ReplaceDeliveryConfigRequest,
   ReplaceCollectionExtractionRequest,
+  ReplaceCollectionMediaRequest,
   ReplaceEntryMetadataRequest,
   RenameFileRequest,
   RestoreFileGenerationRequest,
@@ -301,6 +310,65 @@ export class AlmiraClient {
     }, reference.tenantId);
   }
 
+  async getCollectionMedia(
+    reference: CollectionReference,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<CollectionMediaConfig> {
+    return this.#json(collectionPath(reference, "/media"), {
+      method: "GET",
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async replaceCollectionMedia(
+    reference: CollectionReference,
+    request: ReplaceCollectionMediaRequest,
+    options: MutationOptions,
+  ): Promise<MediaConfigOutcome> {
+    return this.#json(collectionPath(reference, "/media"), {
+      method: "PUT",
+      headers: mutationHeaders(options.operationId),
+      body: request,
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async listProcessingJobs(
+    reference: CollectionReference,
+    options: PageOptions = {},
+  ): Promise<ProcessingJobPage> {
+    return this.#json(withPage(collectionPath(reference, "/processing-jobs"), options), {
+      method: "GET",
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async retryProcessingJob(
+    reference: ProcessingJobReference,
+    request: MutateProcessingJobRequest,
+    options: MutationOptions,
+  ): Promise<JobMutationOutcome> {
+    return this.#json(collectionPath(reference, `/processing-jobs/${uuid(reference.jobId)}/retry`), {
+      method: "POST",
+      headers: mutationHeaders(options.operationId),
+      body: request,
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async cancelProcessingJob(
+    reference: ProcessingJobReference,
+    request: MutateProcessingJobRequest,
+    options: MutationOptions,
+  ): Promise<JobMutationOutcome> {
+    return this.#json(collectionPath(reference, `/processing-jobs/${uuid(reference.jobId)}/cancel`), {
+      method: "POST",
+      headers: mutationHeaders(options.operationId),
+      body: request,
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
   async startStorageMigration(
     reference: CollectionReference,
     request: StartStorageMigrationRequest,
@@ -476,6 +544,17 @@ export class AlmiraClient {
   ): Promise<GenerationExtraction> {
     return this.#json(
       filePath(reference, `/versions/${uuid(reference.generationId)}/extractions/${reference.kind}`),
+      { method: "GET", signal: options.signal },
+      reference.tenantId,
+    );
+  }
+
+  async listGenerationDerivatives(
+    reference: GenerationReference,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<MediaDerivative[]> {
+    return this.#json(
+      filePath(reference, `/versions/${uuid(reference.generationId)}/derivatives`),
       { method: "GET", signal: options.signal },
       reference.tenantId,
     );

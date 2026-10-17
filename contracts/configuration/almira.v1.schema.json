@@ -127,6 +127,98 @@
                       }
                     }
                   ]
+                },
+                "media": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "image_presets": {
+                      "type": "object",
+                      "maxProperties": 16,
+                      "propertyNames": {
+                        "pattern": "^[a-z]([a-z0-9._-]{0,62}[a-z0-9])?$"
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "widths",
+                          "height",
+                          "fit",
+                          "formats",
+                          "without_enlargement"
+                        ],
+                        "properties": {
+                          "widths": {
+                            "type": "array",
+                            "minItems": 1,
+                            "maxItems": 8,
+                            "uniqueItems": true,
+                            "x-almira-strictly-increasing": true,
+                            "items": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 8192
+                            }
+                          },
+                          "height": {
+                            "oneOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 8192
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "fit": {
+                            "type": "string",
+                            "enum": [
+                              "contain",
+                              "cover",
+                              "inside"
+                            ]
+                          },
+                          "formats": {
+                            "type": "array",
+                            "minItems": 1,
+                            "maxItems": 4,
+                            "uniqueItems": true,
+                            "items": {
+                              "type": "string",
+                              "enum": [
+                                "avif",
+                                "webp",
+                                "jpeg",
+                                "png"
+                              ]
+                            }
+                          },
+                          "without_enlargement": {
+                            "type": "boolean"
+                          }
+                        }
+                      },
+                      "default": {}
+                    },
+                    "document_previews": {
+                      "type": "boolean",
+                      "default": false
+                    },
+                    "video_profile": {
+                      "oneOf": [
+                        {
+                          "const": "web_hls_v1"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "default": null
+                    }
+                  }
                 }
               }
             }

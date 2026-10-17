@@ -1,6 +1,15 @@
 import { AlmiraClientError } from "./errors.js";
 import type { AlmiraClient } from "./client.js";
-import type { Collection, Environment, ProjectReference, UuidV7 } from "./types.js";
+import type {
+  Collection,
+  CollectionMediaConfig,
+  CollectionMediaInput,
+  Environment,
+  ImageFormat,
+  ImagePreset,
+  ProjectReference,
+  UuidV7,
+} from "./types.js";
 
 const UUID_V7 = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const ENVIRONMENT_KEY = /^[a-z][a-z0-9-]{0,46}[a-z0-9]$/u;
@@ -17,6 +26,7 @@ export interface AlmiraConfigurationCollectionV1 {
     readonly transcription: boolean;
     readonly vector_indexing: boolean;
   };
+  readonly media?: Required<CollectionMediaInput>;
 }
 
 export interface AlmiraConfigurationEnvironmentV1 {
@@ -85,6 +95,16 @@ export type AlmiraConfigurationAction =
       readonly collection_key: string;
       readonly expected_revision: number | null;
       readonly config: NonNullable<AlmiraConfigurationCollectionV1["extraction"]>;
+    }
+  | {
+      readonly action_id: string;
+      readonly operation: "collection_media.replace";
+      readonly environment_id: UuidV7 | null;
+      readonly environment_key: string;
+      readonly collection_instance_id: UuidV7 | null;
+      readonly collection_key: string;
+      readonly expected_revision: number | null;
+      readonly config: NonNullable<AlmiraConfigurationCollectionV1["media"]>;
     };
 
 export interface AlmiraConfigurationConflict {
@@ -184,6 +204,9 @@ export async function previewConfiguration(
         if (collection.extraction !== undefined) {
           actions.push(extractionAction(desired.key, null, null, collection, null));
         }
+        if (collection.media !== undefined) {
+          actions.push(mediaAction(desired.key, null, null, collection, null));
+        }
       }
       continue;
     }
@@ -243,6 +266,21 @@ export async function previewConfiguration(
           ));
           expectedRevision += 1;
         }
+        if (collection.media !== undefined) {
+          const currentMedia = await client.getCollectionMedia({
+            ...environmentReference(reference, environment),
+            collectionInstanceId: existing.collection_instance_id,
+          }, options);
+          if (!mediaSettingsMatch(currentMedia, collection.media)) {
+            actions.push(mediaAction(
+              desired.key,
+              environment.environment_id,
+              existing.collection_instance_id,
+              collection,
+              currentMedia.revision,
+            ));
+          }
+        }
         if (existing.storage_class !== collection.storage_class) {
           if (existing.storage_binding_state !== "ready" && existing.storage_binding_state !== "migrating") {
             conflicts.push(conflict(
@@ -287,6 +325,15 @@ export async function previewConfiguration(
       ));
       if (collection.extraction !== undefined) {
         actions.push(extractionAction(
+          desired.key,
+          environment.environment_id,
+          null,
+          collection,
+          null,
+        ));
+      }
+      if (collection.media !== undefined) {
+        actions.push(mediaAction(
           desired.key,
           environment.environment_id,
           null,
@@ -384,6 +431,18 @@ export async function applyConfiguration(
         { operationId, ...signalOptions },
       );
       receipts.push(receipt(action, operationId, outcome.disposition));
+    } else if (action.operation === "collection_media.replace") {
+      const created = createdCollections.get(collectionMapKey(action.environment_key, action.collection_key));
+      const collectionInstanceId = action.collection_instance_id ?? created?.id;
+      if (collectionInstanceId === undefined) {
+        throw new AlmiraClientError("ALMIRA_CLIENT_RESPONSE_INVALID");
+      }
+      const outcome = await client.replaceCollectionMedia(
+        { ...environment, collectionInstanceId },
+        { expected_revision: action.expected_revision ?? 1, config: action.config },
+        { operationId, ...signalOptions },
+      );
+      receipts.push(receipt(action, operationId, outcome.disposition));
     } else {
       const capabilities = await client.getStorageCapabilities(environment, signalOptions);
       if (!classAvailable(capabilities, action.storage_class)) {
@@ -443,7 +502,7 @@ function normalizeEnvironment(value: unknown): AlmiraConfigurationEnvironmentV1 
 }
 
 function normalizeCollection(value: unknown): AlmiraConfigurationCollectionV1 {
-  const item = exactRecord(value, ["key", "display_name", "malware_scan_required", "storage_class", "extraction"]);
+  const item = exactRecord(value, ["key", "display_name", "malware_scan_required", "storage_class", "extraction", "media"]);
   const storageClass = item.storage_class ?? "normal";
   if (
     typeof item.key !== "string" ||
@@ -469,13 +528,68 @@ function normalizeCollection(value: unknown): AlmiraConfigurationCollectionV1 {
       vector_indexing: raw.vector_indexing,
     };
   }
+  const media = item.media === undefined ? undefined : normalizeMedia(item.media);
   return {
     key: item.key,
     display_name: item.display_name,
     malware_scan_required: item.malware_scan_required,
     storage_class: storageClass,
     ...(extraction === undefined ? {} : { extraction }),
+    ...(media === undefined ? {} : { media }),
   };
+}
+
+function normalizeMedia(value: unknown): Required<CollectionMediaInput> {
+  const raw = exactRecord(value, ["image_presets", "document_previews", "video_profile"]);
+  const documentPreviews = raw.document_previews ?? false;
+  const videoProfile = raw.video_profile ?? null;
+  if (
+    typeof documentPreviews !== "boolean" ||
+    (videoProfile !== null && videoProfile !== "web_hls_v1")
+  ) invalidConfiguration();
+  const source = raw.image_presets ?? {};
+  if (source === null || typeof source !== "object" || Array.isArray(source)) invalidConfiguration();
+  const entries = Object.entries(source);
+  if (entries.length > 16) invalidConfiguration();
+  entries.sort(([left], [right]) => compareAscii(left, right));
+  const imagePresets: Record<string, ImagePreset> = {};
+  let outputCount = 0;
+  for (const [key, value] of entries) {
+    if (!/^[a-z](?:[a-z0-9._-]{0,62}[a-z0-9])?$/u.test(key)) invalidConfiguration();
+    const preset = exactRecord(value, ["widths", "height", "fit", "formats", "without_enlargement"]);
+    const widths = preset.widths;
+    const height = preset.height;
+    const formatsValue = preset.formats;
+    if (
+      !Array.isArray(widths) ||
+      widths.length < 1 ||
+      widths.length > 8 ||
+      widths.some((width, index) =>
+        typeof width !== "number" || !Number.isSafeInteger(width) || width < 1 || width > 8192 ||
+        index > 0 && !(typeof widths[index - 1] === "number" && widths[index - 1] < width)
+      ) ||
+      !(height === null || typeof height === "number" && Number.isSafeInteger(height) && height >= 1 && height <= 8192) ||
+      (preset.fit !== "contain" && preset.fit !== "cover" && preset.fit !== "inside") ||
+      !Array.isArray(formatsValue) ||
+      formatsValue.length < 1 ||
+      formatsValue.length > 4 ||
+      formatsValue.some((format) => format !== "avif" && format !== "webp" && format !== "jpeg" && format !== "png") ||
+      new Set(formatsValue).size !== formatsValue.length ||
+      typeof preset.without_enlargement !== "boolean"
+    ) invalidConfiguration();
+    const formats = [...formatsValue] as ImageFormat[];
+    formats.sort(compareAscii);
+    outputCount += widths.length * formats.length;
+    if (outputCount > 64) invalidConfiguration();
+    imagePresets[key] = {
+      widths: [...widths] as number[],
+      height,
+      fit: preset.fit,
+      formats,
+      without_enlargement: preset.without_enlargement,
+    };
+  }
+  return { image_presets: imagePresets, document_previews: documentPreviews, video_profile: videoProfile };
 }
 
 function exactRecord(value: unknown, allowed: readonly string[]): Record<string, unknown> {
@@ -557,6 +671,28 @@ function extractionSettingsMatch(
     existing.vector_indexing === desired.vector_indexing;
 }
 
+function mediaSettingsMatch(
+  existing: CollectionMediaConfig,
+  desired: NonNullable<AlmiraConfigurationCollectionV1["media"]>,
+): boolean {
+  if (
+    existing.document_previews !== desired.document_previews ||
+    existing.video_profile !== desired.video_profile
+  ) return false;
+  const existingKeys = Object.keys(existing.image_presets).sort(compareAscii);
+  const desiredKeys = Object.keys(desired.image_presets);
+  return sameStrings(existingKeys, desiredKeys) && existingKeys.every((key) => {
+    const left = existing.image_presets[key];
+    const right = desired.image_presets[key];
+    return left !== undefined && right !== undefined &&
+      left.height === right.height &&
+      left.fit === right.fit &&
+      left.without_enlargement === right.without_enlargement &&
+      sameNumbers(left.widths, right.widths) &&
+      sameStrings([...left.formats].sort(compareAscii), right.formats);
+  });
+}
+
 function classAvailable(
   capabilities: Awaited<ReturnType<AlmiraClient["getStorageCapabilities"]>> | null,
   storageClass: "normal" | "express",
@@ -620,6 +756,26 @@ function extractionAction(
   };
 }
 
+function mediaAction(
+  environmentKey: string,
+  environmentId: UuidV7 | null,
+  collectionInstanceId: UuidV7 | null,
+  collection: AlmiraConfigurationCollectionV1,
+  expectedRevision: number | null,
+): AlmiraConfigurationAction {
+  if (collection.media === undefined) invalidConfiguration();
+  return {
+    action_id: `collection_media.replace:${environmentKey}:${collection.key}`,
+    operation: "collection_media.replace",
+    environment_id: environmentId,
+    environment_key: environmentKey,
+    collection_instance_id: collectionInstanceId,
+    collection_key: collection.key,
+    expected_revision: expectedRevision,
+    config: collection.media,
+  };
+}
+
 function collectionMapKey(environmentKey: string, collectionKey: string): string {
   return `${environmentKey}\0${collectionKey}`;
 }
@@ -633,6 +789,10 @@ function conflict(
 }
 
 function sameStrings(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function sameNumbers(left: readonly number[], right: readonly number[]): boolean {
   return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 

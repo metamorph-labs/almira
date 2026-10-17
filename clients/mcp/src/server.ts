@@ -53,6 +53,30 @@ const environmentDisplayName = z.string().refine((value) =>
   value === value.trim() &&
   !/[\u0000-\u001f\u007f]/u.test(value),
 );
+const imagePreset = z.object({
+  widths: z.array(z.number().int().min(1).max(8192)).min(1).max(8)
+    .refine((values) => values.every((value, index) => index === 0 || values[index - 1] < value), {
+      message: "widths must be strictly increasing",
+    }),
+  height: z.number().int().min(1).max(8192).nullable(),
+  fit: z.enum(["contain", "cover", "inside"]),
+  formats: z.array(z.enum(["avif", "webp", "jpeg", "png"])).min(1).max(4)
+    .refine((values) => new Set(values).size === values.length),
+  without_enlargement: z.boolean(),
+}).strict();
+const imagePresets = z.record(
+  z.string().regex(/^[a-z]([a-z0-9._-]{0,62}[a-z0-9])?$/u),
+  imagePreset,
+).refine((presets) =>
+  Object.keys(presets).length <= 16 &&
+  Object.values(presets).reduce((count, preset) => count + preset.widths.length * preset.formats.length, 0) <= 64,
+  { message: "media preset output fan-out exceeds 64" },
+);
+const collectionMediaInput = z.object({
+  image_presets: imagePresets.optional(),
+  document_previews: z.boolean().optional(),
+  video_profile: z.literal("web_hls_v1").nullable().optional(),
+}).strict();
 const configurationCollection = z.object({
   key: z.string().regex(/^[a-z]([a-z0-9_-]{0,62}[a-z0-9])?$/u),
   display_name: environmentDisplayName,
@@ -66,6 +90,7 @@ const configurationCollection = z.object({
   }).strict().refine((value) => !value.vector_indexing || value.content, {
     message: "vector_indexing requires content extraction",
   }).optional(),
+  media: collectionMediaInput.optional(),
 }).strict();
 const configuration = z.object({
   api_version: z.literal("almira/v1"),
@@ -227,7 +252,7 @@ const outputSchema = z
 
 /** Creates one stdio-safe MCP server over the canonical Almira SDK client. */
 export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
-  const server = new McpServer({ name: "almira", version: "0.1.0-dev.22" });
+  const server = new McpServer({ name: "almira", version: "0.1.0-dev.24" });
 
   server.registerTool(
     "almira_project_bootstrap",
@@ -581,6 +606,104 @@ export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
   );
 
   server.registerTool(
+    "almira_collection_media_get",
+    {
+      title: "Get collection media controls",
+      description: "Read collection-level image presets, document previews, and the optional video processing profile.",
+      inputSchema: z.object(collectionScope).strict(),
+      outputSchema,
+      annotations: readAnnotations,
+    },
+    async ({ tenant_id, project_id, environment_id, collection_instance_id }) =>
+      execute(() => client.getCollectionMedia(
+        collectionReference(tenant_id, project_id, environment_id, collection_instance_id),
+      )),
+  );
+
+  server.registerTool(
+    "almira_collection_media_replace",
+    {
+      title: "Replace collection media controls",
+      description: "Replace bounded provider-neutral image, document, and video processing controls using optimistic revision control.",
+      inputSchema: z.object({
+        ...collectionScope,
+        expected_revision: z.number().int().min(1),
+        config: collectionMediaInput,
+        operation_id: operationId,
+      }).strict(),
+      outputSchema,
+      annotations: mutationAnnotations,
+    },
+    async ({ tenant_id, project_id, environment_id, collection_instance_id, expected_revision, config, operation_id }) => {
+      const id = operation_id ?? createOperationId();
+      return execute(() => client.replaceCollectionMedia(
+        collectionReference(tenant_id, project_id, environment_id, collection_instance_id),
+        {
+          expected_revision,
+          config: {
+            ...(config.image_presets === undefined ? {} : { image_presets: config.image_presets }),
+            ...(config.document_previews === undefined ? {} : { document_previews: config.document_previews }),
+            ...(config.video_profile === undefined ? {} : { video_profile: config.video_profile }),
+          },
+        },
+        { operationId: id },
+      ), id);
+    },
+  );
+
+  server.registerTool(
+    "almira_processing_jobs_list",
+    {
+      title: "List media-processing jobs",
+      description: "List bounded job status and pinned processor provenance for one collection.",
+      inputSchema: z.object({ ...collectionScope, ...page }).strict(),
+      outputSchema,
+      annotations: readAnnotations,
+    },
+    async ({ tenant_id, project_id, environment_id, collection_instance_id, limit, cursor }) =>
+      execute(() => client.listProcessingJobs(
+        collectionReference(tenant_id, project_id, environment_id, collection_instance_id),
+        {
+          ...(limit === undefined ? {} : { limit }),
+          ...(cursor === undefined ? {} : { cursor }),
+        },
+      )),
+  );
+
+  for (const action of ["retry", "cancel"] as const) {
+    server.registerTool(
+      `almira_processing_job_${action}`,
+      {
+        title: `${action === "retry" ? "Retry" : "Cancel"} media-processing job`,
+        description: action === "retry"
+          ? "Retry one failed or cancelled media-processing job using optimistic revision control."
+          : "Cancel one pending media-processing job using optimistic revision control.",
+        inputSchema: z.object({
+          ...collectionScope,
+          job_id: uuid,
+          expected_revision: z.number().int().min(1),
+          operation_id: operationId,
+        }).strict(),
+        outputSchema,
+        annotations: mutationAnnotations,
+      },
+      async ({ tenant_id, project_id, environment_id, collection_instance_id, job_id, expected_revision, operation_id }) => {
+        const id = operation_id ?? createOperationId();
+        const reference = {
+          ...collectionReference(tenant_id, project_id, environment_id, collection_instance_id),
+          jobId: job_id,
+        };
+        return execute(
+          () => action === "retry"
+            ? client.retryProcessingJob(reference, { expected_revision }, { operationId: id })
+            : client.cancelProcessingJob(reference, { expected_revision }, { operationId: id }),
+          id,
+        );
+      },
+    );
+  }
+
+  server.registerTool(
     "almira_storage_migration_start",
     {
       title: "Start storage-class migration",
@@ -863,6 +986,22 @@ export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
         ...fileReference(tenant_id, project_id, environment_id, collection_instance_id, entry_id),
         generationId: generation_id,
         kind,
+      })),
+  );
+
+  server.registerTool(
+    "almira_file_derivatives_list",
+    {
+      title: "List file derivatives",
+      description: "List ready, immutable derivative metadata for one exact source generation.",
+      inputSchema: z.object({ ...collectionScope, entry_id: uuid, generation_id: uuid }).strict(),
+      outputSchema,
+      annotations: readAnnotations,
+    },
+    async ({ tenant_id, project_id, environment_id, collection_instance_id, entry_id, generation_id }) =>
+      execute(() => client.listGenerationDerivatives({
+        ...fileReference(tenant_id, project_id, environment_id, collection_instance_id, entry_id),
+        generationId: generation_id,
       })),
   );
 

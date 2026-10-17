@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Almira API",
-    "version": "0.1.0-dev.22",
+    "version": "0.1.0-dev.24",
     "description": "Provider-neutral application file storage management and data API."
   },
   "servers": [
@@ -1521,6 +1521,64 @@
         }
       }
     },
+    "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/files/{entry_id}/versions/{generation_id}/derivatives": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "get": {
+        "operationId": "listGenerationDerivatives",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/EntryId"
+          },
+          {
+            "$ref": "#/components/parameters/GenerationId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ready derivatives for the exact immutable source generation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "maxItems": 64,
+                  "items": {
+                    "$ref": "#/components/schemas/MediaDerivative"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
     "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/files/{entry_id}/versions/{generation_id}/extracted-content/{kind}": {
       "parameters": [
         {
@@ -1868,6 +1926,309 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ExtractionConfigOutcome"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/media": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "get": {
+        "operationId": "getCollectionMedia",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current collection media presets and document/video processing controls.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectionMediaConfig"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      },
+      "put": {
+        "operationId": "replaceCollectionMedia",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/OperationId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplaceCollectionMediaRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Media controls replaced or exactly replayed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaConfigOutcome"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/processing-jobs": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "get": {
+        "operationId": "listProcessingJobs",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Exact-generation processing jobs ordered newest first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProcessingJobPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/processing-jobs/{job_id}/retry": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "post": {
+        "operationId": "retryProcessingJob",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/JobId"
+          },
+          {
+            "$ref": "#/components/parameters/OperationId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutateProcessingJobRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Failed or cancelled job queued for retry, or exactly replayed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobMutationOutcome"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/processing-jobs/{job_id}/cancel": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "post": {
+        "operationId": "cancelProcessingJob",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/JobId"
+          },
+          {
+            "$ref": "#/components/parameters/OperationId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutateProcessingJobRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Pending work cancelled or exactly replayed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobMutationOutcome"
                 }
               }
             }
@@ -2752,6 +3113,14 @@
       },
       "GenerationId": {
         "name": "generation_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/UuidV7"
+        }
+      },
+      "JobId": {
+        "name": "job_id",
         "in": "path",
         "required": true,
         "schema": {
@@ -3955,6 +4324,510 @@
           },
           "config": {
             "$ref": "#/components/schemas/CollectionExtractionConfig"
+          }
+        }
+      },
+      "ImageFormat": {
+        "type": "string",
+        "enum": [
+          "avif",
+          "webp",
+          "jpeg",
+          "png"
+        ]
+      },
+      "ImageFit": {
+        "type": "string",
+        "enum": [
+          "contain",
+          "cover",
+          "inside"
+        ]
+      },
+      "ImagePreset": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "widths",
+          "height",
+          "fit",
+          "formats",
+          "without_enlargement"
+        ],
+        "properties": {
+          "widths": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 8,
+            "uniqueItems": true,
+            "items": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 8192
+            },
+            "description": "Strictly increasing responsive widths."
+          },
+          "height": {
+            "oneOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 8192
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "fit": {
+            "$ref": "#/components/schemas/ImageFit"
+          },
+          "formats": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 4,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/components/schemas/ImageFormat"
+            }
+          },
+          "without_enlargement": {
+            "type": "boolean"
+          }
+        }
+      },
+      "VideoProfile": {
+        "type": "string",
+        "enum": [
+          "web_hls_v1"
+        ]
+      },
+      "CollectionMediaInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "image_presets": {
+            "type": "object",
+            "maxProperties": 16,
+            "propertyNames": {
+              "pattern": "^[a-z]([a-z0-9._-]{0,62}[a-z0-9])?$"
+            },
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ImagePreset"
+            },
+            "default": {}
+          },
+          "document_previews": {
+            "type": "boolean",
+            "default": false
+          },
+          "video_profile": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/VideoProfile"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "description": "Collection-level media work. Total image output fan-out across presets is limited to 64."
+      },
+      "CollectionMediaConfig": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "collection_instance_id",
+          "image_presets",
+          "document_previews",
+          "video_profile",
+          "revision",
+          "updated_at"
+        ],
+        "properties": {
+          "collection_instance_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "image_presets": {
+            "type": "object",
+            "maxProperties": 16,
+            "propertyNames": {
+              "pattern": "^[a-z]([a-z0-9._-]{0,62}[a-z0-9])?$"
+            },
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ImagePreset"
+            }
+          },
+          "document_previews": {
+            "type": "boolean"
+          },
+          "video_profile": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/VideoProfile"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "updated_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        }
+      },
+      "ReplaceCollectionMediaRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "expected_revision",
+          "config"
+        ],
+        "properties": {
+          "expected_revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "config": {
+            "$ref": "#/components/schemas/CollectionMediaInput"
+          }
+        }
+      },
+      "MediaConfigOutcome": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "disposition",
+          "config"
+        ],
+        "properties": {
+          "disposition": {
+            "type": "string",
+            "enum": [
+              "applied",
+              "exact_replay"
+            ]
+          },
+          "config": {
+            "$ref": "#/components/schemas/CollectionMediaConfig"
+          }
+        }
+      },
+      "ProcessingKind": {
+        "type": "string",
+        "enum": [
+          "image_variants",
+          "document_preview",
+          "video_package"
+        ]
+      },
+      "ProcessingState": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "running",
+          "retry_wait",
+          "succeeded",
+          "failed",
+          "cancelled",
+          "superseded"
+        ]
+      },
+      "ProcessingJob": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "job_id",
+          "entry_id",
+          "generation_id",
+          "kind",
+          "state",
+          "source_content_sha256",
+          "media_config_revision",
+          "processor_id",
+          "processor_version",
+          "runtime_digest",
+          "progress_percent",
+          "attempt_count",
+          "failure_code",
+          "revision",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "job_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "entry_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "generation_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ProcessingKind"
+          },
+          "state": {
+            "$ref": "#/components/schemas/ProcessingState"
+          },
+          "source_content_sha256": {
+            "$ref": "#/components/schemas/ContentSha256"
+          },
+          "media_config_revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "processor_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 96,
+            "pattern": "^[a-z]([a-z0-9._-]*[a-z0-9])?$"
+          },
+          "processor_version": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z]([a-z0-9._-]*[a-z0-9])?$"
+          },
+          "runtime_digest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "progress_percent": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "attempt_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 20
+          },
+          "failure_code": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^ALMIRA_MEDIA_[A-Z0-9_]{1,83}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "updated_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        }
+      },
+      "ProcessingJobPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "jobs",
+          "next_cursor"
+        ],
+        "properties": {
+          "jobs": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/ProcessingJob"
+            }
+          },
+          "next_cursor": {
+            "oneOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2048
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "MutateProcessingJobRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "expected_revision"
+        ],
+        "properties": {
+          "expected_revision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "JobMutationOutcome": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "disposition",
+          "job"
+        ],
+        "properties": {
+          "disposition": {
+            "type": "string",
+            "enum": [
+              "applied",
+              "exact_replay"
+            ]
+          },
+          "job": {
+            "$ref": "#/components/schemas/ProcessingJob"
+          }
+        }
+      },
+      "DerivativeKind": {
+        "type": "string",
+        "enum": [
+          "image_variant",
+          "document_page",
+          "video_mp4",
+          "video_hls_manifest",
+          "video_hls_segment",
+          "video_poster",
+          "video_storyboard",
+          "subtitle"
+        ]
+      },
+      "MediaDerivative": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "derivative_id",
+          "job_id",
+          "entry_id",
+          "generation_id",
+          "variant_key",
+          "kind",
+          "media_type",
+          "content_sha256",
+          "size_bytes",
+          "width_px",
+          "height_px",
+          "duration_millis",
+          "source_content_sha256",
+          "media_config_revision",
+          "processor_id",
+          "processor_version",
+          "runtime_digest",
+          "revision",
+          "created_at"
+        ],
+        "properties": {
+          "derivative_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "job_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "entry_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "generation_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "variant_key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160,
+            "pattern": "^(?!.*(?:^|/)\\.{1,2}(?:/|$))[a-z0-9]([a-z0-9._/-]*[a-z0-9])?$",
+            "description": "Opaque Almira variant key; never a provider coordinate."
+          },
+          "kind": {
+            "$ref": "#/components/schemas/DerivativeKind"
+          },
+          "media_type": {
+            "$ref": "#/components/schemas/MediaType"
+          },
+          "content_sha256": {
+            "$ref": "#/components/schemas/ContentSha256"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10737418240
+          },
+          "width_px": {
+            "oneOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 16384
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "height_px": {
+            "oneOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 16384
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "duration_millis": {
+            "oneOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 86400000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source_content_sha256": {
+            "$ref": "#/components/schemas/ContentSha256"
+          },
+          "media_config_revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "processor_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 96
+          },
+          "processor_version": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "runtime_digest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/Timestamp"
           }
         }
       },

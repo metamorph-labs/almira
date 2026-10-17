@@ -55,6 +55,8 @@ test("tool catalog is closed and marks destructive behavior accurately", async (
       "almira_collection_extraction_replace",
       "almira_collection_get",
       "almira_collection_list",
+      "almira_collection_media_get",
+      "almira_collection_media_replace",
       "almira_configuration_apply",
       "almira_configuration_preview",
       "almira_delivery_get",
@@ -66,6 +68,7 @@ test("tool catalog is closed and marks destructive behavior accurately", async (
       "almira_file_customer_metadata_get",
       "almira_file_customer_metadata_replace",
       "almira_file_delete",
+      "almira_file_derivatives_list",
       "almira_file_extracted_content_get",
       "almira_file_extraction_get",
       "almira_file_generation_restore",
@@ -83,6 +86,9 @@ test("tool catalog is closed and marks destructive behavior accurately", async (
       "almira_policy_get",
       "almira_policy_replace",
       "almira_policy_simulate",
+      "almira_processing_job_cancel",
+      "almira_processing_job_retry",
+      "almira_processing_jobs_list",
       "almira_project_bootstrap",
       "almira_share_create",
       "almira_share_revoke",
@@ -182,6 +188,69 @@ test("metadata and extraction tools keep safe status separate from protected con
     },
     { input: `${fileBase}/versions/${generationId}/extractions/content`, method: "GET", operationId: null, body: undefined },
     { input: `${fileBase}/versions/${generationId}/extracted-content/content`, method: "GET", operationId: null, body: undefined },
+  ]);
+});
+
+test("media tools preserve configuration, job, and immutable generation scope", async (context) => {
+  const environmentId = "018f0000-0000-7000-8000-000000000004";
+  const collectionId = "018f0000-0000-7000-8000-000000000005";
+  const entryId = "018f0000-0000-7000-8000-000000000006";
+  const operationId = "018f0000-0000-7000-8000-000000000007";
+  const generationId = "018f0000-0000-7000-8000-000000000009";
+  const jobId = "018f0000-0000-7000-8000-000000000010";
+  const requests = [];
+  const connection = await connected(async (input, init) => {
+    requests.push({ input, init });
+    return json(input.endsWith("/derivatives") ? [] : init.method === "GET" ? {} : { disposition: "applied" });
+  });
+  context.after(async () => {
+    await connection.client.close();
+    await connection.server.close();
+  });
+  const scope = {
+    tenant_id: tenantId,
+    project_id: projectId,
+    environment_id: environmentId,
+    collection_instance_id: collectionId,
+  };
+  await connection.client.callTool({ name: "almira_collection_media_get", arguments: scope });
+  await connection.client.callTool({
+    name: "almira_collection_media_replace",
+    arguments: {
+      ...scope,
+      expected_revision: 2,
+      operation_id: operationId,
+      config: {
+        image_presets: {
+          card: { widths: [320, 640], height: null, fit: "inside", formats: ["avif", "webp"], without_enlargement: true },
+        },
+        document_previews: true,
+        video_profile: null,
+      },
+    },
+  });
+  await connection.client.callTool({ name: "almira_processing_jobs_list", arguments: { ...scope, limit: 25 } });
+  await connection.client.callTool({
+    name: "almira_processing_job_retry",
+    arguments: { ...scope, job_id: jobId, expected_revision: 3, operation_id: operationId },
+  });
+  await connection.client.callTool({
+    name: "almira_processing_job_cancel",
+    arguments: { ...scope, job_id: jobId, expected_revision: 4, operation_id: operationId },
+  });
+  await connection.client.callTool({
+    name: "almira_file_derivatives_list",
+    arguments: { ...scope, entry_id: entryId, generation_id: generationId },
+  });
+
+  const base = `https://almira.test/v1/projects/${projectId}/environments/${environmentId}/collections/${collectionId}`;
+  assert.deepEqual(requests.map(({ input, init }) => [init.method, input]), [
+    ["GET", `${base}/media`],
+    ["PUT", `${base}/media`],
+    ["GET", `${base}/processing-jobs?limit=25`],
+    ["POST", `${base}/processing-jobs/${jobId}/retry`],
+    ["POST", `${base}/processing-jobs/${jobId}/cancel`],
+    ["GET", `${base}/files/${entryId}/versions/${generationId}/derivatives`],
   ]);
 });
 

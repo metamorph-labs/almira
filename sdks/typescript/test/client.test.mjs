@@ -430,6 +430,45 @@ test("metadata and extraction methods preserve exact scope, filtering, and separ
   ]);
 });
 
+test("media methods preserve collection and immutable generation scope", async () => {
+  const calls = [];
+  const client = new AlmiraClient({
+    credential: "mm_pat_v1.test",
+    fetch: async (input, init) => {
+      calls.push({ input, init });
+      return json(input.endsWith("/derivatives") ? [] : init.method === "GET" ? { jobs: [], next_cursor: null } : { disposition: "applied" });
+    },
+  });
+  const collection = { tenantId, projectId, environmentId, collectionInstanceId };
+  await client.getCollectionMedia(collection);
+  await client.replaceCollectionMedia(collection, {
+    expected_revision: 2,
+    config: {
+      image_presets: {
+        avatar: { widths: [128, 256], height: 256, fit: "cover", formats: ["avif", "webp"], without_enlargement: true },
+      },
+      document_previews: true,
+      video_profile: "web_hls_v1",
+    },
+  }, { operationId });
+  await client.listProcessingJobs(collection, { limit: 25, cursor: "next page" });
+  await client.retryProcessingJob({ ...collection, jobId: generationId }, { expected_revision: 3 }, { operationId });
+  await client.cancelProcessingJob({ ...collection, jobId: generationId }, { expected_revision: 4 }, { operationId });
+  await client.listGenerationDerivatives({ ...collection, entryId, generationId });
+
+  const base = `/v1/projects/${projectId}/environments/${environmentId}/collections/${collectionInstanceId}`;
+  assert.deepEqual(calls.map(({ input, init }) => [init.method, input]), [
+    ["GET", `${base}/media`],
+    ["PUT", `${base}/media`],
+    ["GET", `${base}/processing-jobs?limit=25&cursor=next+page`],
+    ["POST", `${base}/processing-jobs/${generationId}/retry`],
+    ["POST", `${base}/processing-jobs/${generationId}/cancel`],
+    ["GET", `${base}/files/${entryId}/versions/${generationId}/derivatives`],
+  ]);
+  assert(calls.filter(({ init }) => init.method !== "GET")
+    .every(({ init }) => init.headers.get("idempotency-key") === operationId));
+});
+
 test("metadata filters fail locally when paired fields or ranges are incoherent", async () => {
   const client = new AlmiraClient({ fetch: async () => assert.fail("invalid filters must not call the API") });
   const reference = { tenantId, projectId, environmentId, collectionInstanceId };

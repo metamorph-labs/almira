@@ -281,6 +281,64 @@ test("metadata and extraction commands expose exact scoped management operations
   ]);
 });
 
+test("media, job, and derivative commands expose exact scoped management operations", async (context) => {
+  const directory = await mkdtemp(join(tmpdir(), "almira-media-"));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const mediaInput = join(directory, "media.json");
+  const mediaRequest = {
+    expected_revision: 2,
+    config: {
+      image_presets: {
+        card: { widths: [320, 640], height: null, fit: "inside", formats: ["avif", "webp"], without_enlargement: true },
+      },
+      document_previews: true,
+      video_profile: null,
+    },
+  };
+  await writeFile(mediaInput, JSON.stringify(mediaRequest));
+  const collectionId = "018f0000-0000-7000-8000-000000000012";
+  const entryId = "018f0000-0000-7000-8000-000000000013";
+  const generationId = "018f0000-0000-7000-8000-000000000014";
+  const jobId = "018f0000-0000-7000-8000-000000000015";
+  const requests = [];
+  const invoke = async (arguments_) => {
+    const stream = io();
+    const exitCode = await runCli(arguments_, {
+      environment,
+      io: stream.value,
+      fetch: async (input, init) => {
+        requests.push({ input, init });
+        return json(input.endsWith("/derivatives") ? [] : init.method === "GET" ? {} : { disposition: "applied" });
+      },
+    });
+    assert.equal(exitCode, 0, stream.output.stderr.join(""));
+  };
+  const scope = [
+    "--tenant", tenantId, "--project", projectId, "--environment", environmentId,
+    "--collection", collectionId,
+  ];
+  await invoke(["media", "get", ...scope]);
+  await invoke(["media", "set", ...scope, "--input", mediaInput, "--operation-id", operationId]);
+  await invoke(["job", "list", ...scope, "--limit", "25", "--cursor", "next page"]);
+  await invoke(["job", "retry", ...scope, "--job", jobId, "--revision", "3", "--operation-id", operationId]);
+  await invoke(["job", "cancel", ...scope, "--job", jobId, "--revision", "4", "--operation-id", operationId]);
+  await invoke(["derivative", "list", ...scope, "--entry", entryId, "--generation", generationId]);
+
+  const base = `https://almira.test/v1/projects/${projectId}/environments/${environmentId}/collections/${collectionId}`;
+  assert.deepEqual(requests.map(({ input, init }) => ({
+    input,
+    method: init.method,
+    body: init.body === undefined ? undefined : JSON.parse(init.body),
+  })), [
+    { input: `${base}/media`, method: "GET", body: undefined },
+    { input: `${base}/media`, method: "PUT", body: mediaRequest },
+    { input: `${base}/processing-jobs?limit=25&cursor=next+page`, method: "GET", body: undefined },
+    { input: `${base}/processing-jobs/${jobId}/retry`, method: "POST", body: { expected_revision: 3 } },
+    { input: `${base}/processing-jobs/${jobId}/cancel`, method: "POST", body: { expected_revision: 4 } },
+    { input: `${base}/files/${entryId}/versions/${generationId}/derivatives`, method: "GET", body: undefined },
+  ]);
+});
+
 test("file search exposes hybrid retrieval, filters, facets, and paging as one call", async () => {
   const stream = io();
   const collectionId = "018f0000-0000-7000-8000-000000000012";

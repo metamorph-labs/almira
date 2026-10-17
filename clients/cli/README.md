@@ -94,6 +94,12 @@ tags and typed scalar fields use `metadata get|set`. `file list` also accepts ex
 verified media type, size, creation-time and extraction-state filters; paired filter fields must
 be provided together.
 
+Collection media controls use `media get|set`. Image presets, document previews and the optional
+`web_hls_v1` video profile are collection-scoped and provider-neutral. Use `job list|retry|cancel`
+to inspect or operate their asynchronous work and `derivative list` for the ready outputs of one
+exact source generation. Structured media replacement uses `--input FILE`; retry and cancel also
+require the job's current `--revision`.
+
 `file search --query TEXT` performs lexical search by default. Pass `--mode semantic` or
 `--mode hybrid` only for a vector-enabled collection, repeat `--facet` for returned-page facets,
 and use `--page-size`/`--cursor` for bounded continuation. The command accepts the same metadata,

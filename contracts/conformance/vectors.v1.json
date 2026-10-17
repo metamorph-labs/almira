@@ -852,6 +852,108 @@
       "expected": "invalid"
     },
     {
+      "name": "collection_media_presets_are_provider_neutral",
+      "schema": "ReplaceCollectionMediaRequest",
+      "instance": {
+        "expected_revision": 1,
+        "config": {
+          "image_presets": {
+            "avatar": {
+              "widths": [
+                256,
+                512
+              ],
+              "height": 256,
+              "fit": "cover",
+              "formats": [
+                "avif",
+                "webp"
+              ],
+              "without_enlargement": true
+            }
+          },
+          "document_previews": true,
+          "video_profile": "web_hls_v1"
+        }
+      },
+      "expected": "valid"
+    },
+    {
+      "name": "collection_media_provider_key_is_refused",
+      "schema": "ReplaceCollectionMediaRequest",
+      "instance": {
+        "expected_revision": 1,
+        "config": {
+          "image_presets": {
+            "Avatar": {
+              "widths": [
+                256
+              ],
+              "height": null,
+              "fit": "inside",
+              "formats": [
+                "webp"
+              ],
+              "without_enlargement": true
+            }
+          }
+        }
+      },
+      "expected": "invalid"
+    },
+    {
+      "name": "ready_derivative_has_exact_source_and_processor_provenance",
+      "schema": "MediaDerivative",
+      "instance": {
+        "derivative_id": "018f0000-0000-7000-8000-000000000031",
+        "job_id": "018f0000-0000-7000-8000-000000000032",
+        "entry_id": "018f0000-0000-7000-8000-000000000033",
+        "generation_id": "018f0000-0000-7000-8000-000000000034",
+        "variant_key": "avatar/256.webp",
+        "kind": "image_variant",
+        "media_type": "image/webp",
+        "content_sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "size_bytes": 4096,
+        "width_px": 256,
+        "height_px": 256,
+        "duration_millis": null,
+        "source_content_sha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "media_config_revision": 2,
+        "processor_id": "almira.media",
+        "processor_version": "v1",
+        "runtime_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "revision": 1,
+        "created_at": "2026-10-17T00:00:00Z"
+      },
+      "expected": "valid"
+    },
+    {
+      "name": "derivative_dot_segment_is_refused",
+      "schema": "MediaDerivative",
+      "instance": {
+        "derivative_id": "018f0000-0000-7000-8000-000000000031",
+        "job_id": "018f0000-0000-7000-8000-000000000032",
+        "entry_id": "018f0000-0000-7000-8000-000000000033",
+        "generation_id": "018f0000-0000-7000-8000-000000000034",
+        "variant_key": "hls/../secret",
+        "kind": "video_hls_segment",
+        "media_type": "video/iso.segment",
+        "content_sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "size_bytes": 4096,
+        "width_px": null,
+        "height_px": null,
+        "duration_millis": 6000,
+        "source_content_sha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "media_config_revision": 2,
+        "processor_id": "almira.media",
+        "processor_version": "v1",
+        "runtime_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "revision": 1,
+        "created_at": "2026-10-17T00:00:00Z"
+      },
+      "expected": "invalid"
+    },
+    {
       "name": "safe_error_envelope",
       "schema": "Error",
       "instance": {
@@ -984,6 +1086,24 @@
       "name": "search_dependency_failure_is_redacted",
       "condition": "Lodestone or the configured embedding processor is unavailable",
       "code": "ALMIRA_SEARCH_UNAVAILABLE",
+      "http_status": 503
+    },
+    {
+      "name": "stale_media_config_revision_conflicts",
+      "condition": "media controls are replaced against a stale collection media revision",
+      "code": "ALMIRA_MEDIA_REVISION_CONFLICT",
+      "http_status": 409
+    },
+    {
+      "name": "stale_or_unsafe_derivative_is_hidden",
+      "condition": "the processor/config revision is stale or FileService no longer reports the source generation and output safe",
+      "code": "ALMIRA_MEDIA_NOT_FOUND",
+      "http_status": 404
+    },
+    {
+      "name": "media_processor_failure_is_redacted",
+      "condition": "the placement-selected media processor is unavailable or returns a malformed response",
+      "code": "ALMIRA_MEDIA_PROCESSOR_UNAVAILABLE",
       "http_status": 503
     }
   ]

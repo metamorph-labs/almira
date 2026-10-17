@@ -106,6 +106,14 @@ facet is revision-checked against current PostgreSQL lifecycle, safety, generati
 authorization state. `AlmiraDataClient.searchFilesWithCapability` exposes the same behavior to a
 builder application's authorized end user without accepting a management credential.
 
+Use `getCollectionMedia` and `replaceCollectionMedia` for bounded collection-level image presets,
+document previews and the optional `web_hls_v1` video profile. `listProcessingJobs`,
+`retryProcessingJob`, and `cancelProcessingJob` expose durable asynchronous state with pinned
+processor provenance. `listGenerationDerivatives` returns ready metadata for one immutable source;
+the application-facing `AlmiraDataClient.listDerivativesWithCapability` and `readDerivative`
+methods keep every derivative behind the same capability, safety and CDN gates as its source.
+Variant keys are opaque Almira names, not provider paths or URLs.
+
 Application backends can pass a normalized `subject` with `listFiles`, `getFileMetadata`, and
 `readPrivateFile`; the SDK puts its canonical context on that same workload-authenticated call.
 For browser and other end-user data paths, use the deliberately separate `AlmiraDataClient`. It
@@ -123,4 +131,5 @@ The SDK also exports `normalizeConfiguration`, `previewConfiguration`, and `appl
 for the public `almira.yaml` v1 model. Preview performs reads only. Apply refuses conflicts before
 mutation, preserves unlisted resources, checks advertised storage classes, starts governed
 class-only migrations, applies explicit collection extraction/vector controls, and returns a
-resumable receipt rooted in the caller-supplied operation ID.
+resumable receipt rooted in the caller-supplied operation ID. Optional `media` blocks converge
+through the same collection media API.

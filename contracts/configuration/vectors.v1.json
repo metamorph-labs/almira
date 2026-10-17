@@ -73,6 +73,45 @@
       "expected": "valid"
     },
     {
+      "name": "collection_media_processing_is_explicit_and_bounded",
+      "instance": {
+        "api_version": "almira/v1",
+        "environments": [
+          {
+            "key": "development",
+            "display_name": "Development",
+            "collections": [
+              {
+                "key": "media",
+                "display_name": "Media",
+                "malware_scan_required": true,
+                "media": {
+                  "image_presets": {
+                    "thumbnail": {
+                      "widths": [
+                        256,
+                        512
+                      ],
+                      "height": 256,
+                      "fit": "cover",
+                      "formats": [
+                        "avif",
+                        "webp"
+                      ],
+                      "without_enlargement": true
+                    }
+                  },
+                  "document_previews": true,
+                  "video_profile": "web_hls_v1"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "expected": "valid"
+    },
+    {
       "name": "vector_search_without_content_is_refused",
       "instance": {
         "api_version": "almira/v1",
@@ -104,6 +143,42 @@
         "api_version": "almira/v1",
         "environments": [],
         "bucket": "customer-data"
+      },
+      "expected": "invalid"
+    },
+    {
+      "name": "media_preset_widths_must_increase",
+      "instance": {
+        "api_version": "almira/v1",
+        "environments": [
+          {
+            "key": "development",
+            "display_name": "Development",
+            "collections": [
+              {
+                "key": "media",
+                "display_name": "Media",
+                "malware_scan_required": true,
+                "media": {
+                  "image_presets": {
+                    "thumbnail": {
+                      "widths": [
+                        512,
+                        256
+                      ],
+                      "height": null,
+                      "fit": "inside",
+                      "formats": [
+                        "webp"
+                      ],
+                      "without_enlargement": true
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        ]
       },
       "expected": "invalid"
     },

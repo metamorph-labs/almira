@@ -5,6 +5,7 @@ import type {
   FileEntry,
   FileEntryPage,
   FileReference,
+  MediaDerivative,
   PageOptions,
   PrivateFileResponse,
   SearchInput,
@@ -37,6 +38,10 @@ export interface DataReadOptions {
 
 export interface DataFileResponse extends Omit<PrivateFileResponse, "status"> {
   status: 200 | 206 | 304;
+}
+
+export interface DerivativeReference extends ImmutableGenerationReference {
+  variantKey: string;
 }
 
 /** Capability-only application data client; it never accepts management credentials. */
@@ -97,6 +102,23 @@ export class AlmiraDataClient {
     options: DataReadOptions = {},
   ): Promise<DataFileResponse> {
     const path = `/v1/delivery/${uuid(reference.tenantId)}/${uuid(reference.projectId)}/${uuid(reference.environmentId)}/${uuid(reference.collectionInstanceId)}/${uuid(reference.entryId)}/${uuid(reference.generationId)}`;
+    return this.#bytes(path, options, "optional");
+  }
+
+  async listDerivativesWithCapability(
+    reference: ImmutableGenerationReference,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<MediaDerivative[]> {
+    const path = `${dataCollectionPath(reference, "/files")}/${uuid(reference.entryId)}/versions/${uuid(reference.generationId)}/derivatives`;
+    return this.#json(path, options.signal);
+  }
+
+  async readDerivative(
+    reference: DerivativeReference,
+    options: DataReadOptions = {},
+  ): Promise<DataFileResponse> {
+    const variantKey = variant(reference.variantKey);
+    const path = `/v1/delivery/${uuid(reference.tenantId)}/${uuid(reference.projectId)}/${uuid(reference.environmentId)}/${uuid(reference.collectionInstanceId)}/${uuid(reference.entryId)}/${uuid(reference.generationId)}/variants/${variantKey}`;
     return this.#bytes(path, options, "optional");
   }
 
@@ -211,6 +233,17 @@ function dataCollectionPath(reference: CollectionReference, suffix: string): str
 function uuid(value: string): string {
   if (!UUID_V7.test(value)) invalidInput();
   return value;
+}
+
+function variant(value: string): string {
+  if (
+    value.length === 0 ||
+    value.length > 160 ||
+    !/^[a-z0-9](?:[a-z0-9._/-]*[a-z0-9])?$/u.test(value) ||
+    value.includes("//") ||
+    value.split("/").some((segment) => segment === "." || segment === "..")
+  ) invalidInput();
+  return value.split("/").map(encodeURIComponent).join("/");
 }
 
 function withQuery(path: string, query: URLSearchParams): string {

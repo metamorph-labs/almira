@@ -41,6 +41,11 @@ Lodestone never grants access. Raw extracted
 text is never returned by status or list tools; `almira_file_extracted_content_get` is a distinct
 read whose Metamorph token must carry the separate protected-content permission.
 
+Media tools read and replace bounded image presets, document previews and the optional
+`web_hls_v1` profile, list collection processing jobs, retry or cancel eligible work, and list
+ready derivatives for one immutable source generation. They expose only Almira variant identities
+and pinned processor provenance—never provider object coordinates or media bytes.
+
 The same bounded catalog includes policy read/replace/simulation, CDN delivery read/replace,
 revocable generation shares, and local issuer registration/rotation/revocation/signing
 configuration. The MCP server handles public keys and declared ceilings only; it never accepts a
@@ -57,7 +62,8 @@ ambiguous start and poll `almira_storage_migration_get` until `succeeded` or `fa
 public `almira.yaml` v1 schema. Preview is read-only; apply preserves unlisted resources and uses
 deterministic child operation IDs beneath its reusable root `operation_id`. Class-only changes use
 the same storage-migration operation, while explicit extraction/vector settings are applied through
-the ordinary collection extraction operation.
+the ordinary collection extraction operation and explicit media settings use the ordinary
+collection media operation.
 
 The server uses the official MCP TypeScript SDK v2 and the 2026-07-28 protocol over stdio. Stdout is
 reserved exclusively for MCP; safe startup diagnostics use stderr.

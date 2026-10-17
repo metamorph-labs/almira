@@ -171,6 +171,118 @@ export interface ExtractionConfigOutcome {
   config: CollectionExtractionConfig;
 }
 
+export type ImageFormat = "avif" | "webp" | "jpeg" | "png";
+export type ImageFit = "contain" | "cover" | "inside";
+export type VideoProfile = "web_hls_v1";
+
+export interface ImagePreset {
+  widths: number[];
+  height: number | null;
+  fit: ImageFit;
+  formats: ImageFormat[];
+  without_enlargement: boolean;
+}
+
+export interface CollectionMediaInput {
+  image_presets?: Record<string, ImagePreset>;
+  document_previews?: boolean;
+  video_profile?: VideoProfile | null;
+}
+
+export interface CollectionMediaConfig {
+  collection_instance_id: UuidV7;
+  image_presets: Record<string, ImagePreset>;
+  document_previews: boolean;
+  video_profile: VideoProfile | null;
+  revision: number;
+  updated_at: Timestamp;
+}
+
+export interface ReplaceCollectionMediaRequest {
+  expected_revision: number;
+  config: CollectionMediaInput;
+}
+
+export interface MediaConfigOutcome {
+  disposition: "applied" | "exact_replay";
+  config: CollectionMediaConfig;
+}
+
+export type ProcessingKind = "image_variants" | "document_preview" | "video_package";
+export type ProcessingState =
+  | "pending"
+  | "running"
+  | "retry_wait"
+  | "succeeded"
+  | "failed"
+  | "cancelled"
+  | "superseded";
+
+export interface ProcessingJob {
+  job_id: UuidV7;
+  entry_id: UuidV7;
+  generation_id: UuidV7;
+  kind: ProcessingKind;
+  state: ProcessingState;
+  source_content_sha256: ContentSha256;
+  media_config_revision: number;
+  processor_id: string;
+  processor_version: string;
+  runtime_digest: ContentSha256;
+  progress_percent: number;
+  attempt_count: number;
+  failure_code: string | null;
+  revision: number;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+}
+
+export interface ProcessingJobPage {
+  jobs: ProcessingJob[];
+  next_cursor: string | null;
+}
+
+export interface MutateProcessingJobRequest {
+  expected_revision: number;
+}
+
+export interface JobMutationOutcome {
+  disposition: "applied" | "exact_replay";
+  job: ProcessingJob;
+}
+
+export type DerivativeKind =
+  | "image_variant"
+  | "document_page"
+  | "video_mp4"
+  | "video_hls_manifest"
+  | "video_hls_segment"
+  | "video_poster"
+  | "video_storyboard"
+  | "subtitle";
+
+export interface MediaDerivative {
+  derivative_id: UuidV7;
+  job_id: UuidV7;
+  entry_id: UuidV7;
+  generation_id: UuidV7;
+  variant_key: string;
+  kind: DerivativeKind;
+  media_type: string;
+  content_sha256: ContentSha256;
+  size_bytes: number;
+  width_px: number | null;
+  height_px: number | null;
+  duration_millis: number | null;
+  source_content_sha256: ContentSha256;
+  media_config_revision: number;
+  processor_id: string;
+  processor_version: string;
+  runtime_digest: ContentSha256;
+  revision: number;
+  created_at: Timestamp;
+}
+
 export interface StartStorageMigrationRequest {
   target_storage_class: "normal" | "express";
   expected_collection_revision: number;
@@ -487,6 +599,14 @@ export interface StorageMigrationReference extends CollectionReference {
 
 export interface FileReference extends CollectionReference {
   entryId: UuidV7;
+}
+
+export interface ProcessingJobReference extends CollectionReference {
+  jobId: UuidV7;
+}
+
+export interface GenerationReference extends FileReference {
+  generationId: UuidV7;
 }
 
 export interface GenerationExtractionReference extends FileReference {

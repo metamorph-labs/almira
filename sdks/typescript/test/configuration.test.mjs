@@ -337,6 +337,96 @@ test("apply wires explicit extraction and vector settings after collection creat
   });
 });
 
+test("apply wires bounded media presets after collection creation", async () => {
+  const collectionId = "018f0000-0000-7000-8000-000000000052";
+  const calls = [];
+  const client = new AlmiraClient({
+    credential: "mm_sak_v1.test",
+    fetch: async (input, init) => {
+      calls.push({ input, init });
+      if (input.endsWith("/environments") && init.method === "GET") {
+        return response({ environments: [{
+          environment_id: environmentId,
+          environment_key: "development",
+          display_name: "Development",
+          system_key: "development",
+          operating_model: "managed",
+          lifecycle: "active",
+          revision: 1,
+          created_at: "2026-10-17T00:00:00Z",
+          updated_at: "2026-10-17T00:00:00Z",
+        }] });
+      }
+      if (input.includes("/collections?")) return response({ collections: [], next_cursor: null });
+      if (input.endsWith("/storage-capabilities")) {
+        return response({
+          environment_id: environmentId,
+          deployment_profile: "hosted",
+          catalog_revision: 1,
+          catalog_digest: `sha256:${"a".repeat(64)}`,
+          expires_at: "2099-10-17T00:00:00Z",
+          provider_matrix: {
+            hosted: ["aws_s3", "google_cloud_storage", "azure_blob"],
+            connected_site: ["aws_s3", "google_cloud_storage", "azure_blob"],
+          },
+          realizations: [{
+            realization_id: "018f0000-0000-7000-8000-000000000040",
+            display_name: "Managed storage",
+            provider_family: "aws_s3",
+            operating_model: "managed",
+            location_id: "region.one",
+            storage_classes: ["normal"],
+            health: "ready",
+            capability_generation: 1,
+            evidence_digest: `sha256:${"b".repeat(64)}`,
+          }],
+        });
+      }
+      if (input.endsWith("/collections") && init.method === "POST") {
+        return response({ disposition: "applied", collection: { collection_instance_id: collectionId, revision: 1 } }, 201);
+      }
+      if (input.endsWith(`/collections/${collectionId}/media`) && init.method === "PUT") {
+        return response({ disposition: "applied", config: { revision: 2 } });
+      }
+      assert.fail(`unexpected request: ${init.method} ${input}`);
+    },
+  });
+  const desired = {
+    api_version: "almira/v1",
+    environments: [{
+      key: "development",
+      display_name: "Development",
+      collections: [{
+        key: "assets",
+        display_name: "Assets",
+        malware_scan_required: true,
+        media: {
+          image_presets: {
+            card: { widths: [320, 640], height: null, fit: "inside", formats: ["webp", "avif"], without_enlargement: true },
+          },
+          document_previews: true,
+        },
+      }],
+    }],
+  };
+  const receipt = await applyConfiguration(client, { tenantId, projectId }, desired, { operationId });
+  assert.deepEqual(receipt.actions.map((action) => action.action_id), [
+    "collection.create:development:assets",
+    "collection_media.replace:development:assets",
+  ]);
+  const mutations = calls.filter(({ init }) => init.method !== "GET");
+  assert.deepEqual(JSON.parse(mutations[1].init.body), {
+    expected_revision: 1,
+    config: {
+      image_presets: {
+        card: { widths: [320, 640], height: null, fit: "inside", formats: ["avif", "webp"], without_enlargement: true },
+      },
+      document_previews: true,
+      video_profile: null,
+    },
+  });
+});
+
 test("duplicate resource keys fail closed", () => {
   assert.throws(() => normalizeConfiguration({
     api_version: "almira/v1",
