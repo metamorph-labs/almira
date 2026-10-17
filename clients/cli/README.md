@@ -90,6 +90,21 @@ model. The CLI accepts only an `mm_pat_v1.` PAT or `mm_sak_v1.` SAK through `MET
 a command-line flag. For a mutation, retain the emitted `operation_id`; retries after an ambiguous
 outcome must use that value with `--operation-id`.
 
+Named contexts remove repeated routing flags without becoming another credential store. Use
+`almira context set --context NAME --base-url URL --tenant UUID --project UUID` with optional
+`--environment` and `--collection`, then `almira context use --context NAME`. `context list` and
+`context delete` complete the lifecycle. The mode-0600 JSON file defaults to
+`~/.config/almira/contexts.json`; `ALMIRA_CONTEXT_FILE` relocates it and `ALMIRA_CONTEXT` selects a
+context non-interactively. Explicit flags override context values. Tokens are never written there.
+
+Structured `--input`, `--file`, and `--tenancy-project` values accept `-` for bounded stdin. Every
+mutation accepts `--dry-run`: ordinary mutations return the exact method, Almira URL, and JSON body
+without sending it or exposing authorization; `config apply --dry-run` performs the existing
+server-backed configuration preview. Storage migration and portability start/status commands accept
+`--wait` for one final JSON result or `--watch` for revision-deduplicated JSON Lines. Polling defaults
+to one second with a ten-minute bound and can be constrained with `--poll-interval` milliseconds and
+`--wait-timeout` seconds; timing out never cancels the durable remote operation.
+
 `environment update` requires `--environment`, `--display` and the current `--revision`.
 `environment delete` requires `--environment` and `--revision`; the managed `development` and
 `production` environments cannot be deleted.

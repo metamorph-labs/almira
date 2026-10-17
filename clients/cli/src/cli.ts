@@ -1,7 +1,9 @@
 import { parseArgs } from "node:util";
 import { createHash } from "node:crypto";
 import { createWriteStream } from "node:fs";
-import { link, readFile, unlink } from "node:fs/promises";
+import { chmod, link, mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
+import { dirname, join } from "node:path";
 import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { parse as parseYaml } from "yaml";
@@ -31,15 +33,22 @@ import {
   type SearchInput,
   type StartCollectionImportRequest,
   type PortableExportStream,
+  type PortabilityJob,
+  type PortabilityJobOutcome,
+  type StartStorageMigrationOutcome,
+  type StorageMigration,
   type TenancyProjectGetResponse,
 } from "@metamorph-labs/almira-sdk";
 
 export interface CliEnvironment {
   ALMIRA_BASE_URL?: string;
+  ALMIRA_CONTEXT?: string;
+  ALMIRA_CONTEXT_FILE?: string;
   METAMORPH_TOKEN?: string;
 }
 
 export interface CliIo {
+  stdin?: AsyncIterable<string | Uint8Array>;
   stderr: { write(value: string): unknown };
   stdout: { write(value: string): unknown };
 }
@@ -48,6 +57,7 @@ export interface CliDependencies {
   environment: CliEnvironment;
   fetch?: typeof globalThis.fetch;
   io: CliIo;
+  sleep?: (milliseconds: number) => Promise<void>;
 }
 
 type Values = Record<string, boolean | string | string[] | undefined>;
@@ -55,6 +65,10 @@ type Values = Record<string, boolean | string | string[] | undefined>;
 const HELP = `Usage: almira <noun> <verb> [options]
 
 Commands:
+  context list            List non-secret CLI contexts
+  context set             Create or replace a context
+  context use             Select the default context
+  context delete          Delete a context
   project bootstrap       Converge the Almira project and default environments
   environment list       List all project environments
   environment create     Create an additional managed environment
@@ -117,6 +131,7 @@ Commands:
   issuer signing-config   Read public local-signing configuration
 
 Connection:
+  --context NAME          Select a non-secret base/scope context
   --base-url URL          Almira API base; or set ALMIRA_BASE_URL
   METAMORPH_TOKEN         PAT or SAK, read only from the environment
 
@@ -134,6 +149,7 @@ Common identifiers:
   --issuer UUID           Almira local-issuer UUIDv7
   --job UUID              Almira media-processing job UUIDv7
   --input PATH            Exact JSON request body for structured operations
+                          Use - to read the bounded body from stdin
   --output PATH           New local file for a verified portable export
   --path PATH             Canonical logical file path
   --include-deleted       Include entries still inside their recycle window
@@ -145,6 +161,8 @@ Collection creation:
   --days DAYS             Recycle retention from 1 to 3650 days
 
 Mutations accept --operation-id UUID. If omitted, the CLI creates one and includes it in output.
+Use --dry-run to validate and print the exact mutation request without sending it. Async migration
+and portability start/get commands accept --wait or --watch with bounded polling.
 Project bootstrap also requires --tenancy-project FILE containing the exact project.get response.
 All stdout is JSON. Diagnostics are stable JSON on stderr; credentials are never accepted as flags.
 `;
@@ -153,9 +171,11 @@ const options = {
   "base-url": { type: "string" },
   class: { type: "string" },
   collection: { type: "string" },
+  context: { type: "string" },
   cursor: { type: "string" },
   days: { type: "string" },
   display: { type: "string" },
+  "dry-run": { type: "boolean" },
   entry: { type: "string" },
   environment: { type: "string" },
   file: { type: "string" },
@@ -196,11 +216,16 @@ const options = {
   tag: { type: "string" },
   tenant: { type: "string" },
   "tenancy-project": { type: "string" },
+  wait: { type: "boolean" },
+  watch: { type: "boolean" },
+  "poll-interval": { type: "string" },
+  "wait-timeout": { type: "string" },
 } as const;
 
 /** Runs one CLI invocation and returns its stable process exit code. */
 export async function runCli(arguments_: string[], dependencies: CliDependencies): Promise<number> {
   let operationId: string | null = null;
+  let dryRunRequest: DryRunRequest | null = null;
   try {
     const parsed = parseArgs({ args: arguments_, allowPositionals: true, options, strict: true });
     if (parsed.values.help === true || parsed.positionals.length === 0) {
@@ -208,30 +233,62 @@ export async function runCli(arguments_: string[], dependencies: CliDependencies
       return 0;
     }
     if (parsed.positionals.length !== 2) throw new CliUsageError();
-    const values = parsed.values as Values;
+    const providedValues = parsed.values as Values;
     const [noun, verb] = parsed.positionals;
-    assertCommandOptions(noun, verb, values);
+    assertCommandOptions(noun, verb, providedValues);
+    const contextPath = dependencies.environment.ALMIRA_CONTEXT_FILE ??
+      join(homedir(), ".config", "almira", "contexts.json");
+    if (noun === "context") {
+      const result = await runContextCommand(verb, providedValues, contextPath);
+      writeJson(dependencies.io.stdout, result);
+      return 0;
+    }
+    const values = await applyContext(providedValues, dependencies.environment, contextPath);
+    const command = `${noun}:${verb}`;
+    const dryRun = values["dry-run"] === true;
+    const watch = values.watch === true;
+    const wait = values.wait === true || watch;
+    if (dryRun && !mutationCommands.has(command)) throw new CliUsageError();
+    if ((wait || stringValue(values, "poll-interval") !== undefined || stringValue(values, "wait-timeout") !== undefined) &&
+      !waitableCommands.has(command)) throw new CliUsageError();
     const baseUrl = stringValue(values, "base-url") ?? dependencies.environment.ALMIRA_BASE_URL;
     const credential = dependencies.environment.METAMORPH_TOKEN;
     if (baseUrl === undefined) throw new CliConfigError("ALMIRA_CLI_BASE_URL_REQUIRED");
     if (credential === undefined || credential.length === 0) {
       throw new CliConfigError("ALMIRA_CLI_TOKEN_REQUIRED");
     }
+    const upstreamFetch = dependencies.fetch ?? globalThis.fetch;
+    const requestFetch = dryRun
+      ? async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
+          const method = init?.method ?? (input instanceof Request ? input.method : "GET");
+          if (method === "GET" || method === "HEAD") return upstreamFetch(input, init);
+          dryRunRequest = {
+            method,
+            url: typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url,
+            body: safeRequestBody(init?.body),
+          };
+          return new Response(JSON.stringify({
+            code: "ALMIRA_DRY_RUN_CAPTURED",
+            request_id: createOperationId(),
+          }), { status: 409, headers: { "content-type": "application/json" } });
+        }
+      : dependencies.fetch;
     const client = new AlmiraClient({
       baseUrl,
       credential,
-      ...(dependencies.fetch === undefined ? {} : { fetch: dependencies.fetch }),
+      ...(requestFetch === undefined ? {} : { fetch: requestFetch }),
     });
     const projectId = required(values, "project");
     const tenantId = required(values, "tenant");
     const reference = { tenantId, projectId };
     let result: unknown;
     let mutation = false;
+    let streamed = false;
 
     if (noun === "project" && verb === "bootstrap") {
       operationId = mutationId(values);
       mutation = true;
-      const tenancyProject = await readTenancyProject(required(values, "tenancy-project"));
+      const tenancyProject = await readTenancyProject(required(values, "tenancy-project"), dependencies.io.stdin);
       result = await client.bootstrapProject(reference, { tenancy_project: tenancyProject }, { operationId });
     } else if (noun === "environment" && verb === "list") {
       result = await client.listEnvironments(reference);
@@ -278,16 +335,18 @@ export async function runCli(arguments_: string[], dependencies: CliDependencies
         environmentId: required(values, "environment"),
       });
     } else if (noun === "config" && verb === "preview") {
-      result = await previewConfiguration(client, reference, await readConfiguration(required(values, "file")));
+      result = await previewConfiguration(
+        client,
+        reference,
+        await readConfiguration(required(values, "file"), dependencies.io.stdin),
+      );
     } else if (noun === "config" && verb === "apply") {
       operationId = mutationId(values);
       mutation = true;
-      result = await applyConfiguration(
-        client,
-        reference,
-        await readConfiguration(required(values, "file")),
-        { operationId },
-      );
+      const configuration = await readConfiguration(required(values, "file"), dependencies.io.stdin);
+      result = dryRun
+        ? { dry_run: true, plan: await previewConfiguration(client, reference, configuration) }
+        : await applyConfiguration(client, reference, configuration, { operationId });
     } else if (noun === "collection" && verb === "list") {
       result = await client.listCollections(
         { ...reference, environmentId: required(values, "environment") },
@@ -330,7 +389,7 @@ export async function runCli(arguments_: string[], dependencies: CliDependencies
       mutation = true;
       const targetStorageClass = required(values, "class");
       if (targetStorageClass !== "normal" && targetStorageClass !== "express") throw new CliUsageError();
-      result = await client.startStorageMigration(
+      const outcome: StartStorageMigrationOutcome = await client.startStorageMigration(
         collectionReference(values, tenantId, projectId),
         {
           target_storage_class: targetStorageClass,
@@ -338,27 +397,86 @@ export async function runCli(arguments_: string[], dependencies: CliDependencies
         },
         { operationId },
       );
+      result = wait
+        ? {
+            ...outcome,
+            migration: await waitForTerminal(
+              outcome.migration,
+              () => client.getStorageMigration({
+                ...collectionReference(values, tenantId, projectId),
+                migrationId: outcome.migration.migration_id,
+              }),
+              waitOptions(values),
+              dependencies,
+              watch,
+              operationId,
+            ),
+          }
+        : outcome;
+      streamed = watch;
     } else if (noun === "migration" && verb === "get") {
-      result = await client.getStorageMigration({
+      const migrationReference = {
         ...collectionReference(values, tenantId, projectId),
         migrationId: required(values, "migration"),
-      });
+      };
+      const migration = await client.getStorageMigration(migrationReference);
+      result = wait
+        ? await waitForTerminal(
+            migration,
+            () => client.getStorageMigration(migrationReference),
+            waitOptions(values),
+            dependencies,
+            watch,
+            null,
+          )
+        : migration;
+      streamed = watch;
     } else if (noun === "import" && verb === "start") {
       operationId = mutationId(values);
       mutation = true;
-      result = await client.startCollectionImport(
-        collectionReference(values, tenantId, projectId),
-        await readJson<StartCollectionImportRequest>(required(values, "input")),
+      const collection = collectionReference(values, tenantId, projectId);
+      const outcome: PortabilityJobOutcome = await client.startCollectionImport(
+        collection,
+        await readJson<StartCollectionImportRequest>(required(values, "input"), dependencies.io.stdin),
         { operationId },
       );
+      result = wait
+        ? {
+            ...outcome,
+            job: await waitForTerminal(
+              outcome.job,
+              () => client.getPortabilityJob({ ...collection, jobId: outcome.job.job_id }),
+              waitOptions(values),
+              dependencies,
+              watch,
+              operationId,
+            ),
+          }
+        : outcome;
+      streamed = watch;
     } else if (noun === "export" && verb === "start") {
       operationId = mutationId(values);
       mutation = true;
-      result = await client.startCollectionExport(
-        collectionReference(values, tenantId, projectId),
+      const collection = collectionReference(values, tenantId, projectId);
+      const outcome: PortabilityJobOutcome = await client.startCollectionExport(
+        collection,
         { expected_collection_revision: positiveInteger(values, "revision") },
         { operationId },
       );
+      result = wait
+        ? {
+            ...outcome,
+            job: await waitForTerminal(
+              outcome.job,
+              () => client.getPortabilityJob({ ...collection, jobId: outcome.job.job_id }),
+              waitOptions(values),
+              dependencies,
+              watch,
+              operationId,
+            ),
+          }
+        : outcome;
+      streamed = watch;
     } else if (noun === "portability" && verb === "list") {
       const kind = stringValue(values, "kind");
       if (kind !== undefined && kind !== "import" && kind !== "export") throw new CliUsageError();
@@ -367,10 +485,22 @@ export async function runCli(arguments_: string[], dependencies: CliDependencies
         { ...page(values), ...(kind === undefined ? {} : { kind }) },
       );
     } else if (noun === "portability" && verb === "get") {
-      result = await client.getPortabilityJob({
+      const portabilityReference = {
         ...collectionReference(values, tenantId, projectId),
         jobId: required(values, "portability-job"),
-      });
+      };
+      const job = await client.getPortabilityJob(portabilityReference);
+      result = wait
+        ? await waitForTerminal(
+            job,
+            () => client.getPortabilityJob(portabilityReference),
+            waitOptions(values),
+            dependencies,
+            watch,
+            null,
+          )
+        : job;
+      streamed = watch;
     } else if (noun === "export" && verb === "download") {
       operationId = mutationId(values);
       mutation = true;
@@ -397,7 +527,7 @@ export async function runCli(arguments_: string[], dependencies: CliDependencies
       mutation = true;
       result = await client.replaceCollectionExtraction(
         collectionReference(values, tenantId, projectId),
-        await readJson<ReplaceCollectionExtractionRequest>(required(values, "input")),
+        await readJson<ReplaceCollectionExtractionRequest>(required(values, "input"), dependencies.io.stdin),
         { operationId },
       );
     } else if (noun === "extraction" && verb === "status") {
@@ -421,7 +551,7 @@ export async function runCli(arguments_: string[], dependencies: CliDependencies
       mutation = true;
       result = await client.replaceCollectionMedia(
         collectionReference(values, tenantId, projectId),
-        await readJson<ReplaceCollectionMediaRequest>(required(values, "input")),
+        await readJson<ReplaceCollectionMediaRequest>(required(values, "input"), dependencies.io.stdin),
         { operationId },
       );
     } else if (noun === "protection" && verb === "get") {
@@ -474,7 +604,7 @@ export async function runCli(arguments_: string[], dependencies: CliDependencies
           ...fileReference(values, tenantId, projectId),
           generationId: required(values, "generation"),
         },
-        await readJson<CreateProtectionReviewRequest>(required(values, "input")),
+        await readJson<CreateProtectionReviewRequest>(required(values, "input"), dependencies.io.stdin),
         { operationId },
       );
     } else if (noun === "job" && verb === "list") {
@@ -573,7 +703,7 @@ export async function runCli(arguments_: string[], dependencies: CliDependencies
       mutation = true;
       result = await client.mutateFilesBatch(
         collectionReference(values, tenantId, projectId),
-        await readJson<FileBatchRequest>(required(values, "input")),
+        await readJson<FileBatchRequest>(required(values, "input"), dependencies.io.stdin),
         { operationId },
       );
     } else if (noun === "file" && verb === "copy") {
@@ -597,7 +727,7 @@ export async function runCli(arguments_: string[], dependencies: CliDependencies
       mutation = true;
       result = await client.replaceEntryMetadata(
         fileReference(values, tenantId, projectId),
-        await readJson<ReplaceEntryMetadataRequest>(required(values, "input")),
+        await readJson<ReplaceEntryMetadataRequest>(required(values, "input"), dependencies.io.stdin),
         { operationId },
       );
     } else if (noun === "file" && verb === "versions") {
@@ -641,7 +771,7 @@ export async function runCli(arguments_: string[], dependencies: CliDependencies
       mutation = true;
       result = await client.replaceCollectionPolicy(
         collectionReference(values, tenantId, projectId),
-        await readJson<ReplaceAccessPolicyRequest>(required(values, "input")),
+        await readJson<ReplaceAccessPolicyRequest>(required(values, "input"), dependencies.io.stdin),
         { operationId },
       );
     } else if (noun === "policy" && verb === "simulate") {
@@ -649,7 +779,7 @@ export async function runCli(arguments_: string[], dependencies: CliDependencies
       mutation = true;
       result = await client.simulateCollectionPolicy(
         collectionReference(values, tenantId, projectId),
-        await readJson<AccessSimulation>(required(values, "input")),
+        await readJson<AccessSimulation>(required(values, "input"), dependencies.io.stdin),
         { operationId },
       );
     } else if (noun === "delivery" && verb === "get") {
@@ -659,7 +789,7 @@ export async function runCli(arguments_: string[], dependencies: CliDependencies
       mutation = true;
       result = await client.replaceDeliveryConfig(
         collectionReference(values, tenantId, projectId),
-        await readJson<ReplaceDeliveryConfigRequest>(required(values, "input")),
+        await readJson<ReplaceDeliveryConfigRequest>(required(values, "input"), dependencies.io.stdin),
         { operationId },
       );
     } else if (noun === "share" && verb === "create") {
@@ -667,7 +797,7 @@ export async function runCli(arguments_: string[], dependencies: CliDependencies
       mutation = true;
       result = await client.createShare(
         collectionReference(values, tenantId, projectId),
-        await readJson<CreateShareRequest>(required(values, "input")),
+        await readJson<CreateShareRequest>(required(values, "input"), dependencies.io.stdin),
         { operationId },
       );
     } else if (noun === "share" && verb === "revoke") {
@@ -684,7 +814,7 @@ export async function runCli(arguments_: string[], dependencies: CliDependencies
       mutation = true;
       result = await client.registerLocalIssuer(
         collectionReference(values, tenantId, projectId),
-        await readJson<RegisterLocalIssuerRequest>(required(values, "input")),
+        await readJson<RegisterLocalIssuerRequest>(required(values, "input"), dependencies.io.stdin),
         { operationId },
       );
     } else if (noun === "issuer" && verb === "rotate") {
@@ -692,7 +822,7 @@ export async function runCli(arguments_: string[], dependencies: CliDependencies
       mutation = true;
       result = await client.rotateLocalIssuerKey(
         localIssuerReference(values, tenantId, projectId),
-        await readJson<RotateLocalIssuerKeyRequest>(required(values, "input")),
+        await readJson<RotateLocalIssuerKeyRequest>(required(values, "input"), dependencies.io.stdin),
         { operationId },
       );
     } else if (noun === "issuer" && verb === "revoke") {
@@ -710,9 +840,19 @@ export async function runCli(arguments_: string[], dependencies: CliDependencies
     } else {
       throw new CliUsageError();
     }
-    writeJson(dependencies.io.stdout, mutation ? { operation_id: operationId, result } : result);
+    if (!streamed) {
+      writeJson(dependencies.io.stdout, mutation ? { operation_id: operationId, result } : result);
+    }
     return 0;
   } catch (error) {
+    if (dryRunRequest !== null) {
+      writeJson(dependencies.io.stdout, {
+        operation_id: operationId,
+        dry_run: true,
+        request: dryRunRequest,
+      });
+      return 0;
+    }
     return report(error, operationId, dependencies.io.stderr);
   }
 }
@@ -720,12 +860,26 @@ export async function runCli(arguments_: string[], dependencies: CliDependencies
 class CliUsageError extends Error {}
 
 class CliConfigError extends Error {
-  readonly code: "ALMIRA_CLI_BASE_URL_REQUIRED" | "ALMIRA_CLI_TOKEN_REQUIRED";
+  readonly code:
+    | "ALMIRA_CLI_BASE_URL_REQUIRED"
+    | "ALMIRA_CLI_CONTEXT_INVALID"
+    | "ALMIRA_CLI_CONTEXT_NOT_FOUND"
+    | "ALMIRA_CLI_TOKEN_REQUIRED";
 
   constructor(code: CliConfigError["code"]) {
     super(code);
     this.code = code;
   }
+}
+
+class CliWaitError extends Error {
+  readonly code = "ALMIRA_CLI_WAIT_TIMEOUT";
+}
+
+interface DryRunRequest {
+  method: string;
+  url: string;
+  body: unknown;
 }
 
 class CliDownloadError extends Error {
@@ -741,6 +895,10 @@ class CliDownloadError extends Error {
 }
 
 const commandOptions = new Map<string, ReadonlySet<string>>([
+  ["context:list", new Set([])],
+  ["context:set", new Set(["base-url", "collection", "context", "environment", "project", "tenant"])],
+  ["context:use", new Set(["context"])],
+  ["context:delete", new Set(["context"])],
   ["project:bootstrap", new Set(["base-url", "operation-id", "project", "tenant", "tenancy-project"])],
   ["environment:list", new Set(["base-url", "project", "tenant"])],
   ["environment:create", new Set(["base-url", "display", "key", "operation-id", "project", "tenant"])],
@@ -811,15 +969,32 @@ const commandOptions = new Map<string, ReadonlySet<string>>([
   ["issuer:signing-config", collectionCommandOptions("issuer")],
 ]);
 
+const mutationCommands = new Set([
+  "project:bootstrap", "environment:create", "environment:update", "environment:delete", "origin:set",
+  "config:apply", "collection:create", "lifecycle:set", "collection:migrate", "import:start", "export:start",
+  "export:download", "extraction:set", "media:set", "protection:set", "scan:rescan", "scan:review",
+  "job:retry", "job:cancel", "file:batch", "file:copy", "metadata:set", "file:rename",
+  "file:select-version", "file:delete", "file:restore", "policy:set", "policy:simulate", "delivery:set",
+  "share:create", "share:revoke", "issuer:register", "issuer:rotate", "issuer:revoke",
+]);
+
+const waitableCommands = new Set([
+  "collection:migrate", "migration:get", "import:start", "export:start", "portability:get",
+]);
+
 function collectionCommandOptions(...additional: string[]): ReadonlySet<string> {
   return new Set(["base-url", "collection", "environment", "project", "tenant", ...additional]);
 }
 
 function assertCommandOptions(noun: string, verb: string, values: Values): void {
-  const allowed = commandOptions.get(`${noun}:${verb}`);
+  const command = `${noun}:${verb}`;
+  const allowed = commandOptions.get(command);
   if (allowed === undefined) throw new CliUsageError();
   for (const [name, value] of Object.entries(values)) {
-    if (value !== undefined && value !== false && name !== "help" && !allowed.has(name)) {
+    const global = name === "context" && noun !== "context";
+    const dryRun = name === "dry-run" && mutationCommands.has(command);
+    const wait = ["poll-interval", "wait", "wait-timeout", "watch"].includes(name) && waitableCommands.has(command);
+    if (value !== undefined && value !== false && name !== "help" && !global && !dryRun && !wait && !allowed.has(name)) {
       throw new CliUsageError();
     }
   }
@@ -930,10 +1105,271 @@ function localIssuerReference(values: Values, tenantId: string, projectId: strin
   return { ...collectionReference(values, tenantId, projectId), issuerId: required(values, "issuer") };
 }
 
-async function readTenancyProject(path: string): Promise<TenancyProjectGetResponse> {
+interface CliContext {
+  base_url: string;
+  tenant_id: string;
+  project_id: string;
+  environment_id?: string;
+  collection_instance_id?: string;
+}
+
+interface CliContextDocument {
+  version: 1;
+  current_context: string | null;
+  contexts: Record<string, CliContext>;
+}
+
+async function runContextCommand(verb: string, values: Values, path: string): Promise<unknown> {
+  const document = await readContexts(path);
+  if (verb === "list") {
+    return {
+      current_context: document.current_context,
+      contexts: Object.entries(document.contexts)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([name, context]) => ({ name, ...context })),
+    };
+  }
+  const name = contextName(required(values, "context"));
+  if (verb === "set") {
+    const context: CliContext = {
+      base_url: endpoint(required(values, "base-url")),
+      tenant_id: uuidValue(required(values, "tenant")),
+      project_id: uuidValue(required(values, "project")),
+      ...optionalContextUuid(values, "environment", "environment_id"),
+      ...optionalContextUuid(values, "collection", "collection_instance_id"),
+    };
+    if (context.collection_instance_id !== undefined && context.environment_id === undefined) {
+      throw new CliUsageError();
+    }
+    document.contexts[name] = context;
+    document.current_context ??= name;
+    await writeContexts(path, document);
+    return { current_context: document.current_context, context: { name, ...context } };
+  }
+  if (document.contexts[name] === undefined) {
+    throw new CliConfigError("ALMIRA_CLI_CONTEXT_NOT_FOUND");
+  }
+  if (verb === "use") {
+    document.current_context = name;
+    await writeContexts(path, document);
+    return { current_context: name };
+  }
+  if (verb === "delete") {
+    delete document.contexts[name];
+    if (document.current_context === name) document.current_context = null;
+    await writeContexts(path, document);
+    return { deleted: name, current_context: document.current_context };
+  }
+  throw new CliUsageError();
+}
+
+async function applyContext(values: Values, environment: CliEnvironment, path: string): Promise<Values> {
+  const document = await readContexts(path);
+  const selected = stringValue(values, "context") ?? environment.ALMIRA_CONTEXT ?? document.current_context;
+  if (selected === null || selected === undefined) return values;
+  const context = document.contexts[contextName(selected)];
+  if (context === undefined) throw new CliConfigError("ALMIRA_CLI_CONTEXT_NOT_FOUND");
+  const inherited: Values = {
+    "base-url": context.base_url,
+    tenant: context.tenant_id,
+    project: context.project_id,
+    ...(context.environment_id === undefined ? {} : { environment: context.environment_id }),
+    ...(context.collection_instance_id === undefined ? {} : { collection: context.collection_instance_id }),
+  };
+  if (stringValue(values, "tenant") !== undefined && stringValue(values, "tenant") !== context.tenant_id) {
+    if (stringValue(values, "project") === undefined) delete inherited.project;
+    if (stringValue(values, "environment") === undefined) delete inherited.environment;
+    if (stringValue(values, "collection") === undefined) delete inherited.collection;
+  }
+  if (stringValue(values, "project") !== undefined && stringValue(values, "project") !== context.project_id) {
+    if (stringValue(values, "environment") === undefined) delete inherited.environment;
+    if (stringValue(values, "collection") === undefined) delete inherited.collection;
+  }
+  if (stringValue(values, "environment") !== undefined &&
+    stringValue(values, "environment") !== context.environment_id &&
+    stringValue(values, "collection") === undefined) {
+    delete inherited.collection;
+  }
+  for (const [name, value] of Object.entries(values)) {
+    if (value !== undefined) inherited[name] = value;
+  }
+  return inherited;
+}
+
+async function readContexts(path: string): Promise<CliContextDocument> {
+  let bytes: Uint8Array;
   try {
-    const bytes = await readFile(path);
-    if (bytes.length === 0 || bytes.length > 256 * 1024) throw new CliUsageError();
+    bytes = await readFile(path);
+  } catch (error) {
+    if (isFileSystemError(error) && error.code === "ENOENT") {
+      return { version: 1, current_context: null, contexts: {} };
+    }
+    throw new CliConfigError("ALMIRA_CLI_CONTEXT_INVALID");
+  }
+  if (bytes.length === 0 || bytes.length > 256 * 1024) {
+    throw new CliConfigError("ALMIRA_CLI_CONTEXT_INVALID");
+  }
+  try {
+    const value = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)) as unknown;
+    if (!isContextDocument(value)) throw new Error("invalid context document");
+    return value;
+  } catch {
+    throw new CliConfigError("ALMIRA_CLI_CONTEXT_INVALID");
+  }
+}
+
+async function writeContexts(path: string, document: CliContextDocument): Promise<void> {
+  const temporary = `${path}.almira-${createOperationId()}.partial`;
+  try {
+    await mkdir(dirname(path), { recursive: true, mode: 0o700 });
+    await writeFile(temporary, `${JSON.stringify(document, null, 2)}\n`, { encoding: "utf8", flag: "wx", mode: 0o600 });
+    await rename(temporary, path);
+    await chmod(path, 0o600);
+  } catch {
+    await unlink(temporary).catch(() => undefined);
+    throw new CliConfigError("ALMIRA_CLI_CONTEXT_INVALID");
+  }
+}
+
+function isContextDocument(value: unknown): value is CliContextDocument {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  const record = value as Record<string, unknown>;
+  if (record.version !== 1 || (record.current_context !== null && typeof record.current_context !== "string") ||
+    typeof record.contexts !== "object" || record.contexts === null || Array.isArray(record.contexts) ||
+    Object.keys(record).some((key) => !["contexts", "current_context", "version"].includes(key))) return false;
+  const contexts = record.contexts as Record<string, unknown>;
+  for (const [name, context] of Object.entries(contexts)) {
+    if (!validContextName(name) || !isContext(context)) return false;
+  }
+  return record.current_context === null ||
+    validContextName(record.current_context) && contexts[record.current_context] !== undefined;
+}
+
+function isContext(value: unknown): value is CliContext {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  const record = value as Record<string, unknown>;
+  const allowed = new Set(["base_url", "collection_instance_id", "environment_id", "project_id", "tenant_id"]);
+  return Object.keys(record).every((key) => allowed.has(key)) &&
+    typeof record.base_url === "string" && validEndpoint(record.base_url) &&
+    typeof record.tenant_id === "string" && validUuid(record.tenant_id) &&
+    typeof record.project_id === "string" && validUuid(record.project_id) &&
+    (record.environment_id === undefined || typeof record.environment_id === "string" && validUuid(record.environment_id)) &&
+    (record.collection_instance_id === undefined || typeof record.collection_instance_id === "string" &&
+      validUuid(record.collection_instance_id) && record.environment_id !== undefined);
+}
+
+function contextName(value: string): string {
+  if (!validContextName(value)) throw new CliUsageError();
+  return value;
+}
+
+function validContextName(value: string): boolean {
+  return /^[a-z][a-z0-9_-]{0,62}$/u.test(value);
+}
+
+function endpoint(value: string): string {
+  if (!validEndpoint(value)) throw new CliUsageError();
+  return value.replace(/\/$/u, "");
+}
+
+function validEndpoint(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    return (parsed.protocol === "https:" || parsed.protocol === "http:") &&
+      parsed.username.length === 0 && parsed.password.length === 0 && parsed.search.length === 0 &&
+      parsed.hash.length === 0 && parsed.pathname === "/" && !/[\u0000-\u0020\u007f]/u.test(value);
+  } catch {
+    return false;
+  }
+}
+
+function uuidValue(value: string): string {
+  if (!validUuid(value)) throw new CliUsageError();
+  return value;
+}
+
+function validUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(value);
+}
+
+function optionalContextUuid(
+  values: Values,
+  input: string,
+  output: "environment_id" | "collection_instance_id",
+): Partial<CliContext> {
+  const value = stringValue(values, input);
+  return value === undefined ? {} : { [output]: uuidValue(value) };
+}
+
+interface WaitOptions {
+  intervalMilliseconds: number;
+  timeoutMilliseconds: number;
+}
+
+function waitOptions(values: Values): WaitOptions {
+  const intervalMilliseconds = stringValue(values, "poll-interval") === undefined
+    ? 1000
+    : positiveInteger(values, "poll-interval");
+  const timeoutSeconds = stringValue(values, "wait-timeout") === undefined
+    ? 600
+    : positiveInteger(values, "wait-timeout");
+  if (intervalMilliseconds > 60_000 || timeoutSeconds > 3600 || intervalMilliseconds > timeoutSeconds * 1000) {
+    throw new CliUsageError();
+  }
+  return { intervalMilliseconds, timeoutMilliseconds: timeoutSeconds * 1000 };
+}
+
+async function waitForTerminal<T extends StorageMigration | PortabilityJob>(
+  initial: T,
+  load: () => Promise<T>,
+  options: WaitOptions,
+  dependencies: CliDependencies,
+  watch: boolean,
+  operationId: string | null,
+): Promise<T> {
+  let current = initial;
+  let lastRevision = -1;
+  const deadline = Date.now() + options.timeoutMilliseconds;
+  const emit = () => {
+    if (watch && current.revision !== lastRevision) {
+      writeJson(dependencies.io.stdout, {
+        ...(operationId === null ? {} : { operation_id: operationId }),
+        result: current,
+      });
+      lastRevision = current.revision;
+    }
+  };
+  emit();
+  while (current.phase !== "succeeded" && current.phase !== "failed") {
+    if (Date.now() >= deadline) throw new CliWaitError();
+    await (dependencies.sleep ?? sleep)(options.intervalMilliseconds);
+    current = await load();
+    emit();
+  }
+  return current;
+}
+
+async function sleep(milliseconds: number): Promise<void> {
+  await new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
+}
+
+function safeRequestBody(body: BodyInit | null | undefined): unknown {
+  if (body === undefined || body === null) return null;
+  if (typeof body !== "string") throw new CliUsageError();
+  if (body.length > 256 * 1024) throw new CliUsageError();
+  try {
+    return JSON.parse(body) as unknown;
+  } catch {
+    throw new CliUsageError();
+  }
+}
+
+async function readTenancyProject(
+  path: string,
+  stdin: AsyncIterable<string | Uint8Array> | undefined,
+): Promise<TenancyProjectGetResponse> {
+  try {
+    const bytes = await readSource(path, stdin);
     return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)) as TenancyProjectGetResponse;
   } catch (error) {
     if (error instanceof CliUsageError) throw error;
@@ -941,10 +1377,12 @@ async function readTenancyProject(path: string): Promise<TenancyProjectGetRespon
   }
 }
 
-async function readConfiguration(path: string): Promise<unknown> {
+async function readConfiguration(
+  path: string,
+  stdin: AsyncIterable<string | Uint8Array> | undefined,
+): Promise<unknown> {
   try {
-    const bytes = await readFile(path);
-    if (bytes.length === 0 || bytes.length > 256 * 1024) throw new CliUsageError();
+    const bytes = await readSource(path, stdin);
     const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
     return parseYaml(text, { maxAliasCount: 0, uniqueKeys: true });
   } catch (error) {
@@ -953,15 +1391,45 @@ async function readConfiguration(path: string): Promise<unknown> {
   }
 }
 
-async function readJson<T>(path: string): Promise<T> {
+async function readJson<T>(
+  path: string,
+  stdin: AsyncIterable<string | Uint8Array> | undefined,
+): Promise<T> {
   try {
-    const bytes = await readFile(path);
-    if (bytes.length === 0 || bytes.length > 256 * 1024) throw new CliUsageError();
+    const bytes = await readSource(path, stdin);
     return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)) as T;
   } catch (error) {
     if (error instanceof CliUsageError) throw error;
     throw new CliUsageError();
   }
+}
+
+async function readSource(
+  path: string,
+  stdin: AsyncIterable<string | Uint8Array> | undefined,
+): Promise<Uint8Array> {
+  if (path !== "-") {
+    const bytes = await readFile(path);
+    if (bytes.length === 0 || bytes.length > 256 * 1024) throw new CliUsageError();
+    return bytes;
+  }
+  if (stdin === undefined) throw new CliUsageError();
+  const chunks: Uint8Array[] = [];
+  let length = 0;
+  for await (const chunk of stdin) {
+    const bytes = typeof chunk === "string" ? new TextEncoder().encode(chunk) : chunk;
+    length += bytes.length;
+    if (length > 256 * 1024) throw new CliUsageError();
+    chunks.push(bytes);
+  }
+  if (length === 0) throw new CliUsageError();
+  const result = new Uint8Array(length);
+  let offset = 0;
+  for (const chunk of chunks) {
+    result.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return result;
 }
 
 async function savePortableExport(
@@ -1021,14 +1489,26 @@ function report(
     return 2;
   }
   if (error instanceof CliConfigError) {
+    const recovery = error.code === "ALMIRA_CLI_TOKEN_REQUIRED"
+      ? "set METAMORPH_TOKEN to a scoped PAT or SAK"
+      : error.code === "ALMIRA_CLI_BASE_URL_REQUIRED"
+      ? "pass --base-url, select a context, or set ALMIRA_BASE_URL"
+      : error.code === "ALMIRA_CLI_CONTEXT_NOT_FOUND"
+      ? "select an existing context or run almira context set"
+      : "repair or replace the non-secret Almira context file";
     writeJson(output, {
       code: error.code,
-      recovery:
-        error.code === "ALMIRA_CLI_TOKEN_REQUIRED"
-          ? "set METAMORPH_TOKEN to a scoped PAT or SAK"
-          : "pass --base-url or set ALMIRA_BASE_URL",
+      recovery,
     });
     return 2;
+  }
+  if (error instanceof CliWaitError) {
+    writeJson(output, {
+      code: error.code,
+      ...(operationId === null ? {} : { operation_id: operationId }),
+      recovery: "rerun the status command with --wait or --watch; the remote operation continues",
+    });
+    return 6;
   }
   if (error instanceof CliDownloadError) {
     writeJson(output, {

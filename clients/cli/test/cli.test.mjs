@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { Readable } from "node:stream";
 import test from "node:test";
 
 import { runCli } from "../dist/cli.js";
@@ -27,6 +28,7 @@ function io() {
 
 const environment = {
   ALMIRA_BASE_URL: "https://almira.test",
+  ALMIRA_CONTEXT_FILE: join(tmpdir(), `almira-cli-no-context-${process.pid}.json`),
   METAMORPH_TOKEN: "mm_pat_v1.test",
 };
 
@@ -64,6 +66,96 @@ test("CLI package version matches the promoted API", async () => {
   const contract = JSON.parse(await readFile(new URL("../../../contracts/openapi.v1.json", import.meta.url)));
   const packageManifest = JSON.parse(await readFile(new URL("../package.json", import.meta.url)));
   assert.equal(packageManifest.version, contract.info.version);
+});
+
+test("non-secret contexts select base URL and scope without duplicating credentials", async (context) => {
+  const directory = await mkdtemp(join(tmpdir(), "almira-context-"));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const contextFile = join(directory, "contexts.json");
+  const contextEnvironment = { ALMIRA_CONTEXT_FILE: contextFile };
+  const setStream = io();
+  assert.equal(await runCli([
+    "context", "set", "--context", "managed", "--base-url", "https://managed.almira.test",
+    "--tenant", tenantId, "--project", projectId, "--environment", environmentId,
+    "--collection", "018f0000-0000-7000-8000-000000000012",
+  ], { environment: contextEnvironment, io: setStream.value }), 0);
+  assert.equal(JSON.parse(setStream.output.stdout.join("")).current_context, "managed");
+
+  const calls = [];
+  const listStream = io();
+  const exitCode = await runCli(["environment", "list", "--context", "managed"], {
+    environment: { ...contextEnvironment, METAMORPH_TOKEN: "mm_pat_v1.test" },
+    io: listStream.value,
+    fetch: async (url, init) => {
+      calls.push({ url, init });
+      return json({ environments: [] });
+    },
+  });
+  assert.equal(exitCode, 0, listStream.output.stderr.join(""));
+  assert.equal(calls[0].url, `https://managed.almira.test/v1/projects/${projectId}/environments`);
+  assert.equal(calls[0].init.headers.get("x-almira-tenant-id"), tenantId);
+  const stored = await readFile(contextFile, "utf8");
+  assert.doesNotMatch(stored, /mm_pat|token|credential/iu);
+
+  const refused = io();
+  assert.equal(await runCli([
+    "file", "get", "--context", "managed",
+    "--environment", "018f0000-0000-7000-8000-000000000099", "--entry", operationId,
+  ], {
+    environment: { ...contextEnvironment, METAMORPH_TOKEN: "mm_pat_v1.test" },
+    io: refused.value,
+    fetch: async () => assert.fail("an overridden parent scope must not inherit child IDs"),
+  }), 2);
+  assert.equal(JSON.parse(refused.output.stderr.join("")).code, "ALMIRA_CLI_USAGE_INVALID");
+});
+
+test("stdin request bodies and mutation dry-run produce one safe exact request", async () => {
+  const stream = io();
+  const policy = { expected_revision: 2, document: { template: "private", rules: [] } };
+  const exitCode = await runCli([
+    "policy", "set", "--tenant", tenantId, "--project", projectId,
+    "--environment", environmentId, "--collection", "018f0000-0000-7000-8000-000000000012",
+    "--input", "-", "--operation-id", operationId, "--dry-run",
+  ], {
+    environment,
+    io: { ...stream.value, stdin: Readable.from([JSON.stringify(policy)]) },
+    fetch: async () => assert.fail("dry-run must not send a mutation upstream"),
+  });
+  assert.equal(exitCode, 0, stream.output.stderr.join(""));
+  const output = JSON.parse(stream.output.stdout.join(""));
+  assert.deepEqual(output, {
+    operation_id: operationId,
+    dry_run: true,
+    request: {
+      method: "PUT",
+      url: `https://almira.test/v1/projects/${projectId}/environments/${environmentId}/collections/018f0000-0000-7000-8000-000000000012/policy`,
+      body: policy,
+    },
+  });
+  assert.doesNotMatch(JSON.stringify(output), /mm_pat_v1/iu);
+});
+
+test("watch emits revision changes until durable migration terminal state", async () => {
+  const stream = io();
+  const migrationId = "018f0000-0000-7000-8000-000000000013";
+  const phases = [
+    { migration_id: migrationId, phase: "copying", revision: 2 },
+    { migration_id: migrationId, phase: "succeeded", revision: 3 },
+  ];
+  let call = 0;
+  const exitCode = await runCli([
+    "migration", "get", "--tenant", tenantId, "--project", projectId,
+    "--environment", environmentId, "--collection", "018f0000-0000-7000-8000-000000000012",
+    "--migration", migrationId, "--watch", "--poll-interval", "1", "--wait-timeout", "1",
+  ], {
+    environment,
+    io: stream.value,
+    sleep: async () => undefined,
+    fetch: async () => json(phases[Math.min(call++, phases.length - 1)]),
+  });
+  assert.equal(exitCode, 0, stream.output.stderr.join(""));
+  assert.deepEqual(stream.output.stdout.map((line) => JSON.parse(line).result.phase), ["copying", "succeeded"]);
+  assert.equal(call, 2);
 });
 
 test("project bootstrap generates a replayable operation ID and JSON only", async (context) => {
@@ -860,14 +952,17 @@ test("options from another command are rejected instead of ignored", async () =>
 test("missing connection configuration is actionable and distinct from usage", async () => {
   const stream = io();
   const exitCode = await runCli(["environment", "list", "--tenant", tenantId, "--project", projectId], {
-    environment: { METAMORPH_TOKEN: "mm_pat_v1.test" },
+    environment: {
+      ALMIRA_CONTEXT_FILE: join(tmpdir(), `almira-cli-no-context-${process.pid}.json`),
+      METAMORPH_TOKEN: "mm_pat_v1.test",
+    },
     io: stream.value,
     fetch: async () => assert.fail("no request"),
   });
   assert.equal(exitCode, 2);
   assert.deepEqual(JSON.parse(stream.output.stderr.join("")), {
     code: "ALMIRA_CLI_BASE_URL_REQUIRED",
-    recovery: "pass --base-url or set ALMIRA_BASE_URL",
+    recovery: "pass --base-url, select a context, or set ALMIRA_BASE_URL",
   });
 });
 
