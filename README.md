@@ -30,6 +30,11 @@ accepts only end-user capability tokens and exposes capability-backed metadata, 
 generation reads, and share reads without admitting management credentials. Run `pnpm check` for
 the complete local repository gate.
 
+The Python 3.11+ application data SDK is in [`sdks/python`](sdks/python). It covers the promoted
+capability-only data-plane contract exactly, streams immutable generation and derivative responses,
+keeps share reads credential-free, and has no runtime dependency outside the Python standard
+library.
+
 The first management commands are in [`clients/cli`](clients/cli). The CLI uses predictable
 noun/verb commands, JSON-only stdout, stable exit codes and environment-backed credentials; it
 shares the SDK transport instead of implementing a second API client. Stable file identities can

@@ -6,5 +6,8 @@ node_modules/
 dist/
 target/
 coverage/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
 *.log
-
