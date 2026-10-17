@@ -86,6 +86,13 @@ removes read access and starts the bounded recycle window. Use `file list --incl
 find recyclable entries and `file restore` before expiry. Rename, generation selection, delete,
 and restore all require the current `--revision`.
 
+Collection extraction controls use `extraction get|set`; safe technical extraction is mandatory,
+while content, OCR and transcription are collection-level opt-ins. Exact-generation safe status
+uses `extraction status`; separately protected text uses `extraction content`. Bounded customer
+tags and typed scalar fields use `metadata get|set`. `file list` also accepts exact tag, metadata,
+verified media type, size, creation-time and extraction-state filters; paired filter fields must
+be provided together.
+
 Collection access, CDN delivery, shares, and local capability issuers use the same noun/verb
 shape: `policy get|set|simulate`, `delivery get|set`, `share create|revoke`, and
 `issuer list|register|rotate|revoke|signing-config`. Structured request bodies are passed through

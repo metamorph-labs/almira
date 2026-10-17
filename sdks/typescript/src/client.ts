@@ -11,6 +11,7 @@ import type {
   CapabilitySessionGrant,
   CapabilitySessionReference,
   Collection,
+  CollectionExtractionConfig,
   CollectionPage,
   CollectionReference,
   CreateCollectionOutcome,
@@ -27,6 +28,10 @@ import type {
   EnvironmentList,
   EnvironmentMutationOutcome,
   EnvironmentReference,
+  EntryMetadata,
+  ExtractedContent,
+  ExtractedContentReference,
+  ExtractionConfigOutcome,
   FileEntry,
   FileEntryPage,
   FileGeneration,
@@ -35,10 +40,13 @@ import type {
   FilePageOptions,
   FileReference,
   FinalizeUploadRequest,
+  GenerationExtraction,
+  GenerationExtractionReference,
   LocalIssuer,
   LocalIssuerMutationOutcome,
   LocalIssuerReference,
   LocalIssuerSigningConfiguration,
+  MetadataMutationOutcome,
   MutationOptions,
   PageOptions,
   PrivateFileResponse,
@@ -49,6 +57,8 @@ import type {
   ReplaceBrowserOriginsOutcome,
   ReplaceBrowserOriginsRequest,
   ReplaceDeliveryConfigRequest,
+  ReplaceCollectionExtractionRequest,
+  ReplaceEntryMetadataRequest,
   RenameFileRequest,
   RestoreFileGenerationRequest,
   RestoreFileRequest,
@@ -266,6 +276,29 @@ export class AlmiraClient {
     return this.#json(collectionPath(reference), { method: "GET", signal: options.signal }, reference.tenantId);
   }
 
+  async getCollectionExtraction(
+    reference: CollectionReference,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<CollectionExtractionConfig> {
+    return this.#json(collectionPath(reference, "/extraction"), {
+      method: "GET",
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async replaceCollectionExtraction(
+    reference: CollectionReference,
+    request: ReplaceCollectionExtractionRequest,
+    options: MutationOptions,
+  ): Promise<ExtractionConfigOutcome> {
+    return this.#json(collectionPath(reference, "/extraction"), {
+      method: "PUT",
+      headers: mutationHeaders(options.operationId),
+      body: request,
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
   async startStorageMigration(
     reference: CollectionReference,
     request: StartStorageMigrationRequest,
@@ -331,6 +364,27 @@ export class AlmiraClient {
       if (options.subject !== undefined) invalidInput();
       query.set("include_deleted", "true");
     }
+    if (options.tag !== undefined) query.set("tag", options.tag);
+    if ((options.metadataKey === undefined) !== (options.metadataValue === undefined)) invalidInput();
+    if (options.metadataKey !== undefined && options.metadataValue !== undefined) {
+      query.set("metadata_key", options.metadataKey);
+      query.set("metadata_value", JSON.stringify(options.metadataValue));
+    }
+    if (options.verifiedMediaType !== undefined) query.set("verified_media_type", options.verifiedMediaType);
+    appendPositiveInteger(query, "minimum_size_bytes", options.minimumSizeBytes, 10_737_418_240);
+    appendPositiveInteger(query, "maximum_size_bytes", options.maximumSizeBytes, 10_737_418_240);
+    if (
+      options.minimumSizeBytes !== undefined &&
+      options.maximumSizeBytes !== undefined &&
+      options.minimumSizeBytes > options.maximumSizeBytes
+    ) invalidInput();
+    if (options.createdAfter !== undefined) query.set("created_after", timestamp(options.createdAfter));
+    if (options.createdBefore !== undefined) query.set("created_before", timestamp(options.createdBefore));
+    if ((options.extractionKind === undefined) !== (options.extractionState === undefined)) invalidInput();
+    if (options.extractionKind !== undefined && options.extractionState !== undefined) {
+      query.set("extraction_kind", options.extractionKind);
+      query.set("extraction_state", options.extractionState);
+    }
     const subject = subjectHeaders(options.subject);
     return this.#json(withQuery(collectionPath(reference, "/files"), query), {
       method: "GET",
@@ -374,6 +428,51 @@ export class AlmiraClient {
       ...(subject === undefined ? {} : { headers: subject }),
       signal: options.signal,
     }, reference.tenantId);
+  }
+
+  async getEntryMetadata(
+    reference: FileReference,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<EntryMetadata> {
+    return this.#json(filePath(reference, "/metadata"), {
+      method: "GET",
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async replaceEntryMetadata(
+    reference: FileReference,
+    request: ReplaceEntryMetadataRequest,
+    options: MutationOptions,
+  ): Promise<MetadataMutationOutcome> {
+    return this.#json(filePath(reference, "/metadata"), {
+      method: "PUT",
+      headers: mutationHeaders(options.operationId),
+      body: request,
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async getGenerationExtraction(
+    reference: GenerationExtractionReference,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<GenerationExtraction> {
+    return this.#json(
+      filePath(reference, `/versions/${uuid(reference.generationId)}/extractions/${reference.kind}`),
+      { method: "GET", signal: options.signal },
+      reference.tenantId,
+    );
+  }
+
+  async getExtractedContent(
+    reference: ExtractedContentReference,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<ExtractedContent> {
+    return this.#json(
+      filePath(reference, `/versions/${uuid(reference.generationId)}/extracted-content/${reference.kind}`),
+      { method: "GET", signal: options.signal },
+      reference.tenantId,
+    );
   }
 
   async deleteFile(
@@ -775,6 +874,22 @@ function appendPage(query: URLSearchParams, options: PageOptions): void {
     if (options.cursor.length === 0 || options.cursor.length > 2048) invalidInput();
     query.set("cursor", options.cursor);
   }
+}
+
+function appendPositiveInteger(
+  query: URLSearchParams,
+  name: string,
+  value: number | undefined,
+  maximum: number,
+): void {
+  if (value === undefined) return;
+  if (!Number.isSafeInteger(value) || value < 1 || value > maximum) invalidInput();
+  query.set(name, String(value));
+}
+
+function timestamp(value: string): string {
+  if (value.length > 64 || Number.isNaN(Date.parse(value))) invalidInput();
+  return value;
 }
 
 function withQuery(path: string, query: URLSearchParams): string {

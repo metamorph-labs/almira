@@ -325,6 +325,86 @@ test("list query encoding cannot change the request path", async () => {
   );
 });
 
+test("metadata and extraction methods preserve exact scope, filtering, and separate content access", async () => {
+  const calls = [];
+  const client = new AlmiraClient({
+    credential: "mm_pat_v1.test",
+    fetch: async (input, init) => {
+      calls.push({ input, init });
+      return json(init.method === "PUT" ? { disposition: "applied" } : {});
+    },
+  });
+  const collection = { tenantId, projectId, environmentId, collectionInstanceId };
+  const file = { ...collection, entryId };
+  await client.getCollectionExtraction(collection);
+  await client.replaceCollectionExtraction(collection, {
+    expected_revision: 2,
+    config: { content: true, ocr: false, transcription: false },
+  }, { operationId });
+  await client.listFiles(collection, {
+    tag: "invoice",
+    metadataKey: "account_id",
+    metadataValue: "acme",
+    verifiedMediaType: "application/pdf",
+    minimumSizeBytes: 10,
+    maximumSizeBytes: 1000,
+    createdAfter: "2026-10-01T00:00:00Z",
+    createdBefore: "2026-10-17T00:00:00Z",
+    extractionKind: "content",
+    extractionState: "succeeded",
+  });
+  await client.getEntryMetadata(file);
+  await client.replaceEntryMetadata(file, {
+    expected_revision: 3,
+    metadata: { tags: ["invoice"], custom: { account_id: "acme", retention_years: 7 } },
+  }, { operationId });
+  await client.getGenerationExtraction({ ...file, generationId, kind: "content" });
+  await client.getExtractedContent({ ...file, generationId, kind: "content" });
+
+  const collectionBase = `/v1/projects/${projectId}/environments/${environmentId}/collections/${collectionInstanceId}`;
+  const fileBase = `${collectionBase}/files/${entryId}`;
+  assert.deepEqual(calls.map(({ input, init }) => ({
+    input,
+    method: init.method,
+    operationId: init.headers.get("idempotency-key"),
+    body: init.body === undefined ? undefined : JSON.parse(init.body),
+  })), [
+    { input: `${collectionBase}/extraction`, method: "GET", operationId: null, body: undefined },
+    {
+      input: `${collectionBase}/extraction`, method: "PUT", operationId,
+      body: { expected_revision: 2, config: { content: true, ocr: false, transcription: false } },
+    },
+    {
+      input: `${collectionBase}/files?tag=invoice&metadata_key=account_id&metadata_value=%22acme%22&verified_media_type=application%2Fpdf&minimum_size_bytes=10&maximum_size_bytes=1000&created_after=2026-10-01T00%3A00%3A00Z&created_before=2026-10-17T00%3A00%3A00Z&extraction_kind=content&extraction_state=succeeded`,
+      method: "GET", operationId: null, body: undefined,
+    },
+    { input: `${fileBase}/metadata`, method: "GET", operationId: null, body: undefined },
+    {
+      input: `${fileBase}/metadata`, method: "PUT", operationId,
+      body: { expected_revision: 3, metadata: { tags: ["invoice"], custom: { account_id: "acme", retention_years: 7 } } },
+    },
+    { input: `${fileBase}/versions/${generationId}/extractions/content`, method: "GET", operationId: null, body: undefined },
+    { input: `${fileBase}/versions/${generationId}/extracted-content/content`, method: "GET", operationId: null, body: undefined },
+  ]);
+});
+
+test("metadata filters fail locally when paired fields or ranges are incoherent", async () => {
+  const client = new AlmiraClient({ fetch: async () => assert.fail("invalid filters must not call the API") });
+  const reference = { tenantId, projectId, environmentId, collectionInstanceId };
+  await assert.rejects(
+    client.listFiles(reference, { metadataKey: "account_id" }),
+    (error) => error instanceof AlmiraClientError && error.code === "ALMIRA_CLIENT_INPUT_INVALID",
+  );
+  await assert.rejects(
+    client.listFiles(reference, { minimumSizeBytes: 100, maximumSizeBytes: 10 }),
+    (error) => error instanceof AlmiraClientError && error.code === "ALMIRA_CLIENT_INPUT_INVALID",
+  );
+  await assert.rejects(
+    client.listFiles(reference, { extractionKind: "content" }),
+    (error) => error instanceof AlmiraClientError && error.code === "ALMIRA_CLIENT_INPUT_INVALID",
+  );
+});
+
 test("file lifecycle methods use stable entry paths and optimistic revisions", async () => {
   const calls = [];
   const client = new AlmiraClient({

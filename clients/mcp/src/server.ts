@@ -72,6 +72,22 @@ const collectionScope = {
   environment_id: uuid,
   collection_instance_id: uuid,
 };
+const metadataComponent = z.string().regex(/^[a-z]([a-z0-9._-]{0,62}[a-z0-9])?$/u);
+const customMetadataValue = z.union([
+  z.boolean(),
+  z.number().int().safe(),
+  z.string().min(1).max(512).refine((value) => !/[\u0000-\u001f\u007f]/u.test(value)),
+]);
+const extractionKind = z.enum(["technical", "content", "ocr", "transcription"]);
+const protectedExtractionKind = z.enum(["content", "ocr", "transcription"]);
+const extractionState = z.enum(["pending", "running", "succeeded", "failed", "unsupported"]);
+const customerMetadata = z.object({
+  tags: z.array(metadataComponent).max(32).refine((tags) => new Set(tags).size === tags.length),
+  custom: z.record(metadataComponent, customMetadataValue),
+}).strict().refine((value) =>
+  Object.keys(value.custom).length <= 32 &&
+  new TextEncoder().encode(JSON.stringify(value)).length <= 16_384,
+);
 const builderSubject = z.object({
   subject_id: z.string().min(1).max(255),
   organization_id: z.string().min(1).max(255).nullable().optional(),
@@ -171,7 +187,7 @@ const outputSchema = z
 
 /** Creates one stdio-safe MCP server over the canonical Almira SDK client. */
 export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
-  const server = new McpServer({ name: "almira", version: "0.1.0-dev.20" });
+  const server = new McpServer({ name: "almira", version: "0.1.0-dev.21" });
 
   server.registerTool(
     "almira_project_bootstrap",
@@ -481,6 +497,47 @@ export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
   );
 
   server.registerTool(
+    "almira_collection_extraction_get",
+    {
+      title: "Get collection extraction controls",
+      description: "Read collection-level content, OCR, transcription, and vector-indexing controls; safe technical metadata is always enabled.",
+      inputSchema: z.object(collectionScope).strict(),
+      outputSchema,
+      annotations: readAnnotations,
+    },
+    async ({ tenant_id, project_id, environment_id, collection_instance_id }) =>
+      execute(() => client.getCollectionExtraction(
+        collectionReference(tenant_id, project_id, environment_id, collection_instance_id),
+      )),
+  );
+
+  server.registerTool(
+    "almira_collection_extraction_replace",
+    {
+      title: "Replace collection extraction controls",
+      description: "Replace the collection's opt-in content, OCR, and transcription extraction controls using optimistic revision control.",
+      inputSchema: z.object({
+        ...collectionScope,
+        expected_revision: z.number().int().min(1),
+        content: z.boolean(),
+        ocr: z.boolean(),
+        transcription: z.boolean(),
+        operation_id: operationId,
+      }).strict(),
+      outputSchema,
+      annotations: mutationAnnotations,
+    },
+    async ({ tenant_id, project_id, environment_id, collection_instance_id, expected_revision, content, ocr, transcription, operation_id }) => {
+      const id = operation_id ?? createOperationId();
+      return execute(() => client.replaceCollectionExtraction(
+        collectionReference(tenant_id, project_id, environment_id, collection_instance_id),
+        { expected_revision, config: { content, ocr, transcription } },
+        { operationId: id },
+      ), id);
+    },
+  );
+
+  server.registerTool(
     "almira_storage_migration_start",
     {
       title: "Start storage-class migration",
@@ -558,13 +615,35 @@ export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
           collection_instance_id: uuid,
           path_prefix: z.string().min(1).max(1024).optional(),
           include_deleted: z.boolean().optional(),
+          tag: metadataComponent.optional(),
+          metadata_key: metadataComponent.optional(),
+          metadata_value: customMetadataValue.optional(),
+          verified_media_type: z.string().min(3).max(127).optional(),
+          minimum_size_bytes: z.number().int().min(1).max(10_737_418_240).optional(),
+          maximum_size_bytes: z.number().int().min(1).max(10_737_418_240).optional(),
+          created_after: z.string().datetime({ offset: true }).optional(),
+          created_before: z.string().datetime({ offset: true }).optional(),
+          extraction_kind: extractionKind.optional(),
+          extraction_state: extractionState.optional(),
           ...page,
+        }).strict()
+        .refine((value) => (value.metadata_key === undefined) === (value.metadata_value === undefined), {
+          message: "metadata_key and metadata_value must be supplied together",
         })
-        .strict(),
+        .refine((value) => (value.extraction_kind === undefined) === (value.extraction_state === undefined), {
+          message: "extraction_kind and extraction_state must be supplied together",
+        })
+        .refine((value) => value.minimum_size_bytes === undefined || value.maximum_size_bytes === undefined || value.minimum_size_bytes <= value.maximum_size_bytes, {
+          message: "minimum_size_bytes cannot exceed maximum_size_bytes",
+        }),
       outputSchema,
       annotations: readAnnotations,
     },
-    async ({ tenant_id, project_id, environment_id, collection_instance_id, path_prefix, include_deleted, limit, cursor }) =>
+    async ({
+      tenant_id, project_id, environment_id, collection_instance_id, path_prefix, include_deleted,
+      tag, metadata_key, metadata_value, verified_media_type, minimum_size_bytes, maximum_size_bytes,
+      created_after, created_before, extraction_kind, extraction_state, limit, cursor,
+    }) =>
       execute(() =>
         client.listFiles(
           {
@@ -576,6 +655,16 @@ export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
           {
             ...(path_prefix === undefined ? {} : { pathPrefix: path_prefix }),
             ...(include_deleted === undefined ? {} : { includeDeleted: include_deleted }),
+            ...(tag === undefined ? {} : { tag }),
+            ...(metadata_key === undefined ? {} : { metadataKey: metadata_key }),
+            ...(metadata_value === undefined ? {} : { metadataValue: metadata_value }),
+            ...(verified_media_type === undefined ? {} : { verifiedMediaType: verified_media_type }),
+            ...(minimum_size_bytes === undefined ? {} : { minimumSizeBytes: minimum_size_bytes }),
+            ...(maximum_size_bytes === undefined ? {} : { maximumSizeBytes: maximum_size_bytes }),
+            ...(created_after === undefined ? {} : { createdAfter: created_after }),
+            ...(created_before === undefined ? {} : { createdBefore: created_before }),
+            ...(extraction_kind === undefined ? {} : { extractionKind: extraction_kind }),
+            ...(extraction_state === undefined ? {} : { extractionState: extraction_state }),
             ...(limit === undefined ? {} : { limit }),
             ...(cursor === undefined ? {} : { cursor }),
           },
@@ -632,6 +721,80 @@ export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
           entryId: entry_id,
         }),
       ),
+  );
+
+  server.registerTool(
+    "almira_file_customer_metadata_get",
+    {
+      title: "Get customer file metadata",
+      description: "Read the bounded customer-owned tags and typed metadata namespace for one stable file entry.",
+      inputSchema: z.object({ ...collectionScope, entry_id: uuid }).strict(),
+      outputSchema,
+      annotations: readAnnotations,
+    },
+    async ({ tenant_id, project_id, environment_id, collection_instance_id, entry_id }) =>
+      execute(() => client.getEntryMetadata(
+        fileReference(tenant_id, project_id, environment_id, collection_instance_id, entry_id),
+      )),
+  );
+
+  server.registerTool(
+    "almira_file_customer_metadata_replace",
+    {
+      title: "Replace customer file metadata",
+      description: "Replace bounded tags and typed customer metadata using optimistic revision control.",
+      inputSchema: z.object({
+        ...collectionScope,
+        entry_id: uuid,
+        expected_revision: z.number().int().min(1),
+        metadata: customerMetadata,
+        operation_id: operationId,
+      }).strict(),
+      outputSchema,
+      annotations: mutationAnnotations,
+    },
+    async ({ tenant_id, project_id, environment_id, collection_instance_id, entry_id, expected_revision, metadata, operation_id }) => {
+      const id = operation_id ?? createOperationId();
+      return execute(() => client.replaceEntryMetadata(
+        fileReference(tenant_id, project_id, environment_id, collection_instance_id, entry_id),
+        { expected_revision, metadata },
+        { operationId: id },
+      ), id);
+    },
+  );
+
+  server.registerTool(
+    "almira_file_extraction_get",
+    {
+      title: "Get file extraction status",
+      description: "Read safe status and provenance for one exact immutable generation and extraction kind; raw content is excluded.",
+      inputSchema: z.object({ ...collectionScope, entry_id: uuid, generation_id: uuid, kind: extractionKind }).strict(),
+      outputSchema,
+      annotations: readAnnotations,
+    },
+    async ({ tenant_id, project_id, environment_id, collection_instance_id, entry_id, generation_id, kind }) =>
+      execute(() => client.getGenerationExtraction({
+        ...fileReference(tenant_id, project_id, environment_id, collection_instance_id, entry_id),
+        generationId: generation_id,
+        kind,
+      })),
+  );
+
+  server.registerTool(
+    "almira_file_extracted_content_get",
+    {
+      title: "Get protected extracted content",
+      description: "Read separately authorized content, OCR, or transcription text for one exact immutable generation.",
+      inputSchema: z.object({ ...collectionScope, entry_id: uuid, generation_id: uuid, kind: protectedExtractionKind }).strict(),
+      outputSchema,
+      annotations: readAnnotations,
+    },
+    async ({ tenant_id, project_id, environment_id, collection_instance_id, entry_id, generation_id, kind }) =>
+      execute(() => client.getExtractedContent({
+        ...fileReference(tenant_id, project_id, environment_id, collection_instance_id, entry_id),
+        generationId: generation_id,
+        kind,
+      })),
   );
 
   server.registerTool(

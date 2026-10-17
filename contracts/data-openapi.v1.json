@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Almira Data and Delivery API",
-    "version": "0.1.0-dev.20",
+    "version": "0.1.0-dev.21",
     "description": "Browser/mobile capability reads and immutable governed delivery. This surface never accepts PATs, SAKs, product sessions, provider credentials, or management routing headers."
   },
   "servers": [
@@ -40,6 +40,86 @@
             "in": "query",
             "schema": {
               "$ref": "./openapi.v1.json#/components/schemas/LogicalPath"
+            }
+          },
+          {
+            "name": "tag",
+            "in": "query",
+            "schema": {
+              "$ref": "./openapi.v1.json#/components/schemas/MetadataComponentName"
+            }
+          },
+          {
+            "name": "metadata_key",
+            "in": "query",
+            "description": "Customer metadata key. Must be supplied together with metadata_value.",
+            "schema": {
+              "$ref": "./openapi.v1.json#/components/schemas/MetadataComponentName"
+            }
+          },
+          {
+            "name": "metadata_value",
+            "in": "query",
+            "description": "URL-encoded JSON scalar (boolean, integer, or string). Must be supplied together with metadata_key.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            }
+          },
+          {
+            "name": "verified_media_type",
+            "in": "query",
+            "schema": {
+              "$ref": "./openapi.v1.json#/components/schemas/MediaType"
+            }
+          },
+          {
+            "name": "minimum_size_bytes",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10737418240
+            }
+          },
+          {
+            "name": "maximum_size_bytes",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10737418240
+            }
+          },
+          {
+            "name": "created_after",
+            "in": "query",
+            "schema": {
+              "$ref": "./openapi.v1.json#/components/schemas/Timestamp"
+            }
+          },
+          {
+            "name": "created_before",
+            "in": "query",
+            "schema": {
+              "$ref": "./openapi.v1.json#/components/schemas/Timestamp"
+            }
+          },
+          {
+            "name": "extraction_kind",
+            "in": "query",
+            "description": "Exact extraction kind. Must be supplied together with extraction_state.",
+            "schema": {
+              "$ref": "./openapi.v1.json#/components/schemas/ExtractionKind"
+            }
+          },
+          {
+            "name": "extraction_state",
+            "in": "query",
+            "description": "Exact extraction state. Must be supplied together with extraction_kind.",
+            "schema": {
+              "$ref": "./openapi.v1.json#/components/schemas/ExtractionState"
             }
           },
           {

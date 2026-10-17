@@ -33,6 +33,9 @@ noun/verb commands, JSON-only stdout, stable exit codes and environment-backed c
 shares the SDK transport instead of implementing a second API client. Stable file identities can
 be listed with their immutable generations, renamed without copying bytes, switched to a retained
 generation, moved into a bounded recycle window, and restored while that window remains open.
+Collections expose mandatory safe technical extraction plus explicit content, OCR and transcription
+controls. Bounded customer metadata and exact structured filters are available across the SDK, CLI,
+MCP server and console; protected extracted text remains behind its distinct authorization.
 
 The stdio MCP server is in [`clients/mcp`](clients/mcp). It presents the same bounded management
 slice to external coding agents, leaves approvals with the MCP host and deliberately keeps

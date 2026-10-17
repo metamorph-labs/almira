@@ -217,6 +217,70 @@ test("policy replacement accepts an exact JSON document and uses the collection 
   assert.deepEqual(JSON.parse(request.init.body), requestBody);
 });
 
+test("metadata and extraction commands expose exact scoped management operations", async (context) => {
+  const directory = await mkdtemp(join(tmpdir(), "almira-metadata-"));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const extractionInput = join(directory, "extraction.json");
+  const metadataInput = join(directory, "metadata.json");
+  await writeFile(extractionInput, JSON.stringify({
+    expected_revision: 2,
+    config: { content: true, ocr: false, transcription: false },
+  }));
+  await writeFile(metadataInput, JSON.stringify({
+    expected_revision: 3,
+    metadata: { tags: ["invoice"], custom: { account_id: "acme" } },
+  }));
+  const collectionId = "018f0000-0000-7000-8000-000000000012";
+  const entryId = "018f0000-0000-7000-8000-000000000013";
+  const generationId = "018f0000-0000-7000-8000-000000000014";
+  const requests = [];
+  const invoke = async (arguments_) => {
+    const stream = io();
+    const exitCode = await runCli(arguments_, {
+      environment,
+      io: stream.value,
+      fetch: async (input, init) => {
+        requests.push({ input, init });
+        return json(init.method === "PUT" ? { disposition: "applied" } : {});
+      },
+    });
+    assert.equal(exitCode, 0, stream.output.stderr.join(""));
+  };
+  const scope = [
+    "--tenant", tenantId, "--project", projectId, "--environment", environmentId,
+    "--collection", collectionId,
+  ];
+  const fileScope = [...scope, "--entry", entryId];
+  await invoke(["extraction", "get", ...scope]);
+  await invoke(["extraction", "set", ...scope, "--input", extractionInput, "--operation-id", operationId]);
+  await invoke(["metadata", "get", ...fileScope]);
+  await invoke(["metadata", "set", ...fileScope, "--input", metadataInput, "--operation-id", operationId]);
+  await invoke(["extraction", "status", ...fileScope, "--generation", generationId, "--kind", "content"]);
+  await invoke(["extraction", "content", ...fileScope, "--generation", generationId, "--kind", "content"]);
+
+  const base = `https://almira.test/v1/projects/${projectId}/environments/${environmentId}/collections/${collectionId}`;
+  const fileBase = `${base}/files/${entryId}`;
+  assert.deepEqual(requests.map(({ input, init }) => ({
+    input,
+    method: init.method,
+    operationId: init.headers.get("idempotency-key"),
+    body: init.body === undefined ? undefined : JSON.parse(init.body),
+  })), [
+    { input: `${base}/extraction`, method: "GET", operationId: null, body: undefined },
+    {
+      input: `${base}/extraction`, method: "PUT", operationId,
+      body: { expected_revision: 2, config: { content: true, ocr: false, transcription: false } },
+    },
+    { input: `${fileBase}/metadata`, method: "GET", operationId: null, body: undefined },
+    {
+      input: `${fileBase}/metadata`, method: "PUT", operationId,
+      body: { expected_revision: 3, metadata: { tags: ["invoice"], custom: { account_id: "acme" } } },
+    },
+    { input: `${fileBase}/versions/${generationId}/extractions/content`, method: "GET", operationId: null, body: undefined },
+    { input: `${fileBase}/versions/${generationId}/extracted-content/content`, method: "GET", operationId: null, body: undefined },
+  ]);
+});
+
 test("configuration preview and apply consume almira.yaml without a second API", async (context) => {
   const directory = await mkdtemp(join(tmpdir(), "almira-config-"));
   context.after(() => rm(directory, { recursive: true, force: true }));

@@ -33,6 +33,11 @@ retained generation, move an entry into its recycle window, and restore it befor
 entries are visible only when a management caller explicitly requests `include_deleted`; these
 tools never turn recycle visibility into application-user access.
 
+The catalog also exposes collection extraction controls, bounded customer tags and typed metadata,
+authoritative structured list filters, and safe exact-generation extraction status. Raw extracted
+text is never returned by status or list tools; `almira_file_extracted_content_get` is a distinct
+read whose Metamorph token must carry the separate protected-content permission.
+
 The same bounded catalog includes policy read/replace/simulation, CDN delivery read/replace,
 revocable generation shares, and local issuer registration/rotation/revocation/signing
 configuration. The MCP server handles public keys and declared ceilings only; it never accepts a

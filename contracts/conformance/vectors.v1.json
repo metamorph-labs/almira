@@ -707,6 +707,102 @@
       "expected": "valid"
     },
     {
+      "name": "customer_metadata_is_bounded_and_typed",
+      "schema": "ReplaceEntryMetadataRequest",
+      "instance": {
+        "expected_revision": 1,
+        "metadata": {
+          "tags": [
+            "invoice",
+            "priority-high"
+          ],
+          "custom": {
+            "account_id": "acme",
+            "retention_years": 7
+          }
+        }
+      },
+      "expected": "valid"
+    },
+    {
+      "name": "noncanonical_customer_metadata_is_refused",
+      "schema": "ReplaceEntryMetadataRequest",
+      "instance": {
+        "expected_revision": 1,
+        "metadata": {
+          "tags": [
+            "Not Canonical"
+          ],
+          "custom": {}
+        }
+      },
+      "expected": "invalid"
+    },
+    {
+      "name": "content_extraction_is_collection_controlled",
+      "schema": "ReplaceCollectionExtractionRequest",
+      "instance": {
+        "expected_revision": 2,
+        "config": {
+          "content": true,
+          "ocr": false,
+          "transcription": false
+        }
+      },
+      "expected": "valid"
+    },
+    {
+      "name": "safe_extraction_status_excludes_raw_content",
+      "schema": "GenerationExtraction",
+      "instance": {
+        "entry_id": "018f0000-0000-7000-8000-000000000031",
+        "generation_id": "018f0000-0000-7000-8000-000000000032",
+        "kind": "technical",
+        "state": "succeeded",
+        "source_content_sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "extractor_name": "almira.safe-core",
+        "extractor_version": "v1",
+        "limits": {
+          "input_bytes": 11,
+          "output_bytes": 16384,
+          "wall_time_seconds": 1
+        },
+        "safe_result": {
+          "verified_media_type": "text/plain"
+        },
+        "failure_code": null,
+        "attempt_count": 1,
+        "revision": 1,
+        "updated_at": "2099-10-17T00:00:00Z"
+      },
+      "expected": "valid"
+    },
+    {
+      "name": "raw_content_in_safe_extraction_status_is_refused",
+      "schema": "GenerationExtraction",
+      "instance": {
+        "entry_id": "018f0000-0000-7000-8000-000000000031",
+        "generation_id": "018f0000-0000-7000-8000-000000000032",
+        "kind": "content",
+        "state": "succeeded",
+        "source_content_sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "extractor_name": "almira.processor",
+        "extractor_version": "v1",
+        "limits": {
+          "input_bytes": 11,
+          "output_bytes": 2097152,
+          "wall_time_seconds": 120
+        },
+        "safe_result": {},
+        "failure_code": null,
+        "attempt_count": 1,
+        "revision": 1,
+        "updated_at": "2099-10-17T00:00:00Z",
+        "content": "must not appear here"
+      },
+      "expected": "invalid"
+    },
+    {
       "name": "safe_error_envelope",
       "schema": "Error",
       "instance": {
@@ -809,6 +905,12 @@
       "name": "invalid_local_signature_is_forbidden",
       "condition": "a locally issued capability signature does not verify against the active registered key revision",
       "code": "ALMIRA_DELIVERY_ACCESS_REFUSED",
+      "http_status": 403
+    },
+    {
+      "name": "extracted_content_requires_distinct_permission",
+      "condition": "the actor may read safe metadata but lacks almira.extracted_content.read for the exact generation",
+      "code": "ALMIRA_METADATA_AUTHORIZATION_MISMATCH",
       "http_status": 403
     }
   ]

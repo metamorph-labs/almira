@@ -14,7 +14,9 @@ import {
   type CreateShareRequest,
   type RegisterLocalIssuerRequest,
   type ReplaceAccessPolicyRequest,
+  type ReplaceCollectionExtractionRequest,
   type ReplaceDeliveryConfigRequest,
+  type ReplaceEntryMetadataRequest,
   type RotateLocalIssuerKeyRequest,
   type TenancyProjectGetResponse,
 } from "@metamorph-labs/almira-sdk";
@@ -55,8 +57,14 @@ Commands:
   collection get          Read one collection
   collection migrate      Migrate a collection to another storage class
   migration get           Read durable storage-migration progress
-  file list               List file metadata
+  extraction get          Read collection extraction controls
+  extraction set          Replace collection extraction controls from --input JSON
+  extraction status       Read safe exact-generation extraction status
+  extraction content      Read separately protected extracted content
+  file list               List and filter authoritative file metadata
   file get                Read one file's metadata
+  metadata get            Read bounded customer metadata for one file
+  metadata set            Replace bounded customer metadata from --input JSON
   file versions           List immutable generations
   file rename             Rename or move a stable file identity
   file select-version     Make one retained generation current
@@ -87,6 +95,7 @@ Common identifiers:
   --migration UUID        Almira storage-migration UUIDv7
   --entry UUID            Almira file-entry UUIDv7
   --generation UUID       Almira immutable generation UUIDv7
+  --kind KIND             technical, content, ocr, or transcription
   --share UUID            Almira share UUIDv7
   --issuer UUID           Almira local-issuer UUIDv7
   --input PATH            Exact JSON request body for structured operations
@@ -118,7 +127,13 @@ const options = {
   "include-deleted": { type: "boolean" },
   issuer: { type: "string" },
   key: { type: "string" },
+  kind: { type: "string" },
   limit: { type: "string" },
+  "maximum-size": { type: "string" },
+  "metadata-key": { type: "string" },
+  "metadata-value": { type: "string" },
+  "media-type": { type: "string" },
+  "minimum-size": { type: "string" },
   migration: { type: "string" },
   "operation-id": { type: "string" },
   origin: { type: "string", multiple: true },
@@ -127,7 +142,12 @@ const options = {
   project: { type: "string" },
   revision: { type: "string" },
   scan: { type: "string" },
+  "created-after": { type: "string" },
+  "created-before": { type: "string" },
+  "extraction-kind": { type: "string" },
+  "extraction-state": { type: "string" },
   share: { type: "string" },
+  tag: { type: "string" },
   tenant: { type: "string" },
   "tenancy-project": { type: "string" },
 } as const;
@@ -264,15 +284,66 @@ export async function runCli(arguments_: string[], dependencies: CliDependencies
         ...collectionReference(values, tenantId, projectId),
         migrationId: required(values, "migration"),
       });
+    } else if (noun === "extraction" && verb === "get") {
+      result = await client.getCollectionExtraction(collectionReference(values, tenantId, projectId));
+    } else if (noun === "extraction" && verb === "set") {
+      operationId = mutationId(values);
+      mutation = true;
+      result = await client.replaceCollectionExtraction(
+        collectionReference(values, tenantId, projectId),
+        await readJson<ReplaceCollectionExtractionRequest>(required(values, "input")),
+        { operationId },
+      );
+    } else if (noun === "extraction" && verb === "status") {
+      result = await client.getGenerationExtraction({
+        ...fileReference(values, tenantId, projectId),
+        generationId: required(values, "generation"),
+        kind: extractionKind(values),
+      });
+    } else if (noun === "extraction" && verb === "content") {
+      const kind = extractionKind(values);
+      if (kind === "technical") throw new CliUsageError();
+      result = await client.getExtractedContent({
+        ...fileReference(values, tenantId, projectId),
+        generationId: required(values, "generation"),
+        kind,
+      });
     } else if (noun === "file" && verb === "list") {
       const pathPrefix = stringValue(values, "path-prefix");
+      const metadataKey = stringValue(values, "metadata-key");
+      const metadataValue = optionalMetadataValue(values);
+      const extractionKindFilter = optionalExtractionKind(values, "extraction-kind");
+      const extractionState = stringValue(values, "extraction-state");
+      if (extractionState !== undefined && !["pending", "running", "succeeded", "failed", "unsupported"].includes(extractionState)) {
+        throw new CliUsageError();
+      }
       result = await client.listFiles(collectionReference(values, tenantId, projectId), {
         ...page(values),
         ...(values["include-deleted"] === true ? { includeDeleted: true } : {}),
         ...(pathPrefix === undefined ? {} : { pathPrefix }),
+        ...optionalNamedValue(values, "tag", "tag"),
+        ...(metadataKey === undefined ? {} : { metadataKey }),
+        ...(metadataValue === undefined ? {} : { metadataValue }),
+        ...optionalNamedValue(values, "media-type", "verifiedMediaType"),
+        ...optionalNamedInteger(values, "minimum-size", "minimumSizeBytes"),
+        ...optionalNamedInteger(values, "maximum-size", "maximumSizeBytes"),
+        ...optionalNamedValue(values, "created-after", "createdAfter"),
+        ...optionalNamedValue(values, "created-before", "createdBefore"),
+        ...(extractionKindFilter === undefined ? {} : { extractionKind: extractionKindFilter }),
+        ...(extractionState === undefined ? {} : { extractionState: extractionState as "pending" | "running" | "succeeded" | "failed" | "unsupported" }),
       });
     } else if (noun === "file" && verb === "get") {
       result = await client.getFileMetadata(fileReference(values, tenantId, projectId));
+    } else if (noun === "metadata" && verb === "get") {
+      result = await client.getEntryMetadata(fileReference(values, tenantId, projectId));
+    } else if (noun === "metadata" && verb === "set") {
+      operationId = mutationId(values);
+      mutation = true;
+      result = await client.replaceEntryMetadata(
+        fileReference(values, tenantId, projectId),
+        await readJson<ReplaceEntryMetadataRequest>(required(values, "input")),
+        { operationId },
+      );
     } else if (noun === "file" && verb === "versions") {
       result = await client.listFileGenerations(fileReference(values, tenantId, projectId), page(values));
     } else if (noun === "file" && verb === "rename") {
@@ -417,8 +488,18 @@ const commandOptions = new Map<string, ReadonlySet<string>>([
   ["collection:get", new Set(["base-url", "collection", "environment", "project", "tenant"])],
   ["collection:migrate", new Set(["base-url", "class", "collection", "environment", "operation-id", "project", "revision", "tenant"])],
   ["migration:get", new Set(["base-url", "collection", "environment", "migration", "project", "tenant"])],
-  ["file:list", new Set(["base-url", "collection", "cursor", "environment", "include-deleted", "limit", "path-prefix", "project", "tenant"])],
+  ["extraction:get", collectionCommandOptions()],
+  ["extraction:set", collectionCommandOptions("input", "operation-id")],
+  ["extraction:status", collectionCommandOptions("entry", "generation", "kind")],
+  ["extraction:content", collectionCommandOptions("entry", "generation", "kind")],
+  ["file:list", new Set([
+    "base-url", "collection", "created-after", "created-before", "cursor", "environment", "extraction-kind",
+    "extraction-state", "include-deleted", "limit", "maximum-size", "media-type", "metadata-key",
+    "metadata-value", "minimum-size", "path-prefix", "project", "tag", "tenant",
+  ])],
   ["file:get", new Set(["base-url", "collection", "entry", "environment", "project", "tenant"])],
+  ["metadata:get", collectionCommandOptions("entry")],
+  ["metadata:set", collectionCommandOptions("entry", "input", "operation-id")],
   ["file:versions", new Set(["base-url", "collection", "cursor", "entry", "environment", "limit", "project", "tenant"])],
   ["file:rename", new Set(["base-url", "collection", "entry", "environment", "operation-id", "path", "project", "revision", "tenant"])],
   ["file:select-version", new Set(["base-url", "collection", "entry", "environment", "generation", "operation-id", "project", "revision", "tenant"])],
@@ -474,6 +555,42 @@ function positiveInteger(values: Values, name: string): number {
   const parsed = Number(value);
   if (!Number.isSafeInteger(parsed)) throw new CliUsageError();
   return parsed;
+}
+
+function optionalNamedInteger(values: Values, input: string, output: string): Record<string, number> {
+  return stringValue(values, input) === undefined ? {} : { [output]: positiveInteger(values, input) };
+}
+
+function optionalNamedValue(values: Values, input: string, output: string): Record<string, string> {
+  const value = stringValue(values, input);
+  return value === undefined ? {} : { [output]: value };
+}
+
+function optionalMetadataValue(values: Values): boolean | number | string | undefined {
+  const value = stringValue(values, "metadata-value");
+  if (value === undefined) return undefined;
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (typeof parsed === "boolean" || typeof parsed === "string" || (typeof parsed === "number" && Number.isSafeInteger(parsed))) {
+      return parsed;
+    }
+  } catch {
+    // The stable usage error below is deliberately content-free.
+  }
+  throw new CliUsageError();
+}
+
+function optionalExtractionKind(values: Values, name: string): "technical" | "content" | "ocr" | "transcription" | undefined {
+  const value = stringValue(values, name);
+  if (value === undefined) return undefined;
+  if (value === "technical" || value === "content" || value === "ocr" || value === "transcription") return value;
+  throw new CliUsageError();
+}
+
+function extractionKind(values: Values): "technical" | "content" | "ocr" | "transcription" {
+  const value = optionalExtractionKind(values, "kind");
+  if (value === undefined) throw new CliUsageError();
+  return value;
 }
 
 function optionalPageInteger(values: Values): number | undefined {

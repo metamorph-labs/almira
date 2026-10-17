@@ -132,7 +132,9 @@ export interface Collection {
   storage_binding_state: "pending" | "ready" | "migrating" | "failed";
   technical_metadata_extraction: true;
   malware_scan_required: boolean;
-  content_extraction: false;
+  content_extraction: boolean;
+  ocr_extraction: boolean;
+  transcription_extraction: boolean;
   vector_indexing: false;
   delivery_mode: "off" | "public" | "private";
   revision: number;
@@ -142,6 +144,30 @@ export interface Collection {
 export interface CreateCollectionOutcome {
   disposition: "applied" | "exact_replay";
   collection: Collection;
+}
+
+export interface CollectionExtractionInput {
+  content: boolean;
+  ocr: boolean;
+  transcription: boolean;
+}
+
+export interface CollectionExtractionConfig extends CollectionExtractionInput {
+  collection_instance_id: UuidV7;
+  technical_metadata: true;
+  vector_indexing: false;
+  revision: number;
+  updated_at: Timestamp;
+}
+
+export interface ReplaceCollectionExtractionRequest {
+  expected_revision: number;
+  config: CollectionExtractionInput;
+}
+
+export interface ExtractionConfigOutcome {
+  disposition: "applied" | "exact_replay";
+  config: CollectionExtractionConfig;
 }
 
 export interface StartStorageMigrationRequest {
@@ -274,6 +300,9 @@ export interface FileEntry {
   logical_path: string;
   lifecycle: "active" | "restricted" | "deleted";
   revision: number;
+  metadata_revision: number;
+  tags: string[];
+  custom_metadata: Record<string, CustomMetadataValue>;
   current_generation_id: UuidV7 | null;
   current_generation: FileGeneration | null;
   deleted_at: Timestamp | null;
@@ -281,6 +310,67 @@ export interface FileEntry {
   latest_generation: FileGeneration;
   created_at: Timestamp;
   updated_at: Timestamp;
+}
+
+export type CustomMetadataValue = boolean | number | string;
+
+export interface CustomerMetadataInput {
+  tags: string[];
+  custom: Record<string, CustomMetadataValue>;
+}
+
+export interface EntryMetadata extends CustomerMetadataInput {
+  entry_id: UuidV7;
+  namespace: "customer";
+  revision: number;
+  updated_at: Timestamp;
+}
+
+export interface ReplaceEntryMetadataRequest {
+  expected_revision: number;
+  metadata: CustomerMetadataInput;
+}
+
+export interface MetadataMutationOutcome {
+  disposition: "applied" | "exact_replay";
+  metadata: EntryMetadata;
+}
+
+export type ExtractionKind = "technical" | "content" | "ocr" | "transcription";
+export type ProtectedExtractionKind = Exclude<ExtractionKind, "technical">;
+export type ExtractionState = "pending" | "running" | "succeeded" | "failed" | "unsupported";
+
+export interface GenerationExtraction {
+  entry_id: UuidV7;
+  generation_id: UuidV7;
+  kind: ExtractionKind;
+  state: ExtractionState;
+  source_content_sha256: ContentSha256;
+  extractor_name: string;
+  extractor_version: string;
+  limits: {
+    input_bytes: number;
+    output_bytes: number;
+    wall_time_seconds: number;
+  };
+  safe_result: Record<string, unknown>;
+  failure_code: string | null;
+  attempt_count: number;
+  revision: number;
+  updated_at: Timestamp;
+}
+
+export interface ExtractedContent {
+  entry_id: UuidV7;
+  generation_id: UuidV7;
+  kind: ProtectedExtractionKind;
+  source_content_sha256: ContentSha256;
+  extractor_name: string;
+  extractor_version: string;
+  media_type: string;
+  content: string;
+  truncated: boolean;
+  revision: number;
 }
 
 export interface FileEntryPage {
@@ -338,6 +428,16 @@ export interface FileReference extends CollectionReference {
   entryId: UuidV7;
 }
 
+export interface GenerationExtractionReference extends FileReference {
+  generationId: UuidV7;
+  kind: ExtractionKind;
+}
+
+export interface ExtractedContentReference extends FileReference {
+  generationId: UuidV7;
+  kind: ProtectedExtractionKind;
+}
+
 export interface MutationOptions {
   operationId: UuidV7;
   signal?: AbortSignal;
@@ -353,6 +453,16 @@ export interface FilePageOptions extends PageOptions {
   pathPrefix?: string;
   includeDeleted?: boolean;
   subject?: BuilderSubject;
+  tag?: string;
+  metadataKey?: string;
+  metadataValue?: CustomMetadataValue;
+  verifiedMediaType?: string;
+  minimumSizeBytes?: number;
+  maximumSizeBytes?: number;
+  createdAfter?: Timestamp;
+  createdBefore?: Timestamp;
+  extractionKind?: ExtractionKind;
+  extractionState?: ExtractionState;
 }
 
 export interface ReadPrivateFileOptions extends FileReference {

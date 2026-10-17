@@ -90,6 +90,15 @@ reads and starts the server-defined recycle window;
 management callers can use `listFiles({ includeDeleted: true })` and `restoreFile` before expiry.
 Builder-subject listing never admits `includeDeleted`.
 
+Every available generation receives safe technical extraction with immutable source-digest and
+extractor provenance. Collection owners use `getCollectionExtraction` and
+`replaceCollectionExtraction` to opt into content, OCR, or transcription. Customer tags and typed
+scalar fields use `getEntryMetadata` and `replaceEntryMetadata`; `listFiles` accepts exact tag,
+metadata, verified-media-type, size, time and extraction-state filters backed by authoritative
+PostgreSQL state. `getGenerationExtraction` returns safe status only. Protected content is exposed
+only through `getExtractedContent`, which maps to the distinct `extracted_content.read`
+authorization operation.
+
 Application backends can pass a normalized `subject` with `listFiles`, `getFileMetadata`, and
 `readPrivateFile`; the SDK puts its canonical context on that same workload-authenticated call.
 For browser and other end-user data paths, use the deliberately separate `AlmiraDataClient`. It

@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Almira API",
-    "version": "0.1.0-dev.20",
+    "version": "0.1.0-dev.21",
     "description": "Provider-neutral application file storage management and data API."
   },
   "servers": [
@@ -869,6 +869,86 @@
             }
           },
           {
+            "name": "tag",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/MetadataComponentName"
+            }
+          },
+          {
+            "name": "metadata_key",
+            "in": "query",
+            "description": "Customer metadata key. Must be supplied together with metadata_value.",
+            "schema": {
+              "$ref": "#/components/schemas/MetadataComponentName"
+            }
+          },
+          {
+            "name": "metadata_value",
+            "in": "query",
+            "description": "URL-encoded JSON scalar (boolean, integer, or string). Must be supplied together with metadata_key.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            }
+          },
+          {
+            "name": "verified_media_type",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/MediaType"
+            }
+          },
+          {
+            "name": "minimum_size_bytes",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10737418240
+            }
+          },
+          {
+            "name": "maximum_size_bytes",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10737418240
+            }
+          },
+          {
+            "name": "created_after",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/Timestamp"
+            }
+          },
+          {
+            "name": "created_before",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/Timestamp"
+            }
+          },
+          {
+            "name": "extraction_kind",
+            "in": "query",
+            "description": "Exact extraction kind. Must be supplied together with extraction_state.",
+            "schema": {
+              "$ref": "#/components/schemas/ExtractionKind"
+            }
+          },
+          {
+            "name": "extraction_state",
+            "in": "query",
+            "description": "Exact extraction state. Must be supplied together with extraction_kind.",
+            "schema": {
+              "$ref": "#/components/schemas/ExtractionState"
+            }
+          },
+          {
             "name": "limit",
             "in": "query",
             "schema": {
@@ -1084,6 +1164,114 @@
         }
       }
     },
+    "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/files/{entry_id}/metadata": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "get": {
+        "operationId": "getEntryMetadata",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/EntryId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current bounded customer metadata namespace.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntryMetadata"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      },
+      "put": {
+        "operationId": "replaceEntryMetadata",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/EntryId"
+          },
+          {
+            "$ref": "#/components/parameters/OperationId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplaceEntryMetadataRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Customer metadata replaced or exactly replayed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetadataMutationOutcome"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
     "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/files/{entry_id}/versions": {
       "parameters": [
         {
@@ -1207,6 +1395,120 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/files/{entry_id}/versions/{generation_id}/extractions/{kind}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "get": {
+        "operationId": "getGenerationExtraction",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/EntryId"
+          },
+          {
+            "$ref": "#/components/parameters/GenerationId"
+          },
+          {
+            "$ref": "#/components/parameters/ExtractionKind"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Safe exact-generation extraction status and provenance. Raw content is excluded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenerationExtraction"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/files/{entry_id}/versions/{generation_id}/extracted-content/{kind}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "get": {
+        "operationId": "getExtractedContent",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/EntryId"
+          },
+          {
+            "$ref": "#/components/parameters/GenerationId"
+          },
+          {
+            "$ref": "#/components/parameters/ExtractionKind"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Protected exact-generation extracted content. Requires almira.extracted_content.read.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtractedContent"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
           },
           "503": {
             "$ref": "#/components/responses/Unavailable"
@@ -1420,6 +1722,108 @@
           },
           "416": {
             "$ref": "#/components/responses/RangeNotSatisfiable"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/extraction": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "get": {
+        "operationId": "getCollectionExtraction",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current collection extraction controls.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectionExtractionConfig"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      },
+      "put": {
+        "operationId": "replaceCollectionExtraction",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/OperationId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplaceCollectionExtractionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Extraction controls replaced or exactly replayed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtractionConfigOutcome"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
           },
           "503": {
             "$ref": "#/components/responses/Unavailable"
@@ -2284,6 +2688,22 @@
           "$ref": "#/components/schemas/UuidV7"
         }
       },
+      "GenerationId": {
+        "name": "generation_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/UuidV7"
+        }
+      },
+      "ExtractionKind": {
+        "name": "kind",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/ExtractionKind"
+        }
+      },
       "OperationId": {
         "name": "Idempotency-Key",
         "in": "header",
@@ -3039,6 +3459,417 @@
           }
         }
       },
+      "MetadataComponentName": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64,
+        "pattern": "^[a-z]([a-z0-9._-]{0,62}[a-z0-9])?$"
+      },
+      "CustomMetadataValue": {
+        "oneOf": [
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "integer"
+          },
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          }
+        ]
+      },
+      "CustomerMetadataInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "tags",
+          "custom"
+        ],
+        "properties": {
+          "tags": {
+            "type": "array",
+            "maxItems": 32,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/components/schemas/MetadataComponentName"
+            }
+          },
+          "custom": {
+            "type": "object",
+            "maxProperties": 32,
+            "propertyNames": {
+              "pattern": "^[a-z]([a-z0-9._-]{0,62}[a-z0-9])?$"
+            },
+            "additionalProperties": {
+              "$ref": "#/components/schemas/CustomMetadataValue"
+            }
+          }
+        }
+      },
+      "EntryMetadata": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "entry_id",
+          "namespace",
+          "tags",
+          "custom",
+          "revision",
+          "updated_at"
+        ],
+        "properties": {
+          "entry_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "namespace": {
+            "const": "customer"
+          },
+          "tags": {
+            "type": "array",
+            "maxItems": 32,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/components/schemas/MetadataComponentName"
+            }
+          },
+          "custom": {
+            "type": "object",
+            "maxProperties": 32,
+            "propertyNames": {
+              "pattern": "^[a-z]([a-z0-9._-]{0,62}[a-z0-9])?$"
+            },
+            "additionalProperties": {
+              "$ref": "#/components/schemas/CustomMetadataValue"
+            }
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "updated_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        }
+      },
+      "ReplaceEntryMetadataRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "expected_revision",
+          "metadata"
+        ],
+        "properties": {
+          "expected_revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/CustomerMetadataInput"
+          }
+        }
+      },
+      "MetadataMutationOutcome": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "disposition",
+          "metadata"
+        ],
+        "properties": {
+          "disposition": {
+            "type": "string",
+            "enum": [
+              "applied",
+              "exact_replay"
+            ]
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/EntryMetadata"
+          }
+        }
+      },
+      "ExtractionKind": {
+        "type": "string",
+        "enum": [
+          "technical",
+          "content",
+          "ocr",
+          "transcription"
+        ]
+      },
+      "ExtractionState": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "running",
+          "succeeded",
+          "failed",
+          "unsupported"
+        ]
+      },
+      "ExtractionLimits": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "input_bytes",
+          "output_bytes",
+          "wall_time_seconds"
+        ],
+        "properties": {
+          "input_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10737418240
+          },
+          "output_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2097152
+          },
+          "wall_time_seconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 600
+          }
+        }
+      },
+      "GenerationExtraction": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "entry_id",
+          "generation_id",
+          "kind",
+          "state",
+          "source_content_sha256",
+          "extractor_name",
+          "extractor_version",
+          "limits",
+          "safe_result",
+          "failure_code",
+          "attempt_count",
+          "revision",
+          "updated_at"
+        ],
+        "properties": {
+          "entry_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "generation_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ExtractionKind"
+          },
+          "state": {
+            "$ref": "#/components/schemas/ExtractionState"
+          },
+          "source_content_sha256": {
+            "$ref": "#/components/schemas/ContentSha256"
+          },
+          "extractor_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 96,
+            "pattern": "^[a-z]([a-z0-9._-]*[a-z0-9])?$"
+          },
+          "extractor_version": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z]([a-z0-9._-]*[a-z0-9])?$"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/ExtractionLimits"
+          },
+          "safe_result": {
+            "type": "object"
+          },
+          "failure_code": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^ALMIRA_EXTRACTION_[A-Z0-9_]{1,75}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "attempt_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "updated_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        }
+      },
+      "ExtractedContent": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "entry_id",
+          "generation_id",
+          "kind",
+          "source_content_sha256",
+          "extractor_name",
+          "extractor_version",
+          "media_type",
+          "content",
+          "truncated",
+          "revision"
+        ],
+        "properties": {
+          "entry_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "generation_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "content",
+              "ocr",
+              "transcription"
+            ]
+          },
+          "source_content_sha256": {
+            "$ref": "#/components/schemas/ContentSha256"
+          },
+          "extractor_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 96
+          },
+          "extractor_version": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "media_type": {
+            "$ref": "#/components/schemas/MediaType"
+          },
+          "content": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2097152,
+            "x-sensitive": true
+          },
+          "truncated": {
+            "type": "boolean"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "CollectionExtractionInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "content",
+          "ocr",
+          "transcription"
+        ],
+        "properties": {
+          "content": {
+            "type": "boolean"
+          },
+          "ocr": {
+            "type": "boolean"
+          },
+          "transcription": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CollectionExtractionConfig": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "collection_instance_id",
+          "technical_metadata",
+          "content",
+          "ocr",
+          "transcription",
+          "vector_indexing",
+          "revision",
+          "updated_at"
+        ],
+        "properties": {
+          "collection_instance_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "technical_metadata": {
+            "const": true
+          },
+          "content": {
+            "type": "boolean"
+          },
+          "ocr": {
+            "type": "boolean"
+          },
+          "transcription": {
+            "type": "boolean"
+          },
+          "vector_indexing": {
+            "type": "boolean"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "updated_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        }
+      },
+      "ReplaceCollectionExtractionRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "expected_revision",
+          "config"
+        ],
+        "properties": {
+          "expected_revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "config": {
+            "$ref": "#/components/schemas/CollectionExtractionInput"
+          }
+        }
+      },
+      "ExtractionConfigOutcome": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "disposition",
+          "config"
+        ],
+        "properties": {
+          "disposition": {
+            "type": "string",
+            "enum": [
+              "applied",
+              "exact_replay"
+            ]
+          },
+          "config": {
+            "$ref": "#/components/schemas/CollectionExtractionConfig"
+          }
+        }
+      },
       "Collection": {
         "type": "object",
         "additionalProperties": false,
@@ -3054,6 +3885,8 @@
           "technical_metadata_extraction",
           "malware_scan_required",
           "content_extraction",
+          "ocr_extraction",
+          "transcription_extraction",
           "vector_indexing",
           "delivery_mode",
           "revision",
@@ -3106,7 +3939,13 @@
             "type": "boolean"
           },
           "content_extraction": {
-            "const": false
+            "type": "boolean"
+          },
+          "ocr_extraction": {
+            "type": "boolean"
+          },
+          "transcription_extraction": {
+            "type": "boolean"
           },
           "vector_indexing": {
             "const": false
@@ -3784,6 +4623,9 @@
           "logical_path",
           "lifecycle",
           "revision",
+          "metadata_revision",
+          "tags",
+          "custom_metadata",
           "current_generation_id",
           "current_generation",
           "deleted_at",
@@ -3810,6 +4652,28 @@
           "revision": {
             "type": "integer",
             "minimum": 1
+          },
+          "metadata_revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "tags": {
+            "type": "array",
+            "maxItems": 32,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/components/schemas/MetadataComponentName"
+            }
+          },
+          "custom_metadata": {
+            "type": "object",
+            "maxProperties": 32,
+            "propertyNames": {
+              "pattern": "^[a-z]([a-z0-9._-]{0,62}[a-z0-9])?$"
+            },
+            "additionalProperties": {
+              "$ref": "#/components/schemas/CustomMetadataValue"
+            }
           },
           "current_generation_id": {
             "oneOf": [
