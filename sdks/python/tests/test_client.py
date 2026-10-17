@@ -20,10 +20,13 @@ from almira import (  # noqa: E402
     CapabilityResource,
     CollectionReference,
     CreateCapabilitySessionRequest,
+    CreateUploadRequest,
+    DirectUploadPartCompletion,
     DerivativeReference,
     FileReference,
     HttpResponse,
     ImmutableGenerationReference,
+    FinalizeUploadRequest,
     RetryPolicy,
 )
 from almira import __contract_version__  # noqa: E402
@@ -301,6 +304,7 @@ class AlmiraPythonSdkTest(unittest.TestCase):
             data_transport=exchange,
         )
         self.assertEqual(session.grant.token, CAPABILITY)
+        self.assertNotIn(CAPABILITY, repr(session.grant))
         session.data_client.get_file_metadata_with_capability(self.file)
         self.assertEqual(server.revoke_capability_session(self.collection, REQUEST, operation_id=GENERATION), "applied")
         self.assertEqual(calls[0][2]["authorization"], "MetamorphWorkload workload_session_evidence")
@@ -310,6 +314,96 @@ class AlmiraPythonSdkTest(unittest.TestCase):
         self.assertNotIn("x-almira-tenant-id", calls[1][2])
         self.assertEqual(calls[2][2]["authorization"], "MetamorphWorkload workload_session_evidence")
         self.assertEqual(calls[2][0], "DELETE")
+
+    def test_server_upload_create_and_finalize_preserve_descriptor_evidence(self) -> None:
+        calls: list[tuple[str, str, dict[str, str], bytes | None]] = []
+        descriptor_id = "018f0000-0000-7000-8000-000000000011"
+        content_sha256 = f"sha256:{'a' * 64}"
+
+        def upload_api(
+            method: str,
+            url: str,
+            headers: dict[str, str],
+            body: bytes | None,
+        ) -> HttpResponse:
+            calls.append((method, url, dict(headers), body))
+            if url.endswith("/uploads"):
+                return response(
+                    {
+                        "transfer_session_id": REQUEST,
+                        "entry_id": ENTRY,
+                        "generation_id": GENERATION,
+                        "descriptor": {
+                            "descriptor_id": descriptor_id,
+                            "protocol": "single_put",
+                            "requests": [{
+                                "part_number": 1,
+                                "offset_bytes": 0,
+                                "length_bytes": 5,
+                                "method": "PUT",
+                                "url": "https://objects.example/one-use-secret",
+                                "headers": [{"name": "content-type", "value": "text/plain"}],
+                                "one_use": True,
+                            }],
+                            "expected_size_bytes": 5,
+                            "content_sha256": content_sha256,
+                            "one_use": True,
+                            "expires_at": "2026-10-17T12:00:00Z",
+                        },
+                    },
+                    201,
+                )
+            return response({
+                "entry_id": ENTRY,
+                "generation_id": GENERATION,
+                "generation_number": 1,
+                "state": "available",
+                "expected_size_bytes": 5,
+                "content_sha256": content_sha256,
+                "declared_media_type": "text/plain",
+                "malware_scan_requirement": "required",
+                "safety_state": "clean",
+                "revision": 1,
+                "created_at": "2026-10-17T12:00:00Z",
+            })
+
+        server = AlmiraServerClient(
+            base_url="https://almira.test",
+            workload_session="workload_session_evidence",
+            transport=upload_api,
+        )
+        created = server.create_upload(
+            self.collection,
+            CreateUploadRequest("avatars/me.txt", 5, content_sha256, "text/plain"),
+            operation_id=GENERATION,
+        )
+        self.assertNotIn("one-use-secret", repr(created))
+        finalized = server.finalize_upload(
+            self.collection,
+            created.transfer_session_id,
+            FinalizeUploadRequest(
+                created.descriptor.descriptor_id,
+                "single_put",
+                '"etag-one"',
+                "provider-v1",
+                (DirectUploadPartCompletion(1, '"etag-one"'),),
+                5,
+                content_sha256,
+            ),
+            operation_id=GENERATION,
+        )
+        self.assertEqual(finalized.state, "available")
+        self.assertTrue(calls[0][1].endswith(f"/collections/{COLLECTION}/uploads"))
+        self.assertTrue(calls[1][1].endswith(f"/uploads/{REQUEST}/finalize"))
+        self.assertEqual(json.loads(calls[1][3] or b"{}"), {
+            "descriptor_id": descriptor_id,
+            "protocol": "single_put",
+            "etag": '"etag-one"',
+            "provider_version": "provider-v1",
+            "parts": [{"part_number": 1, "etag": '"etag-one"'}],
+            "size_bytes": 5,
+            "content_sha256": content_sha256,
+        })
 
     def test_malformed_transport_response_is_stable_and_closed(self) -> None:
         body = io.StringIO("not bytes")

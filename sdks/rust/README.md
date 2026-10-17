@@ -40,5 +40,8 @@ never replayed after it has been returned.
 `create_capability_data_client` exchange returns the bounded sensitive grant and a ready data
 client without copying workload evidence into capability requests. Revocation is explicit and is
 never retried implicitly.
+`create_upload` and `finalize_upload` expose the durable upload ceremony without accepting a
+provider credential; one-use descriptor URLs, signed headers and capability tokens are redacted
+from `Debug` output.
 
 Run `cargo test` in this directory, or `pnpm check` at the public repository root.

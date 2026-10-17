@@ -36,5 +36,8 @@ its body.
 `CreateCapabilityDataClient` exchange returns the bounded sensitive grant and a ready data client;
 the workload evidence is never copied into capability requests. Revocation retains an explicit
 operation identity and is never retried implicitly.
+`CreateUpload` and `FinalizeUpload` expose the ordinary durable upload ceremony without admitting a
+provider credential; one-use descriptor URLs, signed headers and capability tokens are redacted
+from SDK formatting.
 
 Run `go test ./...` in this directory, or `pnpm check` at the public repository root.

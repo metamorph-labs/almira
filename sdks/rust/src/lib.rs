@@ -7,7 +7,9 @@ pub use client::{Client, ClientOptions, RetryPolicy};
 pub use error::{ApiError, ClientError, Error};
 pub use server::{
     BuilderSubject, CapabilityDataClientOptions, CapabilityDataClientSession, CapabilityResource,
-    CapabilitySessionGrant, CreateCapabilitySessionRequest, ReadAccessOperation, ServerClient,
+    CapabilitySessionGrant, CreateCapabilitySessionRequest, CreateUploadOutcome,
+    CreateUploadRequest, DirectUploadDescriptor, DirectUploadHeader, DirectUploadPart,
+    DirectUploadPartCompletion, FinalizeUploadRequest, ReadAccessOperation, ServerClient,
     ServerClientOptions,
 };
 pub use types::*;

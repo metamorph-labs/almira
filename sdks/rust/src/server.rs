@@ -1,6 +1,6 @@
 use crate::client::{
     Client, ClientOptions, RetryPolicy, api_error, bounded_body, endpoint, valid_capability,
-    valid_logical_path, valid_timestamp, valid_uuid_v7,
+    valid_logical_path, valid_media_type, valid_timestamp, valid_uuid_v7,
 };
 use crate::error::{Error, client_error, invalid_input, invalid_response};
 use crate::types::CollectionReference;
@@ -9,6 +9,7 @@ use reqwest::{Method, StatusCode, Url};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
+use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -49,7 +50,7 @@ pub struct CreateCapabilitySessionRequest {
     pub lifetime_seconds: u16,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
+#[derive(Clone, Eq, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CapabilitySessionGrant {
     pub session_id: String,
@@ -60,6 +61,132 @@ pub struct CapabilitySessionGrant {
     pub policy_revision: u64,
     pub issuer_epoch: u64,
     pub expires_at: String,
+}
+
+impl Debug for CapabilitySessionGrant {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("CapabilitySessionGrant")
+            .field("session_id", &self.session_id)
+            .field("token", &"[REDACTED]")
+            .field("operations", &self.operations)
+            .field("resource", &self.resource)
+            .field("audience", &self.audience)
+            .field("policy_revision", &self.policy_revision)
+            .field("issuer_epoch", &self.issuer_epoch)
+            .field("expires_at", &self.expires_at)
+            .finish()
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct CreateUploadRequest {
+    pub path: String,
+    pub expected_size_bytes: u64,
+    pub content_sha256: String,
+    pub declared_media_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub browser_origin: Option<String>,
+}
+
+#[derive(Clone, Eq, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DirectUploadHeader {
+    pub name: String,
+    pub value: String,
+}
+
+impl Debug for DirectUploadHeader {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("DirectUploadHeader")
+            .field("name", &self.name)
+            .field("value", &"[REDACTED]")
+            .finish()
+    }
+}
+
+#[derive(Clone, Eq, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DirectUploadPart {
+    pub part_number: u16,
+    pub offset_bytes: u64,
+    pub length_bytes: u64,
+    pub method: String,
+    pub url: String,
+    pub headers: Vec<DirectUploadHeader>,
+    pub one_use: bool,
+}
+
+impl Debug for DirectUploadPart {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("DirectUploadPart")
+            .field("part_number", &self.part_number)
+            .field("offset_bytes", &self.offset_bytes)
+            .field("length_bytes", &self.length_bytes)
+            .field("method", &self.method)
+            .field("url", &"[REDACTED]")
+            .field("headers", &"[REDACTED]")
+            .field("one_use", &self.one_use)
+            .finish()
+    }
+}
+
+#[derive(Clone, Eq, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DirectUploadDescriptor {
+    pub descriptor_id: String,
+    pub protocol: String,
+    pub requests: Vec<DirectUploadPart>,
+    pub expected_size_bytes: u64,
+    pub content_sha256: String,
+    pub one_use: bool,
+    pub expires_at: String,
+}
+
+impl Debug for DirectUploadDescriptor {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("DirectUploadDescriptor")
+            .field("descriptor_id", &self.descriptor_id)
+            .field("protocol", &self.protocol)
+            .field("requests", &"[REDACTED]")
+            .field("expected_size_bytes", &self.expected_size_bytes)
+            .field("content_sha256", &self.content_sha256)
+            .field("one_use", &self.one_use)
+            .field("expires_at", &self.expires_at)
+            .finish()
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CreateUploadOutcome {
+    pub transfer_session_id: String,
+    pub entry_id: String,
+    pub generation_id: String,
+    pub descriptor: DirectUploadDescriptor,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct DirectUploadPartCompletion {
+    pub part_number: u16,
+    pub etag: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct FinalizeUploadRequest {
+    pub descriptor_id: String,
+    pub protocol: String,
+    pub etag: Option<String>,
+    pub provider_version: Option<String>,
+    pub parts: Vec<DirectUploadPartCompletion>,
+    pub size_bytes: u64,
+    pub content_sha256: String,
 }
 
 #[derive(Clone)]
@@ -162,6 +289,59 @@ impl ServerClient {
             .await?;
         validate_grant(&grant)?;
         Ok(grant)
+    }
+
+    pub async fn create_upload(
+        &self,
+        reference: &CollectionReference,
+        request: &CreateUploadRequest,
+        operation_id: &str,
+    ) -> Result<CreateUploadOutcome, Error> {
+        validate_create_upload_request(request)?;
+        let path = management_collection_path(reference, "/uploads")?;
+        let outcome = self
+            .request_json(
+                Method::POST,
+                &path,
+                &reference.tenant_id,
+                operation_id,
+                Some(request),
+                StatusCode::CREATED,
+            )
+            .await?;
+        validate_create_upload_outcome(&outcome)?;
+        Ok(outcome)
+    }
+
+    pub async fn finalize_upload(
+        &self,
+        reference: &CollectionReference,
+        transfer_session_id: &str,
+        request: &FinalizeUploadRequest,
+        operation_id: &str,
+    ) -> Result<crate::types::FileGeneration, Error> {
+        if !valid_uuid_v7(transfer_session_id) {
+            return Err(invalid_input());
+        }
+        validate_finalize_upload_request(request)?;
+        let path = management_collection_path(
+            reference,
+            &format!("/uploads/{transfer_session_id}/finalize"),
+        )?;
+        let generation = self
+            .request_json(
+                Method::POST,
+                &path,
+                &reference.tenant_id,
+                operation_id,
+                Some(request),
+                StatusCode::OK,
+            )
+            .await?;
+        if !valid_file_generation(&generation) {
+            return Err(invalid_response());
+        }
+        Ok(generation)
     }
 
     pub async fn create_capability_data_client(
@@ -324,6 +504,197 @@ fn validate_grant(grant: &CapabilitySessionGrant) -> Result<(), Error> {
         return Err(invalid_response());
     }
     Ok(())
+}
+
+fn validate_create_upload_request(request: &CreateUploadRequest) -> Result<(), Error> {
+    if !valid_logical_path(&request.path)
+        || request.expected_size_bytes == 0
+        || request.expected_size_bytes > 10_737_418_240
+        || !valid_content_sha256(&request.content_sha256)
+        || !valid_media_type(&request.declared_media_type)
+        || request
+            .browser_origin
+            .as_ref()
+            .is_some_and(|value| !valid_browser_origin(value))
+    {
+        return Err(invalid_input());
+    }
+    Ok(())
+}
+
+fn validate_create_upload_outcome(outcome: &CreateUploadOutcome) -> Result<(), Error> {
+    if !valid_uuid_v7(&outcome.transfer_session_id)
+        || !valid_uuid_v7(&outcome.entry_id)
+        || !valid_uuid_v7(&outcome.generation_id)
+        || !valid_direct_upload_descriptor(&outcome.descriptor)
+    {
+        return Err(invalid_response());
+    }
+    Ok(())
+}
+
+fn valid_direct_upload_descriptor(descriptor: &DirectUploadDescriptor) -> bool {
+    if !valid_uuid_v7(&descriptor.descriptor_id)
+        || !matches!(descriptor.protocol.as_str(), "single_put" | "multipart")
+        || descriptor.protocol == "single_put" && descriptor.requests.len() != 1
+        || descriptor.protocol == "multipart" && !(2..=256).contains(&descriptor.requests.len())
+        || descriptor.expected_size_bytes == 0
+        || descriptor.expected_size_bytes > 10_737_418_240
+        || !valid_content_sha256(&descriptor.content_sha256)
+        || !descriptor.one_use
+        || !valid_timestamp(&descriptor.expires_at)
+    {
+        return false;
+    }
+    let mut offset = 0_u64;
+    for (index, part) in descriptor.requests.iter().enumerate() {
+        if part.part_number != u16::try_from(index + 1).unwrap_or(u16::MAX)
+            || part.offset_bytes != offset
+            || part.length_bytes == 0
+            || part.method != "PUT"
+            || !part.one_use
+            || !valid_transfer_url(&part.url)
+            || part.headers.len() > 32
+        {
+            return false;
+        }
+        let mut names = BTreeSet::new();
+        for header in &part.headers {
+            if !valid_header_name(&header.name)
+                || header.value.is_empty()
+                || header.value.len() > 4096
+                || header.value.chars().any(char::is_control)
+                || !names.insert(&header.name)
+            {
+                return false;
+            }
+        }
+        let Some(next) = offset.checked_add(part.length_bytes) else {
+            return false;
+        };
+        offset = next;
+    }
+    offset == descriptor.expected_size_bytes
+}
+
+fn validate_finalize_upload_request(request: &FinalizeUploadRequest) -> Result<(), Error> {
+    if !valid_uuid_v7(&request.descriptor_id)
+        || !matches!(request.protocol.as_str(), "single_put" | "multipart")
+        || request
+            .etag
+            .as_ref()
+            .is_some_and(|value| !valid_provider_receipt(value))
+        || request
+            .provider_version
+            .as_ref()
+            .is_some_and(|value| !valid_provider_version(value))
+        || request.size_bytes == 0
+        || request.size_bytes > 10_737_418_240
+        || !valid_content_sha256(&request.content_sha256)
+        || !valid_completion_parts(&request.protocol, &request.parts)
+        || request.protocol == "single_put"
+            && (request.etag.is_none()
+                || request.parts.first().map(|part| &part.etag) != request.etag.as_ref())
+        || request.protocol == "multipart"
+            && (request.etag.is_some() || request.provider_version.is_some())
+    {
+        return Err(invalid_input());
+    }
+    Ok(())
+}
+
+fn valid_completion_parts(protocol: &str, parts: &[DirectUploadPartCompletion]) -> bool {
+    let count_valid = if protocol == "single_put" {
+        parts.len() == 1
+    } else {
+        (2..=256).contains(&parts.len())
+    };
+    count_valid
+        && parts.iter().enumerate().all(|(index, part)| {
+            part.part_number == u16::try_from(index + 1).unwrap_or(u16::MAX)
+                && valid_provider_receipt(&part.etag)
+        })
+}
+
+fn valid_file_generation(generation: &crate::types::FileGeneration) -> bool {
+    valid_uuid_v7(&generation.entry_id)
+        && valid_uuid_v7(&generation.generation_id)
+        && generation.generation_number > 0
+        && matches!(
+            generation.state.as_str(),
+            "pending_transfer" | "aborted" | "safety_pending" | "available" | "unavailable"
+        )
+        && generation.expected_size_bytes > 0
+        && generation.expected_size_bytes <= 10_737_418_240
+        && valid_content_sha256(&generation.content_sha256)
+        && valid_media_type(&generation.declared_media_type)
+        && matches!(
+            generation.malware_scan_requirement.as_str(),
+            "not_required" | "required"
+        )
+        && matches!(
+            generation.safety_state.as_str(),
+            "not_required" | "scan_pending" | "clean" | "blocked"
+        )
+        && generation.revision > 0
+        && valid_timestamp(&generation.created_at)
+}
+
+fn valid_content_sha256(value: &str) -> bool {
+    value.strip_prefix("sha256:").is_some_and(|digest| {
+        digest.len() == 64
+            && digest
+                .bytes()
+                .all(|byte| byte.is_ascii_digit() || matches!(byte, b'a'..=b'f'))
+    })
+}
+
+fn valid_provider_receipt(value: &str) -> bool {
+    (1..=256).contains(&value.len()) && value.bytes().all(|byte| (b'!'..=b'~').contains(&byte))
+}
+
+fn valid_provider_version(value: &str) -> bool {
+    valid_provider_receipt(value)
+        && !value
+            .bytes()
+            .any(|byte| matches!(byte, b'/' | b'?' | b'#' | b'\\'))
+}
+
+fn valid_header_name(value: &str) -> bool {
+    (1..=128).contains(&value.len())
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
+}
+
+fn valid_transfer_url(value: &str) -> bool {
+    if value.len() > 8192 || value.chars().any(char::is_control) || value.contains([' ', '\\']) {
+        return false;
+    }
+    Url::parse(value).is_ok_and(|url| {
+        url.scheme() == "https"
+            && url.host_str().is_some()
+            && url.username().is_empty()
+            && url.password().is_none()
+            && url.fragment().is_none()
+    })
+}
+
+fn valid_browser_origin(value: &str) -> bool {
+    endpoint(value, true).is_ok_and(|url| {
+        (url.scheme() == "https"
+            && url.host_str().is_some_and(|host| {
+                let host = host.as_bytes();
+                !host.is_empty()
+                    && (host[0].is_ascii_lowercase() || host[0].is_ascii_digit())
+                    && host.iter().all(|byte| {
+                        byte.is_ascii_lowercase()
+                            || byte.is_ascii_digit()
+                            || matches!(byte, b'.' | b'-')
+                    })
+            }))
+            || (url.scheme() == "http" && matches!(url.host_str(), Some("localhost" | "127.0.0.1")))
+    })
 }
 
 fn validate_resource(resource: &CapabilityResource) -> Result<(), Error> {

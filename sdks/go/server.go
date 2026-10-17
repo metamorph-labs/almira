@@ -8,7 +8,9 @@ import (
 	"io"
 	"mime"
 	"net/http"
+	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -17,6 +19,9 @@ import (
 var (
 	workloadSessionPattern = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
 	labelPattern           = regexp.MustCompile(`^[a-z][a-z0-9._:-]{0,63}$`)
+	contentSHA256Pattern   = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
+	headerNamePattern      = regexp.MustCompile(`^[a-z0-9-]{1,128}$`)
+	browserHostPattern     = regexp.MustCompile(`^[a-z0-9][a-z0-9.-]*$`)
 )
 
 type WorkloadSessionProvider func(context.Context) (string, error)
@@ -53,6 +58,85 @@ type CapabilitySessionGrant struct {
 	ExpiresAt      string             `json:"expires_at"`
 }
 
+func (grant CapabilitySessionGrant) String() string {
+	return "CapabilitySessionGrant{SessionID:" + grant.SessionID + ", Token:[REDACTED], Audience:" + grant.Audience + "}"
+}
+
+func (grant CapabilitySessionGrant) GoString() string { return grant.String() }
+
+type CreateUploadRequest struct {
+	Path              string  `json:"path"`
+	ExpectedSizeBytes int64   `json:"expected_size_bytes"`
+	ContentSHA256     string  `json:"content_sha256"`
+	DeclaredMediaType string  `json:"declared_media_type"`
+	BrowserOrigin     *string `json:"browser_origin,omitempty"`
+}
+
+type DirectUploadHeader struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
+
+func (header DirectUploadHeader) String() string {
+	return "DirectUploadHeader{Name:" + header.Name + ", Value:[REDACTED]}"
+}
+
+func (header DirectUploadHeader) GoString() string { return header.String() }
+
+type DirectUploadPart struct {
+	PartNumber  int                  `json:"part_number"`
+	OffsetBytes int64                `json:"offset_bytes"`
+	LengthBytes int64                `json:"length_bytes"`
+	Method      string               `json:"method"`
+	URL         string               `json:"url"`
+	Headers     []DirectUploadHeader `json:"headers"`
+	OneUse      bool                 `json:"one_use"`
+}
+
+func (part DirectUploadPart) String() string {
+	return "DirectUploadPart{PartNumber:" + strconv.Itoa(part.PartNumber) + ", URL:[REDACTED], Headers:[REDACTED]}"
+}
+
+func (part DirectUploadPart) GoString() string { return part.String() }
+
+type DirectUploadDescriptor struct {
+	DescriptorID      string             `json:"descriptor_id"`
+	Protocol          string             `json:"protocol"`
+	Requests          []DirectUploadPart `json:"requests"`
+	ExpectedSizeBytes int64              `json:"expected_size_bytes"`
+	ContentSHA256     string             `json:"content_sha256"`
+	OneUse            bool               `json:"one_use"`
+	ExpiresAt         string             `json:"expires_at"`
+}
+
+func (descriptor DirectUploadDescriptor) String() string {
+	return "DirectUploadDescriptor{DescriptorID:" + descriptor.DescriptorID + ", Requests:[REDACTED]}"
+}
+
+func (descriptor DirectUploadDescriptor) GoString() string { return descriptor.String() }
+
+type CreateUploadOutcome struct {
+	TransferSessionID string                 `json:"transfer_session_id"`
+	EntryID           string                 `json:"entry_id"`
+	GenerationID      string                 `json:"generation_id"`
+	Descriptor        DirectUploadDescriptor `json:"descriptor"`
+}
+
+type DirectUploadPartCompletion struct {
+	PartNumber int    `json:"part_number"`
+	ETag       string `json:"etag"`
+}
+
+type FinalizeUploadRequest struct {
+	DescriptorID    string                       `json:"descriptor_id"`
+	Protocol        string                       `json:"protocol"`
+	ETag            *string                      `json:"etag"`
+	ProviderVersion *string                      `json:"provider_version"`
+	Parts           []DirectUploadPartCompletion `json:"parts"`
+	SizeBytes       int64                        `json:"size_bytes"`
+	ContentSHA256   string                       `json:"content_sha256"`
+}
+
 type ServerClientOptions struct {
 	BaseURL                 string
 	WorkloadSession         string
@@ -72,12 +156,22 @@ type CapabilityDataClientSession struct {
 	DataClient *Client
 }
 
+func (session CapabilityDataClientSession) String() string {
+	return "CapabilityDataClientSession{Grant:" + session.Grant.String() + ", DataClient:[REDACTED]}"
+}
+
+func (session CapabilityDataClientSession) GoString() string { return session.String() }
+
 type ServerClient struct {
 	baseURL                 string
 	workloadSession         string
 	workloadSessionProvider WorkloadSessionProvider
 	http                    *http.Client
 }
+
+func (c *ServerClient) String() string { return "almira.ServerClient{workloadSession:[REDACTED]}" }
+
+func (c *ServerClient) GoString() string { return c.String() }
 
 func NewServerClient(options ServerClientOptions) (*ServerClient, error) {
 	base, err := parseEndpoint(options.BaseURL, false)
@@ -131,6 +225,58 @@ func (c *ServerClient) CreateCapabilitySession(
 		return zero, err
 	}
 	return grant, nil
+}
+
+func (c *ServerClient) CreateUpload(
+	ctx context.Context,
+	reference CollectionReference,
+	request CreateUploadRequest,
+	operationID string,
+) (CreateUploadOutcome, error) {
+	var zero CreateUploadOutcome
+	if err := validateCreateUploadRequest(request); err != nil {
+		return zero, err
+	}
+	path, err := managementCollectionPath(reference, "/uploads")
+	if err != nil {
+		return zero, err
+	}
+	outcome, err := serverRequestJSON[CreateUploadOutcome](c, ctx, http.MethodPost, path, reference.TenantID, operationID, request, http.StatusCreated)
+	if err != nil {
+		return zero, err
+	}
+	if err := validateCreateUploadOutcome(outcome); err != nil {
+		return zero, err
+	}
+	return outcome, nil
+}
+
+func (c *ServerClient) FinalizeUpload(
+	ctx context.Context,
+	reference CollectionReference,
+	transferSessionID string,
+	request FinalizeUploadRequest,
+	operationID string,
+) (FileGeneration, error) {
+	var zero FileGeneration
+	if _, err := uuid(transferSessionID); err != nil {
+		return zero, err
+	}
+	if err := validateFinalizeUploadRequest(request); err != nil {
+		return zero, err
+	}
+	path, err := managementCollectionPath(reference, "/uploads/"+transferSessionID+"/finalize")
+	if err != nil {
+		return zero, err
+	}
+	generation, err := serverRequestJSON[FileGeneration](c, ctx, http.MethodPost, path, reference.TenantID, operationID, request, http.StatusOK)
+	if err != nil {
+		return zero, err
+	}
+	if !validFileGeneration(generation) {
+		return zero, invalidResponse()
+	}
+	return generation, nil
 }
 
 func (c *ServerClient) CreateCapabilityDataClient(
@@ -301,6 +447,128 @@ func validateCapabilityGrant(grant CapabilitySessionGrant) error {
 		return invalidResponse()
 	}
 	return nil
+}
+
+func validateCreateUploadRequest(request CreateUploadRequest) error {
+	if !validLogicalPath(request.Path) || request.ExpectedSizeBytes < 1 || request.ExpectedSizeBytes > 10_737_418_240 ||
+		!contentSHA256Pattern.MatchString(request.ContentSHA256) || len(request.DeclaredMediaType) > 127 ||
+		!mediaTypePattern.MatchString(request.DeclaredMediaType) {
+		return invalidInput()
+	}
+	if request.BrowserOrigin != nil && !validBrowserOrigin(*request.BrowserOrigin) {
+		return invalidInput()
+	}
+	return nil
+}
+
+func validateCreateUploadOutcome(outcome CreateUploadOutcome) error {
+	if !uuidV7Pattern.MatchString(outcome.TransferSessionID) || !uuidV7Pattern.MatchString(outcome.EntryID) ||
+		!uuidV7Pattern.MatchString(outcome.GenerationID) || !validDirectUploadDescriptor(outcome.Descriptor) {
+		return invalidResponse()
+	}
+	return nil
+}
+
+func validDirectUploadDescriptor(descriptor DirectUploadDescriptor) bool {
+	if !uuidV7Pattern.MatchString(descriptor.DescriptorID) ||
+		descriptor.Protocol != "single_put" && descriptor.Protocol != "multipart" ||
+		descriptor.Protocol == "single_put" && len(descriptor.Requests) != 1 ||
+		descriptor.Protocol == "multipart" && (len(descriptor.Requests) < 2 || len(descriptor.Requests) > 256) ||
+		descriptor.ExpectedSizeBytes < 1 || descriptor.ExpectedSizeBytes > 10_737_418_240 ||
+		!contentSHA256Pattern.MatchString(descriptor.ContentSHA256) || !descriptor.OneUse || !validTimestamp(descriptor.ExpiresAt) {
+		return false
+	}
+	var offset int64
+	for index, part := range descriptor.Requests {
+		if part.PartNumber != index+1 || part.OffsetBytes != offset || part.LengthBytes < 1 ||
+			part.Method != http.MethodPut || !part.OneUse || !validTransferURL(part.URL) || len(part.Headers) > 32 {
+			return false
+		}
+		names := make(map[string]struct{}, len(part.Headers))
+		for _, header := range part.Headers {
+			if !headerNamePattern.MatchString(header.Name) || header.Value == "" || len(header.Value) > 4096 ||
+				hasControls(header.Value) {
+				return false
+			}
+			if _, exists := names[header.Name]; exists {
+				return false
+			}
+			names[header.Name] = struct{}{}
+		}
+		if part.LengthBytes > 10_737_418_240-offset {
+			return false
+		}
+		offset += part.LengthBytes
+	}
+	return offset == descriptor.ExpectedSizeBytes
+}
+
+func validateFinalizeUploadRequest(request FinalizeUploadRequest) error {
+	if !uuidV7Pattern.MatchString(request.DescriptorID) ||
+		request.Protocol != "single_put" && request.Protocol != "multipart" ||
+		request.ETag != nil && !validProviderReceipt(*request.ETag) ||
+		request.ProviderVersion != nil && !validProviderVersion(*request.ProviderVersion) ||
+		request.SizeBytes < 1 || request.SizeBytes > 10_737_418_240 ||
+		!contentSHA256Pattern.MatchString(request.ContentSHA256) || !validCompletionParts(request.Protocol, request.Parts) {
+		return invalidInput()
+	}
+	if request.Protocol == "single_put" && (request.ETag == nil || request.Parts[0].ETag != *request.ETag) ||
+		request.Protocol == "multipart" && (request.ETag != nil || request.ProviderVersion != nil) {
+		return invalidInput()
+	}
+	return nil
+}
+
+func validCompletionParts(protocol string, parts []DirectUploadPartCompletion) bool {
+	if protocol == "single_put" && len(parts) != 1 || protocol == "multipart" && (len(parts) < 2 || len(parts) > 256) {
+		return false
+	}
+	for index, part := range parts {
+		if part.PartNumber != index+1 || !validProviderReceipt(part.ETag) {
+			return false
+		}
+	}
+	return true
+}
+
+func validProviderReceipt(value string) bool {
+	return len(value) >= 1 && len(value) <= 256 && !hasControls(value) && strings.IndexFunc(value, func(r rune) bool { return r < '!' || r > '~' }) == -1
+}
+
+func validProviderVersion(value string) bool {
+	return validProviderReceipt(value) && !strings.ContainsAny(value, "/?#\\")
+}
+
+func validTransferURL(value string) bool {
+	parsed, err := url.Parse(value)
+	return err == nil && parsed.Scheme == "https" && parsed.Host != "" && parsed.User == nil && parsed.Fragment == "" &&
+		len(value) <= 8192 && !hasControls(value) && !strings.Contains(value, "\\")
+}
+
+func validBrowserOrigin(value string) bool {
+	parsed, err := parseEndpoint(value, true)
+	if err != nil || parsed.Port() != "" {
+		if err != nil {
+			return false
+		}
+		port, portErr := strconv.Atoi(parsed.Port())
+		if portErr != nil || port < 1 || port > 65535 {
+			return false
+		}
+	}
+	hostname := parsed.Hostname()
+	return parsed.Scheme == "https" && browserHostPattern.MatchString(hostname) ||
+		parsed.Scheme == "http" && (hostname == "localhost" || hostname == "127.0.0.1")
+}
+
+func validFileGeneration(generation FileGeneration) bool {
+	return uuidV7Pattern.MatchString(generation.EntryID) && uuidV7Pattern.MatchString(generation.GenerationID) &&
+		generation.GenerationNumber >= 1 && generation.ExpectedSizeBytes >= 1 && generation.ExpectedSizeBytes <= 10_737_418_240 &&
+		contentSHA256Pattern.MatchString(generation.ContentSHA256) && mediaTypePattern.MatchString(generation.DeclaredMediaType) &&
+		(generation.State == "pending_transfer" || generation.State == "aborted" || generation.State == "safety_pending" || generation.State == "available" || generation.State == "unavailable") &&
+		(generation.MalwareScanRequirement == "not_required" || generation.MalwareScanRequirement == "required") &&
+		(generation.SafetyState == "not_required" || generation.SafetyState == "scan_pending" || generation.SafetyState == "clean" || generation.SafetyState == "blocked") &&
+		generation.Revision >= 1 && validTimestamp(generation.CreatedAt)
 }
 
 func validateCapabilityResource(resource CapabilityResource) error {

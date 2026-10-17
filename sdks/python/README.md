@@ -42,6 +42,8 @@ are disabled by default, re-resolve rotating capabilities on each attempt, honor
 `create_capability_data_client` exchange returns the sensitive bounded grant and a ready
 capability-only client, without copying workload evidence into browser/mobile requests. Revoke the
 session with the original explicit operation identity when it is no longer needed.
+The same server client creates an upload intent and finalizes exact descriptor/provider evidence;
+one-use transfer URLs, signed headers and capability tokens are redacted from SDK representations.
 
 Management and resource provisioning remain in the Almira CLI/MCP or the management client. The
 builder application's backend obtains bounded capability sessions under its short-lived Metamorph

@@ -31,6 +31,12 @@ var (
 
 type CapabilityProvider func(context.Context) (string, error)
 
+type sensitiveString string
+
+func (value sensitiveString) String() string { return "[REDACTED]" }
+
+func (value sensitiveString) GoString() string { return value.String() }
+
 type ClientOptions struct {
 	BaseURL            string
 	Capability         string
@@ -43,7 +49,7 @@ type ClientOptions struct {
 
 type Client struct {
 	baseURL            string
-	capability         string
+	capability         sensitiveString
 	capabilityProvider CapabilityProvider
 	origin             string
 	http               *http.Client
@@ -84,7 +90,7 @@ func NewClient(options ClientOptions) (*Client, error) {
 	}
 	return &Client{
 		baseURL:            strings.TrimSuffix(base.String(), "/"),
-		capability:         options.Capability,
+		capability:         sensitiveString(options.Capability),
 		capabilityProvider: options.CapabilityProvider,
 		origin:             options.Origin,
 		http: &http.Client{
@@ -314,7 +320,7 @@ func (c *Client) do(
 			requestHeaders.Set("Origin", c.origin)
 		}
 		if mode != capabilityForbidden {
-			capability := c.capability
+			capability := string(c.capability)
 			if c.capabilityProvider != nil {
 				var err error
 				capability, err = c.capabilityProvider(ctx)

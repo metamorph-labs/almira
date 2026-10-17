@@ -29,6 +29,11 @@ from .client import (
 WorkloadSessionProvider = Callable[[], str]
 READ_OPERATIONS = frozenset({"list", "metadata_read", "content_read", "search"})
 LABEL = re.compile(r"^[a-z][a-z0-9._:-]{0,63}$")
+CONTENT_SHA256 = re.compile(r"^sha256:[0-9a-f]{64}$")
+MEDIA_TYPE = re.compile(r"^[a-z0-9!#$&^_.+-]+/[a-z0-9!#$&^_.+-]+$")
+HEADER_NAME = re.compile(r"^[a-z0-9-]{1,128}$")
+PROVIDER_RECEIPT = re.compile(r"^[!-~]{1,256}$")
+PROVIDER_VERSION = re.compile(r"^(?!.*[/?#])(?!.*\\)[!-~]{1,256}$")
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,13 +63,90 @@ class CreateCapabilitySessionRequest:
 @dataclass(frozen=True, slots=True)
 class CapabilitySessionGrant:
     session_id: str
-    token: str
+    token: str = field(repr=False)
     operations: tuple[str, ...]
     resource: CapabilityResource
     audience: str
     policy_revision: int
     issuer_epoch: int
     expires_at: str
+
+
+@dataclass(frozen=True, slots=True)
+class CreateUploadRequest:
+    path: str
+    expected_size_bytes: int
+    content_sha256: str
+    declared_media_type: str
+    browser_origin: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class DirectUploadHeader:
+    name: str
+    value: str = field(repr=False)
+
+
+@dataclass(frozen=True, slots=True)
+class DirectUploadPart:
+    part_number: int
+    offset_bytes: int
+    length_bytes: int
+    method: str
+    url: str = field(repr=False)
+    headers: tuple[DirectUploadHeader, ...] = field(repr=False)
+    one_use: bool = True
+
+
+@dataclass(frozen=True, slots=True)
+class DirectUploadDescriptor:
+    descriptor_id: str
+    protocol: str
+    requests: tuple[DirectUploadPart, ...] = field(repr=False)
+    expected_size_bytes: int = 0
+    content_sha256: str = ""
+    one_use: bool = True
+    expires_at: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class CreateUploadOutcome:
+    transfer_session_id: str
+    entry_id: str
+    generation_id: str
+    descriptor: DirectUploadDescriptor
+
+
+@dataclass(frozen=True, slots=True)
+class DirectUploadPartCompletion:
+    part_number: int
+    etag: str
+
+
+@dataclass(frozen=True, slots=True)
+class FinalizeUploadRequest:
+    descriptor_id: str
+    protocol: str
+    etag: str | None
+    provider_version: str | None
+    parts: tuple[DirectUploadPartCompletion, ...]
+    size_bytes: int
+    content_sha256: str
+
+
+@dataclass(frozen=True, slots=True)
+class FileGeneration:
+    entry_id: str
+    generation_id: str
+    generation_number: int
+    state: str
+    expected_size_bytes: int
+    content_sha256: str
+    declared_media_type: str
+    malware_scan_requirement: str
+    safety_state: str
+    revision: int
+    created_at: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -121,6 +203,42 @@ class AlmiraServerClient:
             201,
         )
         return _grant(value)
+
+    def create_upload(
+        self,
+        reference: CollectionReference,
+        request: CreateUploadRequest,
+        *,
+        operation_id: str,
+    ) -> CreateUploadOutcome:
+        value = self._json(
+            "POST",
+            _collection_path(reference, "/uploads"),
+            reference.tenant_id,
+            operation_id,
+            _upload_request_payload(request),
+            201,
+        )
+        return _upload_outcome(value)
+
+    def finalize_upload(
+        self,
+        reference: CollectionReference,
+        transfer_session_id: str,
+        request: FinalizeUploadRequest,
+        *,
+        operation_id: str,
+    ) -> FileGeneration:
+        transfer_session_id = _uuid(transfer_session_id)
+        value = self._json(
+            "POST",
+            _collection_path(reference, f"/uploads/{transfer_session_id}/finalize"),
+            reference.tenant_id,
+            operation_id,
+            _finalize_request_payload(request),
+            200,
+        )
+        return _file_generation(value)
 
     def create_capability_data_client(
         self,
@@ -250,6 +368,63 @@ def _request_payload(request: CreateCapabilitySessionRequest) -> dict[str, objec
     }
 
 
+def _upload_request_payload(request: CreateUploadRequest) -> dict[str, object]:
+    if (
+        not isinstance(request, CreateUploadRequest)
+        or not _logical_prefix(request.path)
+        or isinstance(request.expected_size_bytes, bool)
+        or not 1 <= request.expected_size_bytes <= 10_737_418_240
+        or CONTENT_SHA256.fullmatch(request.content_sha256) is None
+        or not 3 <= len(request.declared_media_type) <= 127
+        or MEDIA_TYPE.fullmatch(request.declared_media_type) is None
+        or request.browser_origin is not None
+        and not _browser_origin(request.browser_origin)
+    ):
+        _invalid_input()
+    value: dict[str, object] = {
+        "path": request.path,
+        "expected_size_bytes": request.expected_size_bytes,
+        "content_sha256": request.content_sha256,
+        "declared_media_type": request.declared_media_type,
+    }
+    if request.browser_origin is not None:
+        value["browser_origin"] = request.browser_origin
+    return value
+
+
+def _finalize_request_payload(request: FinalizeUploadRequest) -> dict[str, object]:
+    if (
+        not isinstance(request, FinalizeUploadRequest)
+        or UUID_V7.fullmatch(request.descriptor_id) is None
+        or request.protocol not in {"single_put", "multipart"}
+        or request.etag is not None
+        and PROVIDER_RECEIPT.fullmatch(request.etag) is None
+        or request.provider_version is not None
+        and PROVIDER_VERSION.fullmatch(request.provider_version) is None
+        or isinstance(request.size_bytes, bool)
+        or not 1 <= request.size_bytes <= 10_737_418_240
+        or CONTENT_SHA256.fullmatch(request.content_sha256) is None
+        or not _completion_parts(request.protocol, request.parts)
+        or request.protocol == "single_put"
+        and (request.etag is None or request.parts[0].etag != request.etag)
+        or request.protocol == "multipart"
+        and (request.etag is not None or request.provider_version is not None)
+    ):
+        _invalid_input()
+    return {
+        "descriptor_id": request.descriptor_id,
+        "protocol": request.protocol,
+        "etag": request.etag,
+        "provider_version": request.provider_version,
+        "parts": [
+            {"part_number": part.part_number, "etag": part.etag}
+            for part in request.parts
+        ],
+        "size_bytes": request.size_bytes,
+        "content_sha256": request.content_sha256,
+    }
+
+
 def _grant(value: object) -> CapabilitySessionGrant:
     expected = {"session_id", "token", "operations", "resource", "audience", "policy_revision", "issuer_epoch", "expires_at"}
     if not isinstance(value, dict) or set(value) != expected:
@@ -286,6 +461,125 @@ def _grant(value: object) -> CapabilitySessionGrant:
         issuer_epoch=value["issuer_epoch"],
         expires_at=value["expires_at"],
     )
+
+
+def _upload_outcome(value: object) -> CreateUploadOutcome:
+    if not isinstance(value, dict) or set(value) != {"transfer_session_id", "entry_id", "generation_id", "descriptor"}:
+        _invalid_response()
+    if any(not isinstance(value[key], str) or UUID_V7.fullmatch(value[key]) is None for key in ("transfer_session_id", "entry_id", "generation_id")):
+        _invalid_response()
+    descriptor = _upload_descriptor(value["descriptor"])
+    return CreateUploadOutcome(
+        transfer_session_id=value["transfer_session_id"],
+        entry_id=value["entry_id"],
+        generation_id=value["generation_id"],
+        descriptor=descriptor,
+    )
+
+
+def _upload_descriptor(value: object) -> DirectUploadDescriptor:
+    expected = {"descriptor_id", "protocol", "requests", "expected_size_bytes", "content_sha256", "one_use", "expires_at"}
+    if not isinstance(value, dict) or set(value) != expected:
+        _invalid_response()
+    raw_requests = value["requests"]
+    if (
+        not isinstance(value["descriptor_id"], str)
+        or UUID_V7.fullmatch(value["descriptor_id"]) is None
+        or value["protocol"] not in {"single_put", "multipart"}
+        or not isinstance(raw_requests, list)
+        or value["protocol"] == "single_put"
+        and len(raw_requests) != 1
+        or value["protocol"] == "multipart"
+        and not 2 <= len(raw_requests) <= 256
+        or isinstance(value["expected_size_bytes"], bool)
+        or not isinstance(value["expected_size_bytes"], int)
+        or not 1 <= value["expected_size_bytes"] <= 10_737_418_240
+        or not isinstance(value["content_sha256"], str)
+        or CONTENT_SHA256.fullmatch(value["content_sha256"]) is None
+        or value["one_use"] is not True
+        or not isinstance(value["expires_at"], str)
+        or not _timestamp(value["expires_at"])
+    ):
+        _invalid_response()
+    parts: list[DirectUploadPart] = []
+    offset = 0
+    for index, raw in enumerate(raw_requests, 1):
+        if not isinstance(raw, dict) or set(raw) != {"part_number", "offset_bytes", "length_bytes", "method", "url", "headers", "one_use"}:
+            _invalid_response()
+        raw_headers = raw["headers"]
+        if (
+            raw["part_number"] != index
+            or raw["offset_bytes"] != offset
+            or isinstance(raw["length_bytes"], bool)
+            or not isinstance(raw["length_bytes"], int)
+            or not 1 <= raw["length_bytes"] <= 10_737_418_240
+            or raw["method"] != "PUT"
+            or not isinstance(raw["url"], str)
+            or not _transfer_url(raw["url"])
+            or not isinstance(raw_headers, list)
+            or len(raw_headers) > 32
+            or raw["one_use"] is not True
+        ):
+            _invalid_response()
+        headers: list[DirectUploadHeader] = []
+        names: set[str] = set()
+        for header in raw_headers:
+            if (
+                not isinstance(header, dict)
+                or set(header) != {"name", "value"}
+                or not isinstance(header["name"], str)
+                or HEADER_NAME.fullmatch(header["name"]) is None
+                or header["name"] in names
+                or not isinstance(header["value"], str)
+                or not 1 <= len(header["value"]) <= 4096
+                or any(ord(character) < 32 or ord(character) == 127 for character in header["value"])
+            ):
+                _invalid_response()
+            names.add(header["name"])
+            headers.append(DirectUploadHeader(header["name"], header["value"]))
+        parts.append(DirectUploadPart(index, offset, raw["length_bytes"], "PUT", raw["url"], tuple(headers)))
+        offset += raw["length_bytes"]
+    if offset != value["expected_size_bytes"]:
+        _invalid_response()
+    return DirectUploadDescriptor(
+        value["descriptor_id"],
+        value["protocol"],
+        tuple(parts),
+        value["expected_size_bytes"],
+        value["content_sha256"],
+        True,
+        value["expires_at"],
+    )
+
+
+def _completion_parts(protocol: str, parts: tuple[DirectUploadPartCompletion, ...]) -> bool:
+    expected_count = len(parts) == 1 if protocol == "single_put" else 2 <= len(parts) <= 256
+    return expected_count and all(
+        isinstance(part, DirectUploadPartCompletion)
+        and part.part_number == index
+        and PROVIDER_RECEIPT.fullmatch(part.etag) is not None
+        for index, part in enumerate(parts, 1)
+    )
+
+
+def _file_generation(value: object) -> FileGeneration:
+    expected = {"entry_id", "generation_id", "generation_number", "state", "expected_size_bytes", "content_sha256", "declared_media_type", "malware_scan_requirement", "safety_state", "revision", "created_at"}
+    if not isinstance(value, dict) or not (
+        set(value) == expected
+        and all(isinstance(value[key], str) and UUID_V7.fullmatch(value[key]) is not None for key in ("entry_id", "generation_id"))
+        and all(isinstance(value[key], int) and not isinstance(value[key], bool) and value[key] >= 1 for key in ("generation_number", "expected_size_bytes", "revision"))
+        and value["state"] in {"pending_transfer", "aborted", "safety_pending", "available", "unavailable"}
+        and isinstance(value["content_sha256"], str)
+        and CONTENT_SHA256.fullmatch(value["content_sha256"]) is not None
+        and isinstance(value["declared_media_type"], str)
+        and MEDIA_TYPE.fullmatch(value["declared_media_type"]) is not None
+        and value["malware_scan_requirement"] in {"not_required", "required"}
+        and value["safety_state"] in {"not_required", "scan_pending", "clean", "blocked"}
+        and isinstance(value["created_at"], str)
+        and _timestamp(value["created_at"])
+    ):
+        _invalid_response()
+    return FileGeneration(**value)
 
 
 def _resource(value: object, *, input_value: bool) -> dict[str, str]:
@@ -332,6 +626,30 @@ def _logical_prefix(value: str) -> bool:
 def _origin(value: str) -> bool:
     parsed = urlsplit(value)
     return parsed.scheme in {"http", "https"} and bool(parsed.netloc) and not parsed.path and not parsed.query and not parsed.fragment and parsed.username is None and parsed.password is None
+
+
+def _browser_origin(value: str) -> bool:
+    try:
+        parsed = urlsplit(value)
+        port = parsed.port
+    except ValueError:
+        return False
+    if parsed.path or parsed.query or parsed.fragment or parsed.username is not None or parsed.password is not None or port is not None and not 1 <= port <= 65535:
+        return False
+    hostname = parsed.hostname or ""
+    return (
+        parsed.scheme == "https"
+        and re.fullmatch(r"[a-z0-9][a-z0-9.-]*", hostname) is not None
+        or parsed.scheme == "http"
+        and hostname in {"localhost", "127.0.0.1"}
+    )
+
+
+def _transfer_url(value: str) -> bool:
+    if len(value) > 8192 or any(ord(character) <= 32 or ord(character) == 127 or character == "\\" for character in value):
+        return False
+    parsed = urlsplit(value)
+    return parsed.scheme == "https" and bool(parsed.hostname) and parsed.username is None and parsed.password is None and not parsed.fragment
 
 
 def _timestamp(value: str) -> bool:

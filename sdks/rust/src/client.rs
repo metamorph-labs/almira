@@ -700,7 +700,7 @@ fn valid_metadata_name(value: &str) -> bool {
             .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || b"._-".contains(byte))
 }
 
-fn valid_media_type(value: &str) -> bool {
+pub(crate) fn valid_media_type(value: &str) -> bool {
     let mut parts = value.split('/');
     matches!((parts.next(), parts.next(), parts.next()), (Some(first), Some(second), None) if valid_media_part(first) && valid_media_part(second))
 }

@@ -1,9 +1,9 @@
 use metamorph_almira::{
     ApiError, BuilderSubject, CONTRACT_VERSION, CapabilityDataClientOptions, CapabilityResource,
     Client, ClientError, ClientOptions, CollectionReference, CreateCapabilitySessionRequest,
-    CustomMetadataValue, DerivativeReference, Error, FileReference, ImmutableGenerationReference,
-    ListFilesOptions, ReadAccessOperation, ReadOptions, RetryPolicy, SearchInput, ServerClient,
-    ServerClientOptions,
+    CreateUploadRequest, CustomMetadataValue, DerivativeReference, DirectUploadPartCompletion,
+    Error, FileReference, FinalizeUploadRequest, ImmutableGenerationReference, ListFilesOptions,
+    ReadAccessOperation, ReadOptions, RetryPolicy, SearchInput, ServerClient, ServerClientOptions,
 };
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
@@ -416,6 +416,7 @@ async fn workload_exchange_returns_capability_only_client_and_revokes_exactly() 
         )
         .await
         .unwrap();
+    assert!(!format!("{:?}", session.grant).contains(CAPABILITY));
     session
         .data_client
         .get_file_metadata_with_capability(&generation().file)
@@ -447,6 +448,93 @@ async fn workload_exchange_returns_capability_only_client_and_revokes_exactly() 
         revoke.headers["authorization"],
         "MetamorphWorkload workload_session_evidence"
     );
+}
+
+#[tokio::test]
+async fn server_upload_create_and_finalize_preserve_descriptor_evidence() {
+    let descriptor_id = "018f0000-0000-7000-8000-000000000011";
+    let content_sha256 = format!("sha256:{}", "a".repeat(64));
+    let descriptor_digest = content_sha256.clone();
+    let (base_url, requests) = serve(
+        2,
+        Arc::new(move |request| {
+            if request.target.ends_with("/uploads") {
+                return Response {
+                    status: "201 Created",
+                    content_type: "application/json",
+                    headers: vec![],
+                    body: format!(
+                        r#"{{"transfer_session_id":"{REQUEST}","entry_id":"{ENTRY}","generation_id":"{GENERATION}","descriptor":{{"descriptor_id":"{descriptor_id}","protocol":"single_put","requests":[{{"part_number":1,"offset_bytes":0,"length_bytes":5,"method":"PUT","url":"https://objects.example/one-use-secret","headers":[{{"name":"content-type","value":"text/plain"}}],"one_use":true}}],"expected_size_bytes":5,"content_sha256":"{descriptor_digest}","one_use":true,"expires_at":"2026-10-17T12:00:00Z"}}}}"#
+                    ),
+                };
+            }
+            Response {
+                status: "200 OK",
+                content_type: "application/json",
+                headers: vec![],
+                body: format!(
+                    r#"{{"entry_id":"{ENTRY}","generation_id":"{GENERATION}","generation_number":1,"state":"available","expected_size_bytes":5,"content_sha256":"{descriptor_digest}","declared_media_type":"text/plain","malware_scan_requirement":"required","safety_state":"clean","revision":1,"created_at":"2026-10-17T12:00:00Z"}}"#
+                ),
+            }
+        }),
+    );
+    let server = ServerClient::new(ServerClientOptions::new(
+        &base_url,
+        "workload_session_evidence",
+    ))
+    .unwrap();
+    let created = server
+        .create_upload(
+            &collection(),
+            &CreateUploadRequest {
+                path: "avatars/me.txt".into(),
+                expected_size_bytes: 5,
+                content_sha256: content_sha256.clone(),
+                declared_media_type: "text/plain".into(),
+                browser_origin: None,
+            },
+            GENERATION,
+        )
+        .await
+        .unwrap();
+    assert!(!format!("{:?}", created.descriptor).contains("one-use-secret"));
+    let generation = server
+        .finalize_upload(
+            &collection(),
+            &created.transfer_session_id,
+            &FinalizeUploadRequest {
+                descriptor_id: descriptor_id.into(),
+                protocol: "single_put".into(),
+                etag: Some("\"etag-one\"".into()),
+                provider_version: Some("provider-v1".into()),
+                parts: vec![DirectUploadPartCompletion {
+                    part_number: 1,
+                    etag: "\"etag-one\"".into(),
+                }],
+                size_bytes: 5,
+                content_sha256,
+            },
+            GENERATION,
+        )
+        .await
+        .unwrap();
+    assert_eq!(generation.state, "available");
+    let create = requests.recv().unwrap();
+    let finalize = requests.recv().unwrap();
+    assert!(
+        create
+            .target
+            .ends_with(&format!("/collections/{COLLECTION}/uploads"))
+    );
+    assert!(
+        finalize
+            .target
+            .ends_with(&format!("/uploads/{REQUEST}/finalize"))
+    );
+    let completion: Value = serde_json::from_str(&finalize.body).unwrap();
+    assert_eq!(completion["descriptor_id"], descriptor_id);
+    assert_eq!(completion["etag"], "\"etag-one\"");
+    assert_eq!(completion["provider_version"], "provider-v1");
 }
 
 fn collection() -> CollectionReference {

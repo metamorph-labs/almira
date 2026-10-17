@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -352,6 +353,9 @@ func TestWorkloadExchangeReturnsCapabilityOnlyClientAndRevokesExactly(t *testing
 	if len(calls) != 3 {
 		t.Fatalf("calls = %#v", calls)
 	}
+	if strings.Contains(fmt.Sprintf("%#v", session), capability) || strings.Contains(fmt.Sprintf("%#v", session.Grant), capability) {
+		t.Fatal("capability grant leaked through formatting")
+	}
 	if calls[0].header.Get("Authorization") != "MetamorphWorkload workload_session_evidence" ||
 		calls[0].header.Get("X-Almira-Tenant-Id") != tenantID {
 		t.Fatalf("wrong exchange authority: %#v", calls[0].header)
@@ -363,6 +367,62 @@ func TestWorkloadExchangeReturnsCapabilityOnlyClientAndRevokesExactly(t *testing
 	}
 	if calls[2].method != http.MethodDelete || calls[2].header.Get("Authorization") != "MetamorphWorkload workload_session_evidence" {
 		t.Fatalf("wrong revoke request: %#v", calls[2])
+	}
+}
+
+func TestServerUploadCreateAndFinalizePreserveDescriptorEvidence(t *testing.T) {
+	descriptorID := "018f0000-0000-7000-8000-000000000011"
+	contentSHA256 := "sha256:" + strings.Repeat("a", 64)
+	var calls []recordedCall
+	transport := roundTripperFunc(func(request *http.Request) (*http.Response, error) {
+		raw, _ := io.ReadAll(request.Body)
+		calls = append(calls, recordedCall{method: request.Method, path: request.URL.Path, header: request.Header.Clone(), body: string(raw)})
+		status := http.StatusOK
+		body := `{"entry_id":"` + entryID + `","generation_id":"` + generationID + `","generation_number":1,"state":"available","expected_size_bytes":5,"content_sha256":"` + contentSHA256 + `","declared_media_type":"text/plain","malware_scan_requirement":"required","safety_state":"clean","revision":1,"created_at":"2026-10-17T12:00:00Z"}`
+		if strings.HasSuffix(request.URL.Path, "/uploads") {
+			status = http.StatusCreated
+			body = `{"transfer_session_id":"` + requestID + `","entry_id":"` + entryID + `","generation_id":"` + generationID + `","descriptor":{"descriptor_id":"` + descriptorID + `","protocol":"single_put","requests":[{"part_number":1,"offset_bytes":0,"length_bytes":5,"method":"PUT","url":"https://objects.example/one-use-secret","headers":[{"name":"content-type","value":"text/plain"}],"one_use":true}],"expected_size_bytes":5,"content_sha256":"` + contentSHA256 + `","one_use":true,"expires_at":"2026-10-17T12:00:00Z"}}`
+		}
+		return &http.Response{
+			StatusCode: status,
+			Header:     http.Header{"Content-Type": {"application/json"}},
+			Body:       io.NopCloser(strings.NewReader(body)),
+		}, nil
+	})
+	server, err := NewServerClient(ServerClientOptions{
+		BaseURL: "https://almira.test", WorkloadSession: "workload_session_evidence", Transport: transport,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	created, err := server.CreateUpload(context.Background(), collection, CreateUploadRequest{
+		Path: "avatars/me.txt", ExpectedSizeBytes: 5, ContentSHA256: contentSHA256, DeclaredMediaType: "text/plain",
+	}, generationID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(fmt.Sprintf("%#v", created), "one-use-secret") || strings.Contains(fmt.Sprintf("%#v", created.Descriptor), "one-use-secret") {
+		t.Fatal("descriptor bearer leaked through formatting")
+	}
+	etag := `"etag-one"`
+	providerVersion := "provider-v1"
+	finalized, err := server.FinalizeUpload(context.Background(), collection, created.TransferSessionID, FinalizeUploadRequest{
+		DescriptorID: descriptorID, Protocol: "single_put", ETag: &etag, ProviderVersion: &providerVersion,
+		Parts: []DirectUploadPartCompletion{{PartNumber: 1, ETag: etag}}, SizeBytes: 5, ContentSHA256: contentSHA256,
+	}, generationID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if finalized.State != "available" || len(calls) != 2 || !strings.HasSuffix(calls[0].path, "/uploads") ||
+		!strings.HasSuffix(calls[1].path, "/uploads/"+requestID+"/finalize") {
+		t.Fatalf("unexpected upload flow: %#v %#v", finalized, calls)
+	}
+	var completion map[string]any
+	if err := json.Unmarshal([]byte(calls[1].body), &completion); err != nil {
+		t.Fatal(err)
+	}
+	if completion["descriptor_id"] != descriptorID || completion["etag"] != etag || completion["provider_version"] != providerVersion {
+		t.Fatalf("completion evidence drifted: %#v", completion)
 	}
 }
 

@@ -18,7 +18,15 @@ from .server import (
     CapabilityDataClientSession,
     CapabilityResource,
     CapabilitySessionGrant,
+    CreateUploadOutcome,
+    CreateUploadRequest,
     CreateCapabilitySessionRequest,
+    DirectUploadDescriptor,
+    DirectUploadHeader,
+    DirectUploadPart,
+    DirectUploadPartCompletion,
+    FinalizeUploadRequest,
+    FileGeneration,
 )
 
 __all__ = [
@@ -37,7 +45,15 @@ __all__ = [
     "CapabilityDataClientSession",
     "CapabilityResource",
     "CapabilitySessionGrant",
+    "CreateUploadOutcome",
+    "CreateUploadRequest",
     "CreateCapabilitySessionRequest",
+    "DirectUploadDescriptor",
+    "DirectUploadHeader",
+    "DirectUploadPart",
+    "DirectUploadPartCompletion",
+    "FinalizeUploadRequest",
+    "FileGeneration",
 ]
 
 __version__ = "0.1.0.dev31"
