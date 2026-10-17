@@ -109,19 +109,23 @@ test("data client keeps capabilities off management headers and uses data-plane 
     origin: "https://app.example",
     fetch: async (input, init) => {
       calls.push({ input, init });
-      return input.includes("/files")
+      return input.includes("/v1/data/")
         ? json({ entries: [], next_cursor: null })
         : new Response(new Uint8Array([1, 2]), { headers: { "content-type": "application/octet-stream" } });
     },
   });
   await client.listFilesWithCapability(collection);
+  await client.searchFilesWithCapability(collection, { query: "invoice", mode: "lexical" });
   await client.readImmutableGeneration({ ...collection, entryId, generationId });
   await client.readShare(`alm_share_v1.${"a".repeat(43)}`);
   assert.equal(calls[0].input, `https://almira.test/v1/data/${tenantId}/${projectId}/${environmentId}/${collectionInstanceId}/files`);
-  assert.equal(calls[1].input, `https://almira.test/v1/delivery/${tenantId}/${projectId}/${environmentId}/${collectionInstanceId}/${entryId}/${generationId}`);
+  assert.equal(calls[1].input, `https://almira.test/v1/data/${tenantId}/${projectId}/${environmentId}/${collectionInstanceId}/search`);
+  assert.equal(calls[1].init.method, "POST");
+  assert.deepEqual(JSON.parse(calls[1].init.body), { query: "invoice", mode: "lexical" });
+  assert.equal(calls[2].input, `https://almira.test/v1/delivery/${tenantId}/${projectId}/${environmentId}/${collectionInstanceId}/${entryId}/${generationId}`);
   assert(calls.every(({ init }) => init.headers.get("x-almira-tenant-id") === null));
-  assert(calls.slice(0, 2).every(({ init }) => init.headers.get("origin") === "https://app.example"));
-  assert(calls.slice(0, 2).every(({ init }) => init.headers.get("authorization")?.startsWith("Bearer alm_cap_v1.")));
-  assert.equal(calls[2].init.headers.get("origin"), null);
-  assert.equal(calls[2].init.headers.get("authorization"), null);
+  assert(calls.slice(0, 3).every(({ init }) => init.headers.get("origin") === "https://app.example"));
+  assert(calls.slice(0, 3).every(({ init }) => init.headers.get("authorization")?.startsWith("Bearer alm_cap_v1.")));
+  assert.equal(calls[3].init.headers.get("origin"), null);
+  assert.equal(calls[3].init.headers.get("authorization"), null);
 });

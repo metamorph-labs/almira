@@ -225,6 +225,48 @@ test("storage migration start and status use the collection-scoped contract", as
   ]);
 });
 
+test("management search sends one bounded collection request with optional subject context", async () => {
+  let call;
+  const client = new AlmiraClient({
+    workloadSession: "workload_session",
+    fetch: async (input, init) => {
+      call = { input, init };
+      return json({
+        items: [], facets: [], next_cursor: null,
+        facet_coverage: "returned_page",
+        consistency: "eventual_projection_authoritative_recheck",
+      });
+    },
+  });
+  const input = {
+    query: "quarterly report",
+    mode: "hybrid",
+    path_prefix: "reports",
+    filter: { tag: "finance" },
+    facets: ["tags", "custom.account_id"],
+    page_size: 20,
+  };
+  await client.searchFiles(
+    { tenantId, projectId, environmentId, collectionInstanceId },
+    input,
+    { subject: { subject_id: "customer-42" } },
+  );
+  assert.equal(call.input, `/v1/projects/${projectId}/environments/${environmentId}/collections/${collectionInstanceId}/search`);
+  assert.equal(call.init.method, "POST");
+  assert.deepEqual(JSON.parse(call.init.body), input);
+  assert.equal(
+    Buffer.from(call.init.headers.get("x-almira-subject-context"), "base64url").toString("utf8"),
+    '{"subject_id":"customer-42"}',
+  );
+  await assert.rejects(
+    client.searchFiles(
+      { tenantId, projectId, environmentId, collectionInstanceId },
+      { query: " report\n" },
+    ),
+    (error) => error instanceof AlmiraClientError && error.code === "ALMIRA_CLIENT_INPUT_INVALID",
+  );
+});
+
 test("workload evidence uses its distinct framing and is resolved for every call", async () => {
   const evidence = ["eyJzY2hlbWFfdmVyc2lvbiI6MX0", "eyJzY2hlbWFfdmVyc2lvbiI6Mn0"];
   let calls = 0;

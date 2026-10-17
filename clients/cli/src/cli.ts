@@ -18,6 +18,7 @@ import {
   type ReplaceDeliveryConfigRequest,
   type ReplaceEntryMetadataRequest,
   type RotateLocalIssuerKeyRequest,
+  type SearchInput,
   type TenancyProjectGetResponse,
 } from "@metamorph-labs/almira-sdk";
 
@@ -62,6 +63,7 @@ Commands:
   extraction status       Read safe exact-generation extraction status
   extraction content      Read separately protected extracted content
   file list               List and filter authoritative file metadata
+  file search             Search current files with lexical, semantic, or hybrid retrieval
   file get                Read one file's metadata
   metadata get            Read bounded customer metadata for one file
   metadata set            Replace bounded customer metadata from --input JSON
@@ -129,6 +131,10 @@ const options = {
   key: { type: "string" },
   kind: { type: "string" },
   limit: { type: "string" },
+  mode: { type: "string" },
+  facet: { type: "string", multiple: true },
+  "page-size": { type: "string" },
+  query: { type: "string" },
   "maximum-size": { type: "string" },
   "metadata-key": { type: "string" },
   "metadata-value": { type: "string" },
@@ -314,6 +320,8 @@ export async function runCli(arguments_: string[], dependencies: CliDependencies
       const metadataValue = optionalMetadataValue(values);
       const extractionKindFilter = optionalExtractionKind(values, "extraction-kind");
       const extractionState = stringValue(values, "extraction-state");
+      if ((metadataKey === undefined) !== (metadataValue === undefined)) throw new CliUsageError();
+      if ((extractionKindFilter === undefined) !== (extractionState === undefined)) throw new CliUsageError();
       if (extractionState !== undefined && !["pending", "running", "succeeded", "failed", "unsupported"].includes(extractionState)) {
         throw new CliUsageError();
       }
@@ -331,6 +339,43 @@ export async function runCli(arguments_: string[], dependencies: CliDependencies
         ...optionalNamedValue(values, "created-before", "createdBefore"),
         ...(extractionKindFilter === undefined ? {} : { extractionKind: extractionKindFilter }),
         ...(extractionState === undefined ? {} : { extractionState: extractionState as "pending" | "running" | "succeeded" | "failed" | "unsupported" }),
+      });
+    } else if (noun === "file" && verb === "search") {
+      const mode = stringValue(values, "mode") ?? "lexical";
+      if (mode !== "lexical" && mode !== "semantic" && mode !== "hybrid") throw new CliUsageError();
+      const metadataKey = stringValue(values, "metadata-key");
+      const metadataValue = optionalMetadataValue(values);
+      const extractionKindFilter = optionalExtractionKind(values, "extraction-kind");
+      const extractionState = stringValue(values, "extraction-state");
+      if ((metadataKey === undefined) !== (metadataValue === undefined)) throw new CliUsageError();
+      if ((extractionKindFilter === undefined) !== (extractionState === undefined)) throw new CliUsageError();
+      if (extractionState !== undefined && !["pending", "running", "succeeded", "failed", "unsupported"].includes(extractionState)) {
+        throw new CliUsageError();
+      }
+      const filter: NonNullable<SearchInput["filter"]> = {
+        ...optionalNamedValue(values, "tag", "tag"),
+        ...(metadataKey === undefined ? {} : { metadata_key: metadataKey }),
+        ...(metadataValue === undefined ? {} : { metadata_value: metadataValue }),
+        ...optionalNamedValue(values, "media-type", "verified_media_type"),
+        ...optionalNamedInteger(values, "minimum-size", "minimum_size_bytes"),
+        ...optionalNamedInteger(values, "maximum-size", "maximum_size_bytes"),
+        ...optionalNamedValue(values, "created-after", "created_after"),
+        ...optionalNamedValue(values, "created-before", "created_before"),
+        ...(extractionKindFilter === undefined ? {} : { extraction_kind: extractionKindFilter }),
+        ...(extractionState === undefined ? {} : { extraction_state: extractionState as "pending" | "running" | "succeeded" | "failed" | "unsupported" }),
+      };
+      const facets = stringValues(values, "facet");
+      const pageSize = optionalBoundedInteger(values, "page-size", 50);
+      const cursor = stringValue(values, "cursor");
+      const pathPrefix = stringValue(values, "path-prefix");
+      result = await client.searchFiles(collectionReference(values, tenantId, projectId), {
+        query: required(values, "query"),
+        mode,
+        ...(pathPrefix === undefined ? {} : { path_prefix: pathPrefix }),
+        ...(Object.keys(filter).length === 0 ? {} : { filter }),
+        ...(facets.length === 0 ? {} : { facets: facets as NonNullable<SearchInput["facets"]> }),
+        ...(pageSize === undefined ? {} : { page_size: pageSize }),
+        ...(cursor === undefined ? {} : { cursor }),
       });
     } else if (noun === "file" && verb === "get") {
       result = await client.getFileMetadata(fileReference(values, tenantId, projectId));
@@ -497,6 +542,11 @@ const commandOptions = new Map<string, ReadonlySet<string>>([
     "extraction-state", "include-deleted", "limit", "maximum-size", "media-type", "metadata-key",
     "metadata-value", "minimum-size", "path-prefix", "project", "tag", "tenant",
   ])],
+  ["file:search", new Set([
+    "base-url", "collection", "created-after", "created-before", "cursor", "environment", "extraction-kind",
+    "extraction-state", "facet", "maximum-size", "media-type", "metadata-key", "metadata-value", "minimum-size",
+    "mode", "page-size", "path-prefix", "project", "query", "tag", "tenant",
+  ])],
   ["file:get", new Set(["base-url", "collection", "entry", "environment", "project", "tenant"])],
   ["metadata:get", collectionCommandOptions("entry")],
   ["metadata:set", collectionCommandOptions("entry", "input", "operation-id")],
@@ -598,6 +648,13 @@ function optionalPageInteger(values: Values): number | undefined {
   if (value === undefined) return undefined;
   const parsed = positiveInteger(values, "limit");
   if (parsed > 100) throw new CliUsageError();
+  return parsed;
+}
+
+function optionalBoundedInteger(values: Values, name: string, maximum: number): number | undefined {
+  if (stringValue(values, name) === undefined) return undefined;
+  const parsed = positiveInteger(values, name);
+  if (parsed > maximum) throw new CliUsageError();
   return parsed;
 }
 

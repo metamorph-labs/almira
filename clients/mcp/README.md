@@ -34,7 +34,10 @@ entries are visible only when a management caller explicitly requests `include_d
 tools never turn recycle visibility into application-user access.
 
 The catalog also exposes collection extraction controls, bounded customer tags and typed metadata,
-authoritative structured list filters, and safe exact-generation extraction status. Raw extracted
+authoritative structured list filters, lexical/semantic/hybrid `almira_file_search`, and safe
+exact-generation extraction status. Semantic and hybrid retrieval require explicit collection-level
+content extraction and vector indexing. Search candidates are rechecked against current authority;
+Lodestone never grants access. Raw extracted
 text is never returned by status or list tools; `almira_file_extracted_content_get` is a distinct
 read whose Metamorph token must carry the separate protected-content permission.
 
@@ -53,7 +56,8 @@ ambiguous start and poll `almira_storage_migration_get` until `succeeded` or `fa
 `almira_configuration_preview` and `almira_configuration_apply` accept the structured form of the
 public `almira.yaml` v1 schema. Preview is read-only; apply preserves unlisted resources and uses
 deterministic child operation IDs beneath its reusable root `operation_id`. Class-only changes use
-the same storage-migration operation.
+the same storage-migration operation, while explicit extraction/vector settings are applied through
+the ordinary collection extraction operation.
 
 The server uses the official MCP TypeScript SDK v2 and the 2026-07-28 protocol over stdio. Stdout is
 reserved exclusively for MCP; safe startup diagnostics use stderr.

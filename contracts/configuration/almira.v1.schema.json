@@ -82,6 +82,51 @@
                     "express"
                   ],
                   "default": "normal"
+                },
+                "extraction": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "content",
+                    "ocr",
+                    "transcription",
+                    "vector_indexing"
+                  ],
+                  "properties": {
+                    "content": {
+                      "type": "boolean"
+                    },
+                    "ocr": {
+                      "type": "boolean"
+                    },
+                    "transcription": {
+                      "type": "boolean"
+                    },
+                    "vector_indexing": {
+                      "type": "boolean"
+                    }
+                  },
+                  "allOf": [
+                    {
+                      "if": {
+                        "properties": {
+                          "vector_indexing": {
+                            "const": true
+                          }
+                        },
+                        "required": [
+                          "vector_indexing"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "content": {
+                            "const": true
+                          }
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }

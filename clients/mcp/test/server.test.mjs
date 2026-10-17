@@ -73,6 +73,7 @@ test("tool catalog is closed and marks destructive behavior accurately", async (
       "almira_file_metadata_get",
       "almira_file_rename",
       "almira_file_restore",
+      "almira_file_search",
       "almira_file_versions_list",
       "almira_local_issuer_list",
       "almira_local_issuer_register",
@@ -139,7 +140,10 @@ test("metadata and extraction tools keep safe status separate from protected con
   };
   await connection.client.callTool({
     name: "almira_collection_extraction_replace",
-    arguments: { ...scope, expected_revision: 2, content: true, ocr: false, transcription: false, operation_id: operationId },
+    arguments: {
+      ...scope, expected_revision: 2, content: true, ocr: false, transcription: false,
+      vector_indexing: true, operation_id: operationId,
+    },
   });
   await connection.client.callTool({
     name: "almira_file_customer_metadata_replace",
@@ -167,7 +171,10 @@ test("metadata and extraction tools keep safe status separate from protected con
   })), [
     {
       input: `${base}/extraction`, method: "PUT", operationId,
-      body: { expected_revision: 2, config: { content: true, ocr: false, transcription: false } },
+      body: {
+        expected_revision: 2,
+        config: { content: true, ocr: false, transcription: false, vector_indexing: true },
+      },
     },
     {
       input: `${fileBase}/metadata`, method: "PUT", operationId,
@@ -204,6 +211,13 @@ test("file lifecycle tools preserve stable entry scope, revisions, and operation
     arguments: { ...scope, include_deleted: true },
   });
   await connection.client.callTool({
+    name: "almira_file_search",
+    arguments: {
+      ...scope, query: "quarterly report", mode: "hybrid",
+      filter: { tag: "finance" }, facets: ["tags"], page_size: 20,
+    },
+  });
+  await connection.client.callTool({
     name: "almira_file_versions_list",
     arguments: { ...scope, entry_id: entryId, limit: 25 },
   });
@@ -228,6 +242,13 @@ test("file lifecycle tools preserve stable entry scope, revisions, and operation
     body: init.body === undefined ? undefined : JSON.parse(init.body),
   })), [
     { input: `${base}?include_deleted=true`, method: "GET", operationId: null, body: undefined },
+    {
+      input: `${base.replace(/\/files$/u, "")}/search`, method: "POST", operationId: null,
+      body: {
+        query: "quarterly report", mode: "hybrid", filter: { tag: "finance" },
+        facets: ["tags"], page_size: 20,
+      },
+    },
     { input: `${base}/${entryId}/versions?limit=25`, method: "GET", operationId: null, body: undefined },
     { input: `${base}/${entryId}`, method: "PATCH", operationId, body: { logical_path: "archive/file.txt", expected_revision: 3 } },
     { input: `${base}/${entryId}/current-generation`, method: "PUT", operationId, body: { generation_id: generationId, expected_revision: 4 } },

@@ -7,6 +7,7 @@ import {
   applyConfiguration,
   createOperationId,
   previewConfiguration,
+  type SearchInput,
 } from "@metamorph-labs/almira-sdk";
 import * as z from "zod/v4";
 
@@ -57,6 +58,14 @@ const configurationCollection = z.object({
   display_name: environmentDisplayName,
   malware_scan_required: z.boolean(),
   storage_class: z.enum(["normal", "express"]).optional(),
+  extraction: z.object({
+    content: z.boolean(),
+    ocr: z.boolean(),
+    transcription: z.boolean(),
+    vector_indexing: z.boolean(),
+  }).strict().refine((value) => !value.vector_indexing || value.content, {
+    message: "vector_indexing requires content extraction",
+  }).optional(),
 }).strict();
 const configuration = z.object({
   api_version: z.literal("almira/v1"),
@@ -81,6 +90,37 @@ const customMetadataValue = z.union([
 const extractionKind = z.enum(["technical", "content", "ocr", "transcription"]);
 const protectedExtractionKind = z.enum(["content", "ocr", "transcription"]);
 const extractionState = z.enum(["pending", "running", "succeeded", "failed", "unsupported"]);
+const fileMetadataFilter = z.object({
+  tag: metadataComponent.optional(),
+  metadata_key: metadataComponent.optional(),
+  metadata_value: customMetadataValue.optional(),
+  verified_media_type: z.string().min(3).max(127).optional(),
+  minimum_size_bytes: z.number().int().min(1).max(10_737_418_240).optional(),
+  maximum_size_bytes: z.number().int().min(1).max(10_737_418_240).optional(),
+  created_after: z.string().datetime({ offset: true }).optional(),
+  created_before: z.string().datetime({ offset: true }).optional(),
+  extraction_kind: extractionKind.optional(),
+  extraction_state: extractionState.optional(),
+}).strict()
+  .refine((value) => (value.metadata_key === undefined) === (value.metadata_value === undefined), {
+    message: "metadata_key and metadata_value must be supplied together",
+  })
+  .refine((value) => (value.extraction_kind === undefined) === (value.extraction_state === undefined), {
+    message: "extraction_kind and extraction_state must be supplied together",
+  })
+  .refine((value) => value.minimum_size_bytes === undefined || value.maximum_size_bytes === undefined || value.minimum_size_bytes <= value.maximum_size_bytes, {
+    message: "minimum_size_bytes cannot exceed maximum_size_bytes",
+  });
+const searchFacet = z.string().regex(/^(?:tags|verified_media_type|custom\.[a-z](?:[a-z0-9._-]{0,62}[a-z0-9])?)$/u);
+const searchInput = z.object({
+  query: z.string().min(1).max(1024).refine((value) => value === value.trim() && !/[\u0000-\u001f\u007f]/u.test(value)),
+  mode: z.enum(["lexical", "semantic", "hybrid"]).optional(),
+  path_prefix: z.string().min(1).max(1024).optional(),
+  filter: fileMetadataFilter.optional(),
+  facets: z.array(searchFacet).max(8).refine((values) => new Set(values).size === values.length).optional(),
+  page_size: z.number().int().min(1).max(50).optional(),
+  cursor: z.string().min(1).max(8192).optional(),
+}).strict();
 const customerMetadata = z.object({
   tags: z.array(metadataComponent).max(32).refine((tags) => new Set(tags).size === tags.length),
   custom: z.record(metadataComponent, customMetadataValue),
@@ -187,7 +227,7 @@ const outputSchema = z
 
 /** Creates one stdio-safe MCP server over the canonical Almira SDK client. */
 export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
-  const server = new McpServer({ name: "almira", version: "0.1.0-dev.21" });
+  const server = new McpServer({ name: "almira", version: "0.1.0-dev.22" });
 
   server.registerTool(
     "almira_project_bootstrap",
@@ -522,16 +562,19 @@ export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
         content: z.boolean(),
         ocr: z.boolean(),
         transcription: z.boolean(),
+        vector_indexing: z.boolean().optional(),
         operation_id: operationId,
-      }).strict(),
+      }).strict().refine((value) => value.vector_indexing !== true || value.content, {
+        message: "vector_indexing requires content extraction",
+      }),
       outputSchema,
       annotations: mutationAnnotations,
     },
-    async ({ tenant_id, project_id, environment_id, collection_instance_id, expected_revision, content, ocr, transcription, operation_id }) => {
+    async ({ tenant_id, project_id, environment_id, collection_instance_id, expected_revision, content, ocr, transcription, vector_indexing, operation_id }) => {
       const id = operation_id ?? createOperationId();
       return execute(() => client.replaceCollectionExtraction(
         collectionReference(tenant_id, project_id, environment_id, collection_instance_id),
-        { expected_revision, config: { content, ocr, transcription } },
+        { expected_revision, config: { content, ocr, transcription, ...(vector_indexing === undefined ? {} : { vector_indexing }) } },
         { operationId: id },
       ), id);
     },
@@ -670,6 +713,32 @@ export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
           },
         ),
       ),
+  );
+
+  server.registerTool(
+    "almira_file_search",
+    {
+      title: "Search Almira files",
+      description: "Search one collection using lexical, semantic, or hybrid retrieval; every hit is rechecked against current PostgreSQL lifecycle, safety, generation, metadata, and authorization state.",
+      inputSchema: z.object({ ...collectionScope, ...searchInput.shape }).strict(),
+      outputSchema,
+      annotations: readAnnotations,
+    },
+    async ({
+      tenant_id, project_id, environment_id, collection_instance_id,
+      query, mode, path_prefix, filter, facets, page_size, cursor,
+    }) => execute(() => client.searchFiles(
+      collectionReference(tenant_id, project_id, environment_id, collection_instance_id),
+      {
+        query,
+        ...(mode === undefined ? {} : { mode }),
+        ...(path_prefix === undefined ? {} : { path_prefix }),
+        ...(filter === undefined ? {} : { filter: filter as NonNullable<SearchInput["filter"]> }),
+        ...(facets === undefined ? {} : { facets: facets as NonNullable<SearchInput["facets"]> }),
+        ...(page_size === undefined ? {} : { page_size }),
+        ...(cursor === undefined ? {} : { cursor }),
+      },
+    )),
   );
 
   server.registerTool(

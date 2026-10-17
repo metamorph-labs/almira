@@ -281,6 +281,51 @@ test("metadata and extraction commands expose exact scoped management operations
   ]);
 });
 
+test("file search exposes hybrid retrieval, filters, facets, and paging as one call", async () => {
+  const stream = io();
+  const collectionId = "018f0000-0000-7000-8000-000000000012";
+  let request;
+  const exitCode = await runCli([
+    "file", "search",
+    "--tenant", tenantId,
+    "--project", projectId,
+    "--environment", environmentId,
+    "--collection", collectionId,
+    "--query", "quarterly report",
+    "--mode", "hybrid",
+    "--path-prefix", "reports",
+    "--tag", "finance",
+    "--facet", "tags",
+    "--facet", "custom.account_id",
+    "--page-size", "20",
+  ], {
+    environment,
+    io: stream.value,
+    fetch: async (input, init) => {
+      request = { input, init };
+      return json({
+        items: [], facets: [], next_cursor: null,
+        facet_coverage: "returned_page",
+        consistency: "eventual_projection_authoritative_recheck",
+      });
+    },
+  });
+  assert.equal(exitCode, 0, stream.output.stderr.join(""));
+  assert.equal(
+    request.input,
+    `https://almira.test/v1/projects/${projectId}/environments/${environmentId}/collections/${collectionId}/search`,
+  );
+  assert.equal(request.init.method, "POST");
+  assert.deepEqual(JSON.parse(request.init.body), {
+    query: "quarterly report",
+    mode: "hybrid",
+    path_prefix: "reports",
+    filter: { tag: "finance" },
+    facets: ["tags", "custom.account_id"],
+    page_size: 20,
+  });
+});
+
 test("configuration preview and apply consume almira.yaml without a second API", async (context) => {
   const directory = await mkdtemp(join(tmpdir(), "almira-config-"));
   context.after(() => rm(directory, { recursive: true, force: true }));

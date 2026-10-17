@@ -11,6 +11,12 @@ export interface AlmiraConfigurationCollectionV1 {
   readonly display_name: string;
   readonly malware_scan_required: boolean;
   readonly storage_class: "normal" | "express";
+  readonly extraction?: {
+    readonly content: boolean;
+    readonly ocr: boolean;
+    readonly transcription: boolean;
+    readonly vector_indexing: boolean;
+  };
 }
 
 export interface AlmiraConfigurationEnvironmentV1 {
@@ -69,6 +75,16 @@ export type AlmiraConfigurationAction =
       readonly malware_scan_required: boolean;
       readonly storage_class: "normal" | "express";
       readonly capability: "verified" | "check_on_apply";
+    }
+  | {
+      readonly action_id: string;
+      readonly operation: "collection_extraction.replace";
+      readonly environment_id: UuidV7 | null;
+      readonly environment_key: string;
+      readonly collection_instance_id: UuidV7 | null;
+      readonly collection_key: string;
+      readonly expected_revision: number | null;
+      readonly config: NonNullable<AlmiraConfigurationCollectionV1["extraction"]>;
     };
 
 export interface AlmiraConfigurationConflict {
@@ -165,6 +181,9 @@ export async function previewConfiguration(
       }
       for (const collection of desired.collections) {
         actions.push(collectionAction(desired.key, null, collection, "check_on_apply"));
+        if (collection.extraction !== undefined) {
+          actions.push(extractionAction(desired.key, null, null, collection, null));
+        }
       }
       continue;
     }
@@ -211,7 +230,20 @@ export async function previewConfiguration(
             desired.key,
             collection.key,
           ));
-        } else if (existing.storage_class !== collection.storage_class) {
+          continue;
+        }
+        let expectedRevision = existing.revision;
+        if (collection.extraction !== undefined && !extractionSettingsMatch(existing, collection.extraction)) {
+          actions.push(extractionAction(
+            desired.key,
+            environment.environment_id,
+            existing.collection_instance_id,
+            collection,
+            expectedRevision,
+          ));
+          expectedRevision += 1;
+        }
+        if (existing.storage_class !== collection.storage_class) {
           if (existing.storage_binding_state !== "ready" && existing.storage_binding_state !== "migrating") {
             conflicts.push(conflict(
               "ALMIRA_CONFIGURATION_COLLECTION_NOT_READY",
@@ -233,7 +265,7 @@ export async function previewConfiguration(
               collection_instance_id: existing.collection_instance_id,
               collection_key: collection.key,
               target_storage_class: collection.storage_class,
-              expected_collection_revision: existing.revision,
+              expected_collection_revision: expectedRevision,
             });
           }
         }
@@ -253,6 +285,15 @@ export async function previewConfiguration(
         collection,
         "verified",
       ));
+      if (collection.extraction !== undefined) {
+        actions.push(extractionAction(
+          desired.key,
+          environment.environment_id,
+          null,
+          collection,
+          null,
+        ));
+      }
     }
   }
 
@@ -280,6 +321,7 @@ export async function applyConfiguration(
   const plan = await previewConfiguration(client, reference, value, signalOptions);
   if (plan.conflicts.length > 0) throw new AlmiraConfigurationError("ALMIRA_CONFIGURATION_CONFLICT", plan);
   const environmentIds = new Map<string, UuidV7>();
+  const createdCollections = new Map<string, { id: UuidV7; revision: number }>();
   for (const action of plan.actions) {
     if (action.environment_id !== null) environmentIds.set(action.environment_key, action.environment_id);
   }
@@ -329,6 +371,19 @@ export async function applyConfiguration(
         { operationId, ...signalOptions },
       );
       receipts.push(receipt(action, operationId, outcome.disposition));
+    } else if (action.operation === "collection_extraction.replace") {
+      const created = createdCollections.get(collectionMapKey(action.environment_key, action.collection_key));
+      const collectionInstanceId = action.collection_instance_id ?? created?.id;
+      const expectedRevision = action.expected_revision ?? created?.revision;
+      if (collectionInstanceId === undefined || expectedRevision === undefined) {
+        throw new AlmiraClientError("ALMIRA_CLIENT_RESPONSE_INVALID");
+      }
+      const outcome = await client.replaceCollectionExtraction(
+        { ...environment, collectionInstanceId },
+        { expected_revision: expectedRevision, config: action.config },
+        { operationId, ...signalOptions },
+      );
+      receipts.push(receipt(action, operationId, outcome.disposition));
     } else {
       const capabilities = await client.getStorageCapabilities(environment, signalOptions);
       if (!classAvailable(capabilities, action.storage_class)) {
@@ -343,6 +398,10 @@ export async function applyConfiguration(
           storage_class: action.storage_class,
         },
         { operationId, ...signalOptions },
+      );
+      createdCollections.set(
+        collectionMapKey(action.environment_key, action.collection_key),
+        { id: outcome.collection.collection_instance_id, revision: outcome.collection.revision },
       );
       receipts.push(receipt(action, operationId, outcome.disposition));
     }
@@ -384,7 +443,7 @@ function normalizeEnvironment(value: unknown): AlmiraConfigurationEnvironmentV1 
 }
 
 function normalizeCollection(value: unknown): AlmiraConfigurationCollectionV1 {
-  const item = exactRecord(value, ["key", "display_name", "malware_scan_required", "storage_class"]);
+  const item = exactRecord(value, ["key", "display_name", "malware_scan_required", "storage_class", "extraction"]);
   const storageClass = item.storage_class ?? "normal";
   if (
     typeof item.key !== "string" ||
@@ -393,11 +452,29 @@ function normalizeCollection(value: unknown): AlmiraConfigurationCollectionV1 {
     typeof item.malware_scan_required !== "boolean" ||
     (storageClass !== "normal" && storageClass !== "express")
   ) invalidConfiguration();
+  let extraction: AlmiraConfigurationCollectionV1["extraction"];
+  if (item.extraction !== undefined) {
+    const raw = exactRecord(item.extraction, ["content", "ocr", "transcription", "vector_indexing"]);
+    if (
+      typeof raw.content !== "boolean" ||
+      typeof raw.ocr !== "boolean" ||
+      typeof raw.transcription !== "boolean" ||
+      typeof raw.vector_indexing !== "boolean" ||
+      raw.vector_indexing && !raw.content
+    ) invalidConfiguration();
+    extraction = {
+      content: raw.content,
+      ocr: raw.ocr,
+      transcription: raw.transcription,
+      vector_indexing: raw.vector_indexing,
+    };
+  }
   return {
     key: item.key,
     display_name: item.display_name,
     malware_scan_required: item.malware_scan_required,
     storage_class: storageClass,
+    ...(extraction === undefined ? {} : { extraction }),
   };
 }
 
@@ -470,6 +547,16 @@ function collectionSettingsMatch(existing: Collection, desired: AlmiraConfigurat
     existing.malware_scan_required === desired.malware_scan_required;
 }
 
+function extractionSettingsMatch(
+  existing: Collection,
+  desired: NonNullable<AlmiraConfigurationCollectionV1["extraction"]>,
+): boolean {
+  return existing.content_extraction === desired.content &&
+    existing.ocr_extraction === desired.ocr &&
+    existing.transcription_extraction === desired.transcription &&
+    existing.vector_indexing === desired.vector_indexing;
+}
+
 function classAvailable(
   capabilities: Awaited<ReturnType<AlmiraClient["getStorageCapabilities"]>> | null,
   storageClass: "normal" | "express",
@@ -511,6 +598,30 @@ function collectionAction(
     storage_class: collection.storage_class,
     capability,
   };
+}
+
+function extractionAction(
+  environmentKey: string,
+  environmentId: UuidV7 | null,
+  collectionInstanceId: UuidV7 | null,
+  collection: AlmiraConfigurationCollectionV1,
+  expectedRevision: number | null,
+): AlmiraConfigurationAction {
+  if (collection.extraction === undefined) invalidConfiguration();
+  return {
+    action_id: `collection_extraction.replace:${environmentKey}:${collection.key}`,
+    operation: "collection_extraction.replace",
+    environment_id: environmentId,
+    environment_key: environmentKey,
+    collection_instance_id: collectionInstanceId,
+    collection_key: collection.key,
+    expected_revision: expectedRevision,
+    config: collection.extraction,
+  };
+}
+
+function collectionMapKey(environmentKey: string, collectionKey: string): string {
+  return `${environmentKey}\0${collectionKey}`;
 }
 
 function conflict(

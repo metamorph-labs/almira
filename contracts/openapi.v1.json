@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Almira API",
-    "version": "0.1.0-dev.21",
+    "version": "0.1.0-dev.22",
     "description": "Provider-neutral application file storage management and data API."
   },
   "servers": [
@@ -990,6 +990,68 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/search": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "post": {
+        "operationId": "searchFiles",
+        "description": "Searches the authorized collection through a rebuildable Lodestone projection, then revision-checks every returned hit against PostgreSQL. Builder-subject calls are admitted and policy-checked before and after the remote read.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Current authorized hits. Search lag can reduce recall but cannot bypass current lifecycle, generation, metadata, project, environment, safety, or policy authority.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
           },
           "503": {
             "$ref": "#/components/responses/Unavailable"
@@ -3775,6 +3837,27 @@
       "CollectionExtractionInput": {
         "type": "object",
         "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "vector_indexing": {
+                  "const": true
+                }
+              },
+              "required": [
+                "vector_indexing"
+              ]
+            },
+            "then": {
+              "properties": {
+                "content": {
+                  "const": true
+                }
+              }
+            }
+          }
+        ],
         "required": [
           "content",
           "ocr",
@@ -3789,6 +3872,11 @@
           },
           "transcription": {
             "type": "boolean"
+          },
+          "vector_indexing": {
+            "type": "boolean",
+            "default": false,
+            "description": "Projects opted-in extracted content into the configured Lodestone vector field. Requires content=true."
           }
         }
       },
@@ -3948,7 +4036,7 @@
             "type": "boolean"
           },
           "vector_indexing": {
-            "const": false
+            "type": "boolean"
           },
           "delivery_mode": {
             "type": "string",
@@ -4747,6 +4835,265 @@
               "null"
             ],
             "maxLength": 2048
+          }
+        }
+      },
+      "FileMetadataFilter": {
+        "type": "object",
+        "additionalProperties": false,
+        "dependentRequired": {
+          "metadata_key": [
+            "metadata_value"
+          ],
+          "metadata_value": [
+            "metadata_key"
+          ],
+          "extraction_kind": [
+            "extraction_state"
+          ],
+          "extraction_state": [
+            "extraction_kind"
+          ]
+        },
+        "properties": {
+          "tag": {
+            "$ref": "#/components/schemas/MetadataComponentName"
+          },
+          "metadata_key": {
+            "$ref": "#/components/schemas/MetadataComponentName"
+          },
+          "metadata_value": {
+            "$ref": "#/components/schemas/CustomMetadataValue"
+          },
+          "verified_media_type": {
+            "$ref": "#/components/schemas/MediaType"
+          },
+          "minimum_size_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10737418240
+          },
+          "maximum_size_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10737418240
+          },
+          "created_after": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "created_before": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "extraction_kind": {
+            "$ref": "#/components/schemas/ExtractionKind"
+          },
+          "extraction_state": {
+            "$ref": "#/components/schemas/ExtractionState"
+          }
+        },
+        "description": "metadata_key and metadata_value, and extraction_kind and extraction_state, are each supplied as a pair. Minimum bounds cannot exceed maximum bounds."
+      },
+      "SearchMode": {
+        "type": "string",
+        "enum": [
+          "lexical",
+          "semantic",
+          "hybrid"
+        ],
+        "default": "lexical"
+      },
+      "SearchInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "query"
+        ],
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024,
+            "pattern": "^[^\\s\\u0000-\\u001f\\u007f](?:[^\\u0000-\\u001f\\u007f]*[^\\s\\u0000-\\u001f\\u007f])?$"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/SearchMode"
+          },
+          "path_prefix": {
+            "$ref": "#/components/schemas/LogicalPath"
+          },
+          "filter": {
+            "$ref": "#/components/schemas/FileMetadataFilter"
+          },
+          "facets": {
+            "type": "array",
+            "maxItems": 8,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^(tags|verified_media_type|custom\\.[a-z]([a-z0-9._-]{0,62}[a-z0-9])?)$"
+            }
+          },
+          "page_size": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 25
+          },
+          "cursor": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 8192
+          }
+        }
+      },
+      "IndexedRevision": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "project",
+          "environment",
+          "entry",
+          "metadata",
+          "generation",
+          "extraction",
+          "collection"
+        ],
+        "properties": {
+          "project": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "environment": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "entry": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "metadata": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "generation": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "extraction": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "collection": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "SearchHit": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "entry",
+          "indexed_revision",
+          "score"
+        ],
+        "properties": {
+          "entry": {
+            "$ref": "#/components/schemas/FileEntry"
+          },
+          "indexed_revision": {
+            "$ref": "#/components/schemas/IndexedRevision"
+          },
+          "score": {
+            "oneOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "SearchFacetValue": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "value",
+          "count"
+        ],
+        "properties": {
+          "value": {
+            "$ref": "#/components/schemas/CustomMetadataValue"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          }
+        }
+      },
+      "SearchFacet": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "field",
+          "values"
+        ],
+        "properties": {
+          "field": {
+            "type": "string",
+            "pattern": "^(tags|verified_media_type|custom\\.[a-z]([a-z0-9._-]{0,62}[a-z0-9])?)$"
+          },
+          "values": {
+            "type": "array",
+            "maxItems": 50,
+            "items": {
+              "$ref": "#/components/schemas/SearchFacetValue"
+            }
+          }
+        }
+      },
+      "SearchPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "facets",
+          "next_cursor",
+          "facet_coverage",
+          "consistency"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 50,
+            "items": {
+              "$ref": "#/components/schemas/SearchHit"
+            }
+          },
+          "facets": {
+            "type": "array",
+            "maxItems": 8,
+            "items": {
+              "$ref": "#/components/schemas/SearchFacet"
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 8192
+          },
+          "facet_coverage": {
+            "const": "returned_page"
+          },
+          "consistency": {
+            "const": "eventual_projection_authoritative_recheck"
           }
         }
       },

@@ -1,15 +1,15 @@
 {
   "formatVersion": 1,
   "product": "almira",
-  "contractVersion": "0.1.0-dev.21",
+  "contractVersion": "0.1.0-dev.22",
   "source": {
     "repository": "metamorph-labs/almira-core",
     "algorithm": "sha256",
-    "digest": "1146836c9456bca16cc39443500a69478e05a3dd42530244e6a68995083e7bc3"
+    "digest": "a3095b62f77a160853ca0c4c581d47f8c3719387dcb5bec8d07d1eff7b38a9c7"
   },
   "bundle": {
     "algorithm": "sha256",
-    "digest": "1146836c9456bca16cc39443500a69478e05a3dd42530244e6a68995083e7bc3"
+    "digest": "a3095b62f77a160853ca0c4c581d47f8c3719387dcb5bec8d07d1eff7b38a9c7"
   },
   "files": [
     {
@@ -19,33 +19,33 @@
     },
     {
       "path": "configuration/almira.v1.schema.json",
-      "size": 2681,
-      "digest": "5aae84b99c385d234ab368867af62a7ad36defab0fdd55664b3dcd05f3d42cef"
+      "size": 4122,
+      "digest": "c762b7d3a127b29dc2762bdb8595fcf57be6b707f684011120d238c54d5afd9a"
     },
     {
       "path": "configuration/vectors.v1.json",
-      "size": 3188,
-      "digest": "d69e82ef2840593514f01f5be1fbba708f9a54a3d29068fb454f4a1e6755e5f0"
+      "size": 4592,
+      "digest": "ae498407bcfd43d168e94ad97c96ec233f925d9f8d6c627c982dc7d06dd026e9"
     },
     {
       "path": "conformance/vectors.v1.json",
-      "size": 27870,
-      "digest": "064ed6a93125d236470de33bbd54bcf50b0015097498bc6e22142b9b5dac9348"
+      "size": 30045,
+      "digest": "edc86f7d2190f51ade558470899adcffc51a5c0b56e48c688bad334853b428b5"
     },
     {
       "path": "data-openapi.v1.json",
-      "size": 14720,
-      "digest": "57e958daed2176d0e30024a53338cc71917c375e49e74fe751460f08c9da80e3"
+      "size": 17184,
+      "digest": "15671ab04f92685fb58c7a9763b353ff69a8c154d4ea7428e1cdbfb02ea9ef82"
     },
     {
       "path": "errors.v1.json",
-      "size": 13838,
-      "digest": "28ac360dcc21ac42e36ce6761b00b72ea8a75e1e9b031e810cd2ec7094b3d831"
+      "size": 15188,
+      "digest": "de3391c4f824af1cfaceb45c19c052642e3105887074189ba76feb2bbd1ff50f"
     },
     {
       "path": "openapi.v1.json",
-      "size": 160980,
-      "digest": "ef58b710741a96328121bd015c1cd0e10b229685f3b79611e6e2b0bb6326a1b9"
+      "size": 170527,
+      "digest": "73dd3eae4ee42b3161d8102e80ecd94d5c62bf751a7f4654ad9bd2dde8832886"
     },
     {
       "path": "README.md",
@@ -55,7 +55,7 @@
     {
       "path": "release.json",
       "size": 70,
-      "digest": "5f24cfe4d9ce98d15b40f316aca74636cd331f815bdfdda6843e775c59b31199"
+      "digest": "44f689ac81de3398aa3f4437a8364cceaa0fe7a8b960697c2794066a785477e5"
     }
   ]
 }

@@ -47,6 +47,58 @@
       "expected": "valid"
     },
     {
+      "name": "collection_vector_search_is_explicit",
+      "instance": {
+        "api_version": "almira/v1",
+        "environments": [
+          {
+            "key": "development",
+            "display_name": "Development",
+            "collections": [
+              {
+                "key": "documents",
+                "display_name": "Documents",
+                "malware_scan_required": true,
+                "extraction": {
+                  "content": true,
+                  "ocr": true,
+                  "transcription": false,
+                  "vector_indexing": true
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "expected": "valid"
+    },
+    {
+      "name": "vector_search_without_content_is_refused",
+      "instance": {
+        "api_version": "almira/v1",
+        "environments": [
+          {
+            "key": "development",
+            "display_name": "Development",
+            "collections": [
+              {
+                "key": "documents",
+                "display_name": "Documents",
+                "malware_scan_required": true,
+                "extraction": {
+                  "content": false,
+                  "ocr": false,
+                  "transcription": false,
+                  "vector_indexing": true
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "expected": "invalid"
+    },
+    {
       "name": "provider_coordinates_are_refused",
       "instance": {
         "api_version": "almira/v1",

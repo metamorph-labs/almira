@@ -92,12 +92,19 @@ Builder-subject listing never admits `includeDeleted`.
 
 Every available generation receives safe technical extraction with immutable source-digest and
 extractor provenance. Collection owners use `getCollectionExtraction` and
-`replaceCollectionExtraction` to opt into content, OCR, or transcription. Customer tags and typed
+`replaceCollectionExtraction` to opt into content, OCR, transcription, and collection-level
+vector indexing. Vector indexing requires content extraction and is never inferred. Customer tags and typed
 scalar fields use `getEntryMetadata` and `replaceEntryMetadata`; `listFiles` accepts exact tag,
 metadata, verified-media-type, size, time and extraction-state filters backed by authoritative
 PostgreSQL state. `getGenerationExtraction` returns safe status only. Protected content is exposed
 only through `getExtractedContent`, which maps to the distinct `extracted_content.read`
 authorization operation.
+
+Use `searchFiles` for lexical, semantic, or hybrid retrieval. Semantic and hybrid modes require the
+collection's explicit vector opt-in. Lodestone supplies candidates, but every returned entry and
+facet is revision-checked against current PostgreSQL lifecycle, safety, generation, metadata, and
+authorization state. `AlmiraDataClient.searchFilesWithCapability` exposes the same behavior to a
+builder application's authorized end user without accepting a management credential.
 
 Application backends can pass a normalized `subject` with `listFiles`, `getFileMetadata`, and
 `readPrivateFile`; the SDK puts its canonical context on that same workload-authenticated call.
@@ -115,4 +122,5 @@ returns only the revision-bound, non-secret inputs needed by a signer.
 The SDK also exports `normalizeConfiguration`, `previewConfiguration`, and `applyConfiguration`
 for the public `almira.yaml` v1 model. Preview performs reads only. Apply refuses conflicts before
 mutation, preserves unlisted resources, checks advertised storage classes, starts governed
-class-only migrations, and returns a resumable receipt rooted in the caller-supplied operation ID.
+class-only migrations, applies explicit collection extraction/vector controls, and returns a
+resumable receipt rooted in the caller-supplied operation ID.

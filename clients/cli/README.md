@@ -87,11 +87,17 @@ find recyclable entries and `file restore` before expiry. Rename, generation sel
 and restore all require the current `--revision`.
 
 Collection extraction controls use `extraction get|set`; safe technical extraction is mandatory,
-while content, OCR and transcription are collection-level opt-ins. Exact-generation safe status
+while content, OCR, transcription, and vector indexing are collection-level opt-ins. Vector
+indexing requires content extraction. Exact-generation safe status
 uses `extraction status`; separately protected text uses `extraction content`. Bounded customer
 tags and typed scalar fields use `metadata get|set`. `file list` also accepts exact tag, metadata,
 verified media type, size, creation-time and extraction-state filters; paired filter fields must
 be provided together.
+
+`file search --query TEXT` performs lexical search by default. Pass `--mode semantic` or
+`--mode hybrid` only for a vector-enabled collection, repeat `--facet` for returned-page facets,
+and use `--page-size`/`--cursor` for bounded continuation. The command accepts the same metadata,
+media, size, time, extraction-state, and path-prefix filters as authoritative listing.
 
 Collection access, CDN delivery, shares, and local capability issuers use the same noun/verb
 shape: `policy get|set|simulate`, `delivery get|set`, `share create|revoke`, and

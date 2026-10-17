@@ -474,6 +474,66 @@
       "retryable": false
     },
     {
+      "code": "ALMIRA_SEARCH_AUTHORIZATION_EXPIRED",
+      "http_status": 403,
+      "retryable": true
+    },
+    {
+      "code": "ALMIRA_SEARCH_AUTHORIZATION_MISMATCH",
+      "http_status": 403,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_SEARCH_CURSOR_INVALID",
+      "http_status": 400,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_SEARCH_INTEGRITY_FAILURE",
+      "http_status": 503,
+      "retryable": true
+    },
+    {
+      "code": "ALMIRA_SEARCH_INVALID",
+      "http_status": 400,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_SEARCH_NOT_FOUND",
+      "http_status": 404,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_SEARCH_PROCESSOR_RESPONSE_INVALID",
+      "http_status": 503,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_SEARCH_PROCESSOR_UNAVAILABLE",
+      "http_status": 503,
+      "retryable": true
+    },
+    {
+      "code": "ALMIRA_SEARCH_PROJECTION_OUTCOME_UNKNOWN",
+      "http_status": 503,
+      "retryable": true
+    },
+    {
+      "code": "ALMIRA_SEARCH_SCOPE_MISMATCH",
+      "http_status": 403,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_SEARCH_UNAVAILABLE",
+      "http_status": 503,
+      "retryable": true
+    },
+    {
+      "code": "ALMIRA_SEARCH_VECTOR_DISABLED",
+      "http_status": 409,
+      "retryable": false
+    },
+    {
       "code": "ALMIRA_STORAGE_AUTHORIZATION_EXPIRED",
       "http_status": 403,
       "retryable": true

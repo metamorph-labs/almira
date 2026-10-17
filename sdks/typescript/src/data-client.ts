@@ -1,4 +1,5 @@
 import { AlmiraApiError, AlmiraClientError } from "./errors.js";
+import { validateSearchInput } from "./client.js";
 import type {
   CollectionReference,
   FileEntry,
@@ -6,6 +7,8 @@ import type {
   FileReference,
   PageOptions,
   PrivateFileResponse,
+  SearchInput,
+  SearchPage,
   UuidV7,
 } from "./types.js";
 
@@ -80,6 +83,15 @@ export class AlmiraDataClient {
     return this.#json(`${dataCollectionPath(reference, "/files")}/${uuid(reference.entryId)}`, options.signal);
   }
 
+  async searchFilesWithCapability(
+    reference: CollectionReference,
+    input: SearchInput,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<SearchPage> {
+    validateSearchInput(input);
+    return this.#json(dataCollectionPath(reference, "/search"), options.signal, input);
+  }
+
   async readImmutableGeneration(
     reference: ImmutableGenerationReference,
     options: DataReadOptions = {},
@@ -96,8 +108,25 @@ export class AlmiraDataClient {
     return this.#bytes(`/v1/shares/${shareToken}`, options, "forbidden");
   }
 
-  async #json<T>(path: string, signal?: AbortSignal): Promise<T> {
-    const response = await this.#request(path, "application/json", signal, "required");
+  async #json<T>(path: string, signal?: AbortSignal, body?: unknown): Promise<T> {
+    const headers = new Headers({ accept: "application/json" });
+    let encoded: string | undefined;
+    if (body !== undefined) {
+      headers.set("content-type", "application/json");
+      try {
+        encoded = JSON.stringify(body);
+      } catch {
+        invalidInput();
+      }
+    }
+    const response = await this.#request(
+      path,
+      headers,
+      signal,
+      "required",
+      encoded === undefined ? "GET" : "POST",
+      encoded,
+    );
     if (!response.ok) await throwApiError(response);
     if (response.headers.get("content-type")?.split(";", 1)[0]?.trim() !== "application/json") invalidResponse();
     const bytes = new Uint8Array(await response.arrayBuffer());
@@ -140,6 +169,8 @@ export class AlmiraDataClient {
     headersOrAccept: Headers | string,
     signal: AbortSignal | undefined,
     capabilityMode: "required" | "optional" | "forbidden",
+    method: "GET" | "POST" = "GET",
+    body?: string,
   ): Promise<Response> {
     const headers = headersOrAccept instanceof Headers ? headersOrAccept : new Headers({ accept: headersOrAccept });
     if (capabilityMode !== "forbidden" && this.#origin !== null) headers.set("origin", this.#origin);
@@ -157,8 +188,9 @@ export class AlmiraDataClient {
     }
     try {
       return await this.#fetch(`${this.#baseUrl}${path}`, {
-        method: "GET",
+        method,
         headers,
+        ...(body === undefined ? {} : { body }),
         credentials: "omit",
         redirect: "error",
         ...(signal === undefined ? {} : { signal }),

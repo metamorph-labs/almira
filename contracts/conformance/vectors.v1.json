@@ -803,6 +803,55 @@
       "expected": "invalid"
     },
     {
+      "name": "lexical_search_with_bounded_facets",
+      "schema": "SearchInput",
+      "instance": {
+        "query": "quarterly report",
+        "mode": "lexical",
+        "path_prefix": "reports/2026",
+        "filter": {
+          "tag": "finance",
+          "verified_media_type": "application/pdf"
+        },
+        "facets": [
+          "tags",
+          "custom.account_id"
+        ],
+        "page_size": 25
+      },
+      "expected": "valid"
+    },
+    {
+      "name": "search_query_with_control_character_refused",
+      "schema": "SearchInput",
+      "instance": {
+        "query": "quarterly\nreport"
+      },
+      "expected": "invalid"
+    },
+    {
+      "name": "search_filter_pair_is_exact",
+      "schema": "SearchInput",
+      "instance": {
+        "query": "invoice",
+        "filter": {
+          "metadata_key": "account_id"
+        }
+      },
+      "expected": "invalid"
+    },
+    {
+      "name": "vector_indexing_requires_content_extraction",
+      "schema": "CollectionExtractionInput",
+      "instance": {
+        "content": false,
+        "ocr": false,
+        "transcription": false,
+        "vector_indexing": true
+      },
+      "expected": "invalid"
+    },
+    {
       "name": "safe_error_envelope",
       "schema": "Error",
       "instance": {
@@ -912,6 +961,30 @@
       "condition": "the actor may read safe metadata but lacks almira.extracted_content.read for the exact generation",
       "code": "ALMIRA_METADATA_AUTHORIZATION_MISMATCH",
       "http_status": 403
+    },
+    {
+      "name": "semantic_search_requires_collection_opt_in",
+      "condition": "semantic or hybrid search is requested while vector indexing is disabled for the collection",
+      "code": "ALMIRA_SEARCH_VECTOR_DISABLED",
+      "http_status": 409
+    },
+    {
+      "name": "search_missing_collection_is_not_found",
+      "condition": "the exact active collection instance does not exist in the authorized environment",
+      "code": "ALMIRA_SEARCH_NOT_FOUND",
+      "http_status": 404
+    },
+    {
+      "name": "search_cursor_is_bound_to_exact_request",
+      "condition": "a cursor is replayed with another scope, collection, mode, query, filters, facets, or page size",
+      "code": "ALMIRA_SEARCH_CURSOR_INVALID",
+      "http_status": 400
+    },
+    {
+      "name": "search_dependency_failure_is_redacted",
+      "condition": "Lodestone or the configured embedding processor is unavailable",
+      "code": "ALMIRA_SEARCH_UNAVAILABLE",
+      "http_status": 503
     }
   ]
 }

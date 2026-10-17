@@ -135,7 +135,7 @@ export interface Collection {
   content_extraction: boolean;
   ocr_extraction: boolean;
   transcription_extraction: boolean;
-  vector_indexing: false;
+  vector_indexing: boolean;
   delivery_mode: "off" | "public" | "private";
   revision: number;
   created_at: Timestamp;
@@ -150,12 +150,13 @@ export interface CollectionExtractionInput {
   content: boolean;
   ocr: boolean;
   transcription: boolean;
+  vector_indexing?: boolean;
 }
 
 export interface CollectionExtractionConfig extends CollectionExtractionInput {
   collection_instance_id: UuidV7;
   technical_metadata: true;
-  vector_indexing: false;
+  vector_indexing: boolean;
   revision: number;
   updated_at: Timestamp;
 }
@@ -376,6 +377,66 @@ export interface ExtractedContent {
 export interface FileEntryPage {
   entries: FileEntry[];
   next_cursor: string | null;
+}
+
+export interface FileMetadataFilter {
+  tag?: string;
+  metadata_key?: string;
+  metadata_value?: CustomMetadataValue;
+  verified_media_type?: string;
+  minimum_size_bytes?: number;
+  maximum_size_bytes?: number;
+  created_after?: Timestamp;
+  created_before?: Timestamp;
+  extraction_kind?: ExtractionKind;
+  extraction_state?: ExtractionState;
+}
+
+export type SearchMode = "lexical" | "semantic" | "hybrid";
+export type SearchFacetField = "tags" | "verified_media_type" | `custom.${string}`;
+
+export interface SearchInput {
+  query: string;
+  mode?: SearchMode;
+  path_prefix?: string;
+  filter?: FileMetadataFilter;
+  facets?: SearchFacetField[];
+  page_size?: number;
+  cursor?: string;
+}
+
+export interface IndexedRevision {
+  project: number;
+  environment: number;
+  entry: number;
+  metadata: number;
+  generation: number;
+  extraction: number;
+  collection: number;
+}
+
+export interface SearchHit {
+  entry: FileEntry;
+  indexed_revision: IndexedRevision;
+  score: string | null;
+}
+
+export interface SearchFacetValue {
+  value: CustomMetadataValue;
+  count: number;
+}
+
+export interface SearchFacet {
+  field: SearchFacetField;
+  values: SearchFacetValue[];
+}
+
+export interface SearchPage {
+  items: SearchHit[];
+  facets: SearchFacet[];
+  next_cursor: string | null;
+  facet_coverage: "returned_page";
+  consistency: "eventual_projection_authoritative_recheck";
 }
 
 export interface FileGenerationPage {

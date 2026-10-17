@@ -63,6 +63,8 @@ import type {
   RestoreFileGenerationRequest,
   RestoreFileRequest,
   RotateLocalIssuerKeyRequest,
+  SearchInput,
+  SearchPage,
   ShareGrant,
   ShareReference,
   StorageRealizationCatalog,
@@ -389,6 +391,21 @@ export class AlmiraClient {
     return this.#json(withQuery(collectionPath(reference, "/files"), query), {
       method: "GET",
       ...(subject === undefined ? {} : { headers: subject }),
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async searchFiles(
+    reference: CollectionReference,
+    input: SearchInput,
+    options: SubjectReadOptions = {},
+  ): Promise<SearchPage> {
+    validateSearchInput(input);
+    const subject = subjectHeaders(options.subject);
+    return this.#json(collectionPath(reference, "/search"), {
+      method: "POST",
+      ...(subject === undefined ? {} : { headers: subject }),
+      body: input,
       signal: options.signal,
     }, reference.tenantId);
   }
@@ -890,6 +907,32 @@ function appendPositiveInteger(
 function timestamp(value: string): string {
   if (value.length > 64 || Number.isNaN(Date.parse(value))) invalidInput();
   return value;
+}
+
+export function validateSearchInput(input: SearchInput): void {
+  if (
+    typeof input.query !== "string" ||
+    input.query.length === 0 ||
+    new TextEncoder().encode(input.query).length > 1024 ||
+    input.query !== input.query.trim() ||
+    /[\u0000-\u001f\u007f]/u.test(input.query) ||
+    (input.mode !== undefined && !["lexical", "semantic", "hybrid"].includes(input.mode)) ||
+    (input.page_size !== undefined &&
+      (!Number.isSafeInteger(input.page_size) || input.page_size < 1 || input.page_size > 50)) ||
+    (input.cursor !== undefined && (input.cursor.length === 0 || input.cursor.length > 8192)) ||
+    (input.facets !== undefined &&
+      (input.facets.length > 8 || new Set(input.facets).size !== input.facets.length ||
+        input.facets.some((facet) => !/^(?:tags|verified_media_type|custom\.[a-z](?:[a-z0-9._-]{0,62}[a-z0-9])?)$/u.test(facet))))
+  ) invalidInput();
+  const filter = input.filter;
+  if (filter === undefined) return;
+  if ((filter.metadata_key === undefined) !== (filter.metadata_value === undefined)) invalidInput();
+  if ((filter.extraction_kind === undefined) !== (filter.extraction_state === undefined)) invalidInput();
+  if (
+    filter.minimum_size_bytes !== undefined &&
+    filter.maximum_size_bytes !== undefined &&
+    filter.minimum_size_bytes > filter.maximum_size_bytes
+  ) invalidInput();
 }
 
 function withQuery(path: string, query: URLSearchParams): string {

@@ -9,6 +9,11 @@ environments:
         display_name: Assets
         malware_scan_required: true
         storage_class: normal
+        extraction:
+          content: true
+          ocr: true
+          transcription: false
+          vector_indexing: true
   - key: production
     display_name: Production
     collections:
@@ -16,3 +21,8 @@ environments:
         display_name: Assets
         malware_scan_required: true
         storage_class: normal
+        extraction:
+          content: true
+          ocr: true
+          transcription: false
+          vector_indexing: true
