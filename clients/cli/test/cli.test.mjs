@@ -135,6 +135,45 @@ test("stdin request bodies and mutation dry-run produce one safe exact request",
   assert.doesNotMatch(JSON.stringify(output), /mm_pat_v1/iu);
 });
 
+test("verification command preserves the original finalize replay and refusal target", async () => {
+  const stream = io();
+  const collectionId = "018f0000-0000-7000-8000-000000000012";
+  const body = {
+    transfer_session_id: requestId,
+    finalize_operation_id: "018f0000-0000-7000-8000-000000000009",
+    entry_id: "018f0000-0000-7000-8000-000000000010",
+    generation_id: "018f0000-0000-7000-8000-000000000011",
+    refusal_environment_id: "018f0000-0000-7000-8000-000000000013",
+    completion: {
+      descriptor_id: "018f0000-0000-7000-8000-000000000014",
+      protocol: "single_put",
+      etag: "etag-1",
+      provider_version: null,
+      parts: [{ part_number: 1, etag: "etag-1" }],
+      size_bytes: 4,
+      content_sha256: `sha256:${"a".repeat(64)}`,
+    },
+  };
+  let request;
+  const exitCode = await runCli([
+    "verification", "create", "--tenant", tenantId, "--project", projectId,
+    "--environment", environmentId, "--collection", collectionId,
+    "--input", "-",
+  ], {
+    environment,
+    io: { ...stream.value, stdin: Readable.from([JSON.stringify(body)]) },
+    fetch: async (input, init) => {
+      request = { input, init };
+      return json({ receipt: {}, algorithm: "ed25519", signature: "A".repeat(86) });
+    },
+  });
+  assert.equal(exitCode, 0, stream.output.stderr.join(""));
+  assert.equal(request.input, `https://almira.test/v1/projects/${projectId}/environments/${environmentId}/collections/${collectionId}/verifications`);
+  assert.equal(request.init.headers.get("idempotency-key"), null);
+  assert.deepEqual(JSON.parse(request.init.body), body);
+  assert.equal(JSON.parse(stream.output.stdout.join("")).algorithm, "ed25519");
+});
+
 test("watch emits revision changes until durable migration terminal state", async () => {
   const stream = io();
   const migrationId = "018f0000-0000-7000-8000-000000000013";

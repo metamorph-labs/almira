@@ -5,7 +5,7 @@ import (
 	"net/http"
 )
 
-const ContractVersion = "0.1.0-dev.31"
+const ContractVersion = "0.1.0-dev.33"
 
 type CollectionReference struct {
 	TenantID             string

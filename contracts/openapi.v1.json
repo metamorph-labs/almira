@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Almira API",
-    "version": "0.1.0-dev.31",
+    "version": "0.1.0-dev.33",
     "description": "Provider-neutral application file storage management and data API."
   },
   "servers": [
@@ -22,6 +22,27 @@
     }
   ],
   "paths": {
+    "/.well-known/almira-verification-keys.json": {
+      "get": {
+        "operationId": "getVerificationPublicKeys",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Current public keys for offline verification of Almira receipts.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerificationPublicKeySet"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
     "/v1/projects/{project_id}/bootstrap": {
       "parameters": [
         {
@@ -1227,6 +1248,64 @@
           },
           "410": {
             "$ref": "#/components/responses/Gone"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/verifications": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "post": {
+        "operationId": "createVerificationReceipt",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateVerificationReceiptRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The exact public behavior was exercised and a signed receipt was issued.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignedVerificationReceipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
           },
           "503": {
             "$ref": "#/components/responses/Unavailable"
@@ -7215,6 +7294,228 @@
           },
           "content_sha256": {
             "$ref": "#/components/schemas/ContentSha256"
+          }
+        }
+      },
+      "CreateVerificationReceiptRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "transfer_session_id",
+          "finalize_operation_id",
+          "entry_id",
+          "generation_id",
+          "refusal_environment_id",
+          "completion"
+        ],
+        "properties": {
+          "transfer_session_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "finalize_operation_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "entry_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "generation_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "refusal_environment_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "completion": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/FinalizeUploadRequest"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "size_bytes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 8388608
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "VerificationCheck": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "result"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "enum": [
+              "finalization_idempotency",
+              "private_read_integrity",
+              "cross_scope_refusal",
+              "malware_safety"
+            ]
+          },
+          "result": {
+            "const": "passed"
+          }
+        }
+      },
+      "VerificationReceipt": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "receipt_version",
+          "contract_version",
+          "verification_id",
+          "realm_id",
+          "tenant_id",
+          "project_id",
+          "environment_id",
+          "collection_instance_id",
+          "entry_id",
+          "generation_id",
+          "expected_size_bytes",
+          "content_sha256",
+          "safety_state",
+          "checks",
+          "signing_key_id"
+        ],
+        "properties": {
+          "receipt_version": {
+            "const": "almira.verification.v1"
+          },
+          "contract_version": {
+            "const": "0.1.0-dev.33"
+          },
+          "verification_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "realm_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "tenant_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "project_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "environment_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "collection_instance_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "entry_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "generation_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "expected_size_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 8388608
+          },
+          "content_sha256": {
+            "$ref": "#/components/schemas/ContentSha256"
+          },
+          "safety_state": {
+            "type": "string",
+            "enum": [
+              "not_required",
+              "clean"
+            ]
+          },
+          "checks": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "x-almira-unique-by": "name",
+            "items": {
+              "$ref": "#/components/schemas/VerificationCheck"
+            }
+          },
+          "signing_key_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9._-]{0,63}$"
+          }
+        }
+      },
+      "SignedVerificationReceipt": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "receipt",
+          "algorithm",
+          "signature"
+        ],
+        "properties": {
+          "receipt": {
+            "$ref": "#/components/schemas/VerificationReceipt"
+          },
+          "algorithm": {
+            "const": "ed25519"
+          },
+          "signature": {
+            "type": "string",
+            "minLength": 86,
+            "maxLength": 86,
+            "pattern": "^[A-Za-z0-9_-]{86}$"
+          }
+        }
+      },
+      "VerificationPublicKey": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key_id",
+          "algorithm",
+          "public_key"
+        ],
+        "properties": {
+          "key_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9._-]{0,63}$"
+          },
+          "algorithm": {
+            "const": "ed25519"
+          },
+          "public_key": {
+            "type": "string",
+            "minLength": 43,
+            "maxLength": 43,
+            "pattern": "^[A-Za-z0-9_-]{43}$"
+          }
+        }
+      },
+      "VerificationPublicKeySet": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "format_version",
+          "keys"
+        ],
+        "properties": {
+          "format_version": {
+            "const": 1
+          },
+          "keys": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 4,
+            "x-almira-unique-by": "key_id",
+            "items": {
+              "$ref": "#/components/schemas/VerificationPublicKey"
+            }
           }
         }
       },

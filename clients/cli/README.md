@@ -90,6 +90,12 @@ model. The CLI accepts only an `mm_pat_v1.` PAT or `mm_sak_v1.` SAK through `MET
 a command-line flag. For a mutation, retain the emitted `operation_id`; retries after an ambiguous
 outcome must use that value with `--operation-id`.
 
+`verification create --input verification.json` submits the bounded existing-upload replay
+evidence and a distinct refusal environment, then returns Almira's signed behavior receipt. The
+operation does not upload another file or accept provider credentials. Verify the receipt's
+Ed25519 signature and exact expected resource binding in the application SDK before treating the
+journey as successful.
+
 Named contexts remove repeated routing flags without becoming another credential store. Use
 `almira context set --context NAME --base-url URL --tenant UUID --project UUID` with optional
 `--environment` and `--collection`, then `almira context use --context NAME`. `context list` and

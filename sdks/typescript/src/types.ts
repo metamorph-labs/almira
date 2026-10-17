@@ -612,6 +612,61 @@ export interface FinalizeUploadRequest {
   content_sha256: ContentSha256;
 }
 
+export interface CreateVerificationReceiptRequest {
+  transfer_session_id: UuidV7;
+  finalize_operation_id: UuidV7;
+  entry_id: UuidV7;
+  generation_id: UuidV7;
+  refusal_environment_id: UuidV7;
+  completion: FinalizeUploadRequest;
+}
+
+export type VerificationCheckName =
+  | "finalization_idempotency"
+  | "private_read_integrity"
+  | "cross_scope_refusal"
+  | "malware_safety";
+
+export interface VerificationCheck {
+  name: VerificationCheckName;
+  result: "passed";
+}
+
+export interface VerificationReceipt {
+  receipt_version: "almira.verification.v1";
+  contract_version: "0.1.0-dev.33";
+  verification_id: UuidV7;
+  realm_id: UuidV7;
+  tenant_id: UuidV7;
+  project_id: UuidV7;
+  environment_id: UuidV7;
+  collection_instance_id: UuidV7;
+  entry_id: UuidV7;
+  generation_id: UuidV7;
+  expected_size_bytes: number;
+  content_sha256: ContentSha256;
+  safety_state: "not_required" | "clean";
+  checks: VerificationCheck[];
+  signing_key_id: string;
+}
+
+export interface SignedVerificationReceipt {
+  receipt: VerificationReceipt;
+  algorithm: "ed25519";
+  signature: string;
+}
+
+export interface VerificationPublicKey {
+  key_id: string;
+  algorithm: "ed25519";
+  public_key: string;
+}
+
+export interface VerificationPublicKeySet {
+  format_version: 1;
+  keys: VerificationPublicKey[];
+}
+
 export interface FileGeneration {
   entry_id: UuidV7;
   generation_id: UuidV7;

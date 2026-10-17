@@ -179,6 +179,47 @@ test("storage capability discovery is one exact environment-scoped read", async 
   assert.equal(call.init.headers.get("x-almira-tenant-id"), tenantId);
 });
 
+test("verification receipt and public key discovery use their distinct credential boundaries", async () => {
+  const calls = [];
+  const receipt = { receipt: {}, algorithm: "ed25519", signature: "A".repeat(86) };
+  const keySet = { format_version: 1, keys: [] };
+  const client = new AlmiraClient({
+    baseUrl: "https://almira.test",
+    credential: "mm_pat_v1.test",
+    fetch: async (input, init) => {
+      calls.push({ input, init });
+      return json(input.endsWith("almira-verification-keys.json") ? keySet : receipt);
+    },
+  });
+  const reference = { tenantId, projectId, environmentId, collectionInstanceId };
+  const completion = {
+    descriptor_id: requestId,
+    protocol: "single_put",
+    etag: "etag-1",
+    provider_version: null,
+    parts: [{ part_number: 1, etag: "etag-1" }],
+    size_bytes: 4,
+    content_sha256: `sha256:${"a".repeat(64)}`,
+  };
+  assert.deepEqual(await client.createVerificationReceipt(reference, {
+    transfer_session_id: requestId,
+    finalize_operation_id: operationId,
+    entry_id: entryId,
+    generation_id: generationId,
+    refusal_environment_id: "018f0000-0000-7000-8000-000000000010",
+    completion,
+  }), receipt);
+  assert.deepEqual(await client.getVerificationPublicKeys(), keySet);
+
+  assert.equal(calls[0].input, `https://almira.test/v1/projects/${projectId}/environments/${environmentId}/collections/${collectionInstanceId}/verifications`);
+  assert.equal(calls[0].init.headers.get("authorization"), "Bearer mm_pat_v1.test");
+  assert.equal(calls[0].init.headers.get("x-almira-tenant-id"), tenantId);
+  assert.equal(calls[0].init.headers.get("idempotency-key"), null);
+  assert.equal(calls[1].input, "https://almira.test/.well-known/almira-verification-keys.json");
+  assert.equal(calls[1].init.credentials, "omit");
+  assert.deepEqual(calls[1].init.headers, { accept: "application/json" });
+});
+
 test("storage migration start and status use the collection-scoped contract", async () => {
   const calls = [];
   const migration = {

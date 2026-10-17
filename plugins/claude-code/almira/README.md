@@ -19,3 +19,7 @@ existing destination is never overwritten.
 The management catalog includes collection protection, safe scan-case inspection, exact-generation
 rescan, and content-free review tools. FileService remains authoritative for verdicts and
 quarantine; the plugin has no release or verdict-override tool.
+
+The verification tool accepts only bounded replay evidence for an existing canary upload. Almira
+exercises finalize retry, exact private bytes, cross-environment refusal and the safety gate before
+issuing an Ed25519-signed receipt. The plugin never treats resource creation alone as success.

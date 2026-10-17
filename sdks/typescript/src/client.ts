@@ -25,6 +25,7 @@ import type {
   CreateFileVersionRequest,
   CreateUploadOutcome,
   CreateUploadRequest,
+  CreateVerificationReceiptRequest,
   CreateShareRequest,
   DeleteFileOutcome,
   DeliveryConfig,
@@ -103,10 +104,12 @@ import type {
   StartCollectionImportRequest,
   StorageMigration,
   StorageMigrationReference,
+  SignedVerificationReceipt,
   SubjectReadOptions,
   TokenMutationDisposition,
   UpdateEnvironmentRequest,
   UuidV7,
+  VerificationPublicKeySet,
 } from "./types.js";
 
 const UUID_V7 = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
@@ -180,6 +183,12 @@ export class AlmiraClient {
       (this.#authentication !== null || !validProductSelection(options.productSelection))
     ) invalidInput();
     this.#productSelection = options.productSelection ?? null;
+  }
+
+  async getVerificationPublicKeys(
+    options: { signal?: AbortSignal } = {},
+  ): Promise<VerificationPublicKeySet> {
+    return this.#publicJson("/.well-known/almira-verification-keys.json", options.signal);
   }
 
   async bootstrapProject(
@@ -598,6 +607,18 @@ export class AlmiraClient {
       },
       reference.tenantId,
     );
+  }
+
+  async createVerificationReceipt(
+    reference: CollectionReference,
+    request: CreateVerificationReceiptRequest,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<SignedVerificationReceipt> {
+    return this.#json(collectionPath(reference, "/verifications"), {
+      method: "POST",
+      body: request,
+      signal: options.signal,
+    }, reference.tenantId);
   }
 
   async listFiles(
@@ -1049,6 +1070,29 @@ export class AlmiraClient {
 
   async #json<T>(path: string, options: JsonRequestOptions, tenantId: UuidV7): Promise<T> {
     const response = await this.#request(path, options, tenantId);
+    return this.#decodeJson(response);
+  }
+
+  async #publicJson<T>(path: string, signal?: AbortSignal): Promise<T> {
+    let response: Response;
+    try {
+      response = await this.#fetch(`${this.#baseUrl}${path}`, {
+        method: "GET",
+        headers: { accept: "application/json" },
+        credentials: "omit",
+        redirect: "error",
+        ...(signal === undefined ? {} : { signal }),
+      });
+    } catch (error) {
+      if (signal?.aborted || (error instanceof DOMException && error.name === "AbortError")) {
+        throw new AlmiraClientError("ALMIRA_CLIENT_ABORTED");
+      }
+      throw new AlmiraClientError("ALMIRA_CLIENT_NETWORK");
+    }
+    return this.#decodeJson(response);
+  }
+
+  async #decodeJson<T>(response: Response): Promise<T> {
     if (!response.ok) await throwApiError(response);
     const contentType = response.headers.get("content-type")?.split(";", 1)[0]?.trim();
     if (contentType !== "application/json") invalidResponse();

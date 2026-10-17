@@ -28,7 +28,7 @@ Reuse the returned `operation_id` when retrying any mutation whose result was no
 
 ## Integrate The Application
 
-Use `@metamorph-labs/almira-sdk` instead of hand-written HTTP calls. Instantiate `AlmiraClient`, create a transfer with `createUpload`, send bytes with `uploadDirect`, and commit the generation with `finalizeUpload`. Use `readPrivateFile` for authorized reads. Follow the SDK README and the Node upload example when available in the checked-out Almira repository.
+Use `@metamorph-labs/almira-sdk` instead of hand-written HTTP calls. Instantiate `AlmiraClient`, create a transfer with `createUpload`, send bytes with `uploadDirect`, and commit the generation with `finalizeUpload`. Use `readPrivateFile` for authorized reads. Follow the SDK README and the executable Node/Next.js route example in `examples/node-upload` when available in the checked-out Almira repository.
 
 Treat a file entry as the stable identity and generations as immutable bytes. For lifecycle work, use the published `createFileVersion`, `listFileGenerations`, `renameFile`, `restoreFileGeneration`, `deleteFile`, and `restoreFile` SDK methods or their management tools. Deletion must be treated as immediate read refusal even though a management caller can restore the entry during its bounded recycle window.
 For multiple independent lifecycle mutations, prefer `mutateFilesBatch`/`almira_file_batch`: it is atomic, revision-bound, limited to 100 actions, and accepts each entry only once.
@@ -47,4 +47,6 @@ Do not provision S3, GCS, or Azure credentials in application code. Almira owns 
 
 ## Verify The Journey
 
-Write the application code and automated tests first. Then exercise the application-level upload and read journey, including a refused unauthorized request, an idempotent retry, and the configured malware-scan behavior. Resource creation alone is not success. Report exactly what was tested and any check that could not run; do not claim deployment or compliance certification.
+Write the application code and automated tests first. Then upload a non-sensitive canary of at most 8 MiB through the application path and retain the transfer ID, completion evidence, exact finalize operation ID, entry and generation. Call `almira_verification_receipt_create` with those values and a distinct project environment as the refusal target. Almira itself replays finalization, hashes the exact private read, requires the cross-environment refusal, and checks the configured malware gate before signing the resource- and contract-bound receipt. Verify the Ed25519 signature and exact expected resource binding with `verifyReceiptWithClient`; a valid signature for another resource is not success.
+
+Resource creation alone is not success. Do not invent a client-side success receipt, treat an unsigned assertion as proof, or use this bounded canary operation for files above 8 MiB. Report exactly what was tested and any check that could not run; do not claim that Almira built or deployed the application, and do not claim compliance certification.

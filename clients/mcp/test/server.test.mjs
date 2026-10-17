@@ -112,6 +112,7 @@ test("tool catalog is closed and marks destructive behavior accurately", async (
       "almira_storage_capabilities_get",
       "almira_storage_migration_get",
       "almira_storage_migration_start",
+      "almira_verification_receipt_create",
     ],
   );
   assert.equal(
@@ -524,6 +525,67 @@ test("file lifecycle tools preserve stable entry scope, revisions, and operation
       },
     },
   ]);
+});
+
+test("verification tool is bounded and preserves exact replay evidence", async (context) => {
+  const environmentId = "018f0000-0000-7000-8000-000000000004";
+  const collectionId = "018f0000-0000-7000-8000-000000000005";
+  const entryId = "018f0000-0000-7000-8000-000000000006";
+  const generationId = "018f0000-0000-7000-8000-000000000009";
+  const operationId = "018f0000-0000-7000-8000-000000000007";
+  const refusalEnvironmentId = "018f0000-0000-7000-8000-000000000010";
+  const requests = [];
+  const connection = await connected(async (input, init) => {
+    requests.push({ input, init });
+    return json({ receipt: {}, algorithm: "ed25519", signature: "A".repeat(86) });
+  });
+  context.after(async () => {
+    await connection.client.close();
+    await connection.server.close();
+  });
+  const arguments_ = {
+    tenant_id: tenantId,
+    project_id: projectId,
+    environment_id: environmentId,
+    collection_instance_id: collectionId,
+    transfer_session_id: requestId,
+    finalize_operation_id: "018f0000-0000-7000-8000-000000000011",
+    entry_id: entryId,
+    generation_id: generationId,
+    refusal_environment_id: refusalEnvironmentId,
+    completion: {
+      descriptor_id: "018f0000-0000-7000-8000-000000000012",
+      protocol: "single_put",
+      etag: "etag-1",
+      provider_version: null,
+      parts: [{ part_number: 1, etag: "etag-1" }],
+      size_bytes: 4,
+      content_sha256: `sha256:${"a".repeat(64)}`,
+    },
+  };
+  const result = await connection.client.callTool({
+    name: "almira_verification_receipt_create",
+    arguments: arguments_,
+  });
+  assert.equal(result.isError, undefined);
+  assert.equal(result.structuredContent.operation_id, undefined);
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].input, `https://almira.test/v1/projects/${projectId}/environments/${environmentId}/collections/${collectionId}/verifications`);
+  assert.deepEqual(JSON.parse(requests[0].init.body), {
+    transfer_session_id: arguments_.transfer_session_id,
+    finalize_operation_id: arguments_.finalize_operation_id,
+    entry_id: entryId,
+    generation_id: generationId,
+    refusal_environment_id: refusalEnvironmentId,
+    completion: arguments_.completion,
+  });
+
+  const refused = await connection.client.callTool({
+    name: "almira_verification_receipt_create",
+    arguments: { ...arguments_, refusal_environment_id: environmentId },
+  });
+  assert.equal(refused.isError, true);
+  assert.equal(requests.length, 1);
 });
 
 test("configuration tools preview and converge the same structured document", async (context) => {

@@ -92,6 +92,14 @@ collection reports `migrating`.
 Direct transfer URLs and headers returned by `createUpload` are sensitive, one-use capabilities.
 The SDK returns them only to the caller and never logs or persists them.
 
+After a bounded canary upload (at most 8 MiB), retain its transfer ID, completion evidence and
+finalize operation ID and call `createVerificationReceipt` with a distinct environment as the
+refusal target. Almira replays finalization, hashes the exact private read, requires the
+cross-environment refusal and checks the configured malware gate before issuing an Ed25519-signed
+receipt. `verifyReceiptWithClient` fetches the public key set without credentials and verifies both
+the signature and an explicit expected resource binding. Never treat a valid receipt for another
+resource as proof for the current journey.
+
 `startCollectionImport` accepts only a FileService-issued opaque source binding and a bounded safe
 manifest; it does not accept source credentials or provider coordinates. `startCollectionExport`,
 `listPortabilityJobs`, and `getPortabilityJob` expose durable transfer and verification progress.

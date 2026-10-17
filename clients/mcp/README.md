@@ -27,6 +27,11 @@ placed in model context; application integration uses the SDK. Mutating tools ac
 `operation_id` and always return the value used so an agent can safely retry an ambiguous outcome.
 Collection creation accepts `storage_class` as `normal` (the default) or `express`; agents should
 first verify that the selected environment advertises the requested class.
+
+`almira_verification_receipt_create` accepts only an existing canary's bounded completion evidence,
+its original finalize operation ID and a distinct refusal environment. Almira exercises finalize
+retry, exact private bytes, cross-environment refusal and safety before signing a receipt; the MCP
+server does not invent a success assertion or expose key material beyond public verification keys.
 `almira_collection_lifecycle_replace` sets the collection's 1–3650 day recycle window using the
 current revision. The default is 30 days, the value applies to future deletions, and existing
 recycle deadlines are unchanged.

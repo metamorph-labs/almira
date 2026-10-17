@@ -3,9 +3,9 @@ import { basename } from "node:path";
 
 import { AlmiraClient } from "@metamorph-labs/almira-sdk";
 
-import { uploadFile } from "./upload.js";
+import { uploadAndVerifyFile } from "./upload.js";
 
-const [filePath, tenantId, projectId, environmentId, collectionInstanceId, logicalPath] = process.argv.slice(2);
+const [filePath, tenantId, projectId, environmentId, collectionInstanceId, refusalEnvironmentId, logicalPath] = process.argv.slice(2);
 const baseUrl = process.env.ALMIRA_BASE_URL;
 const credential = process.env.METAMORPH_TOKEN;
 
@@ -15,22 +15,24 @@ if (
   projectId === undefined ||
   environmentId === undefined ||
   collectionInstanceId === undefined ||
+  refusalEnvironmentId === undefined ||
   baseUrl === undefined ||
   credential === undefined
 ) {
   console.error(
-    "usage: node dist/main.js <file> <tenant-id> <project-id> <environment-id> <collection-id> [logical-path]",
+    "usage: node dist/main.js <file> <tenant-id> <project-id> <environment-id> <collection-id> <refusal-environment-id> [logical-path]",
   );
   process.exitCode = 2;
 } else {
   try {
     const bytes = await readFile(filePath);
-    const entry = await uploadFile({
+    const entry = await uploadAndVerifyFile({
       client: new AlmiraClient({ baseUrl, credential }),
       tenantId,
       projectId,
       environmentId,
       collectionInstanceId,
+      refusalEnvironmentId,
       bytes,
       path: logicalPath ?? basename(filePath),
       mediaType: "application/octet-stream",

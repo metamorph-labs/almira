@@ -264,6 +264,34 @@ const protectionReviewReason = z.string().refine((value) => {
   return bytes >= 12 && bytes <= 1000 && value === value.trim() && !/[\u0000-\u001f\u007f]/u.test(value);
 }, { message: "reason must be 12-1000 UTF-8 bytes without surrounding whitespace or controls" });
 const contentSha256 = z.string().regex(/^sha256:[0-9a-f]{64}$/u);
+const providerReceipt = z.string().min(1).max(256).regex(/^[!-~]+$/u);
+const directUploadPartCompletion = z.object({
+  part_number: z.number().int().min(1).max(256),
+  etag: providerReceipt,
+}).strict();
+const directUploadCompletion = z.discriminatedUnion("protocol", [
+  z.object({
+    descriptor_id: uuid,
+    protocol: z.literal("single_put"),
+    etag: providerReceipt,
+    provider_version: providerReceipt.nullable(),
+    parts: z.array(directUploadPartCompletion).length(1),
+    size_bytes: z.number().int().min(1).max(8 * 1024 * 1024),
+    content_sha256: contentSha256,
+  }).strict().refine((value) => value.parts[0]?.part_number === 1 && value.parts[0]?.etag === value.etag, {
+    message: "single_put completion must bind part one to the aggregate etag",
+  }),
+  z.object({
+    descriptor_id: uuid,
+    protocol: z.literal("multipart"),
+    etag: z.null(),
+    provider_version: z.null(),
+    parts: z.array(directUploadPartCompletion).min(2).max(256)
+      .refine((parts) => parts.every((part, index) => part.part_number === index + 1)),
+    size_bytes: z.number().int().min(1).max(8 * 1024 * 1024),
+    content_sha256: contentSha256,
+  }).strict(),
+]);
 const logicalPath = z.string().regex(/^[A-Za-z0-9._~-]+(?:\/[A-Za-z0-9._~-]+)*$/u).max(1024);
 const importSource = z.object({
   source_binding_id: uuid,
@@ -343,7 +371,7 @@ export function createAlmiraMcpServer(
   client: AlmiraClient,
   dependencies: AlmiraMcpDependencies = {},
 ): McpServer {
-  const server = new McpServer({ name: "almira", version: "0.1.0-dev.31" });
+  const server = new McpServer({ name: "almira", version: "0.1.0-dev.33" });
 
   server.registerTool(
     "almira_project_bootstrap",
@@ -1441,6 +1469,54 @@ export function createAlmiraMcpServer(
         { source_entry_id, source_generation_id, destination_path, expected_source_revision },
         { operationId: id },
       ), id);
+    },
+  );
+
+  server.registerTool(
+    "almira_verification_receipt_create",
+    {
+      title: "Verify an Almira file flow",
+      description: "Replay finalization, hash the exact private generation, prove cross-environment refusal and safety, then issue a signed contract-bound receipt.",
+      inputSchema: z.object({
+        ...collectionScope,
+        transfer_session_id: uuid,
+        finalize_operation_id: uuid,
+        entry_id: uuid,
+        generation_id: uuid,
+        refusal_environment_id: uuid,
+        completion: directUploadCompletion,
+      }).strict().refine((value) => value.environment_id !== value.refusal_environment_id, {
+        message: "refusal_environment_id must differ from environment_id",
+      }),
+      outputSchema,
+      annotations: mutationAnnotations,
+    },
+    async ({
+      tenant_id,
+      project_id,
+      environment_id,
+      collection_instance_id,
+      transfer_session_id,
+      finalize_operation_id,
+      entry_id,
+      generation_id,
+      refusal_environment_id,
+      completion,
+    }) => {
+      return execute(() => client.createVerificationReceipt(
+        collectionReference(tenant_id, project_id, environment_id, collection_instance_id),
+        {
+          transfer_session_id,
+          finalize_operation_id,
+          entry_id,
+          generation_id,
+          refusal_environment_id,
+          completion: {
+            ...completion,
+            content_sha256: completion.content_sha256 as `sha256:${string}`,
+          },
+        },
+      ));
     },
   );
 

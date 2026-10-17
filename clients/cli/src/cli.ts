@@ -20,6 +20,7 @@ import {
   previewConfiguration,
   type AccessSimulation,
   type CreateShareRequest,
+  type CreateVerificationReceiptRequest,
   type CreateProtectionReviewRequest,
   type FileBatchRequest,
   type CopyFileRequest,
@@ -129,6 +130,7 @@ Commands:
   issuer rotate           Rotate an issuer key from --input JSON
   issuer revoke           Revoke an issuer
   issuer signing-config   Read public local-signing configuration
+  verification create    Exercise upload/read/refusal/safety and issue a signed receipt
 
 Connection:
   --context NAME          Select a non-secret base/scope context
@@ -837,6 +839,14 @@ export async function runCli(arguments_: string[], dependencies: CliDependencies
       result = await client.getLocalIssuerSigningConfiguration(
         localIssuerReference(values, tenantId, projectId),
       );
+    } else if (noun === "verification" && verb === "create") {
+      result = await client.createVerificationReceipt(
+        collectionReference(values, tenantId, projectId),
+        await readJson<CreateVerificationReceiptRequest>(
+          required(values, "input"),
+          dependencies.io.stdin,
+        ),
+      );
     } else {
       throw new CliUsageError();
     }
@@ -967,6 +977,7 @@ const commandOptions = new Map<string, ReadonlySet<string>>([
   ["issuer:rotate", collectionCommandOptions("input", "issuer", "operation-id")],
   ["issuer:revoke", collectionCommandOptions("issuer", "operation-id", "revision")],
   ["issuer:signing-config", collectionCommandOptions("issuer")],
+  ["verification:create", collectionCommandOptions("input")],
 ]);
 
 const mutationCommands = new Set([

@@ -887,6 +887,26 @@
       "code": "ALMIRA_UNAVAILABLE",
       "http_status": 503,
       "retryable": true
+    },
+    {
+      "code": "ALMIRA_VERIFICATION_CHECK_FAILED",
+      "http_status": 409,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_VERIFICATION_INPUT_INVALID",
+      "http_status": 400,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_VERIFICATION_INTEGRITY_FAILURE",
+      "http_status": 503,
+      "retryable": true
+    },
+    {
+      "code": "ALMIRA_VERIFICATION_UNAVAILABLE",
+      "http_status": 503,
+      "retryable": true
     }
   ]
 }
