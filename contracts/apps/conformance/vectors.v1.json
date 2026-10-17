@@ -1,0 +1,189 @@
+{
+  "schema_id": "almira.apps.conformance-vectors.v1",
+  "format_version": 1,
+  "vectors": [
+    {
+      "name": "resource-discovery-uses-stable-project-target",
+      "schema_id": "almira.app.resource-discover.input.v1",
+      "expected": "valid",
+      "instance": {
+        "schema_version": 1,
+        "request_id": "018f0000-0000-7000-8000-000000000101",
+        "target": {
+          "environment_id": null,
+          "collection_id": null,
+          "file_id": null,
+          "generation_id": null
+        },
+        "arguments": {
+          "cursor": null,
+          "limit": 50,
+          "resource_kinds": [
+            "environment",
+            "collection"
+          ]
+        }
+      }
+    },
+    {
+      "name": "resource-discovery-refuses-path-grant",
+      "schema_id": "almira.app.resource-discover.input.v1",
+      "expected": "invalid",
+      "instance": {
+        "schema_version": 1,
+        "request_id": "018f0000-0000-7000-8000-000000000102",
+        "target": {
+          "environment_id": null,
+          "collection_id": null,
+          "file_id": null,
+          "generation_id": null,
+          "path": "private/users"
+        },
+        "arguments": {
+          "cursor": null,
+          "limit": 50,
+          "resource_kinds": [
+            "file"
+          ]
+        }
+      }
+    },
+    {
+      "name": "metadata-write-uses-installation-derived-namespace",
+      "schema_id": "almira.app.metadata-replace.input.v1",
+      "expected": "valid",
+      "instance": {
+        "schema_version": 1,
+        "request_id": "018f0000-0000-7000-8000-000000000103",
+        "operation_id": "018f0000-0000-7000-8000-000000000104",
+        "target": {
+          "environment_id": "018f0000-0000-7000-8000-000000000105",
+          "collection_id": "018f0000-0000-7000-8000-000000000106",
+          "file_id": "018f0000-0000-7000-8000-000000000107",
+          "generation_id": null
+        },
+        "arguments": {
+          "expected_revision": "3",
+          "metadata_schema_id": "acme.invoice-metadata.v1",
+          "metadata_schema_version": 1,
+          "values": {
+            "document.kind": "invoice",
+            "reviewed": false
+          }
+        }
+      }
+    },
+    {
+      "name": "metadata-write-refuses-caller-selected-namespace",
+      "schema_id": "almira.app.metadata-replace.input.v1",
+      "expected": "invalid",
+      "instance": {
+        "schema_version": 1,
+        "request_id": "018f0000-0000-7000-8000-000000000108",
+        "operation_id": "018f0000-0000-7000-8000-000000000109",
+        "target": {
+          "environment_id": "018f0000-0000-7000-8000-000000000110",
+          "collection_id": "018f0000-0000-7000-8000-000000000111",
+          "file_id": "018f0000-0000-7000-8000-000000000112",
+          "generation_id": null
+        },
+        "arguments": {
+          "namespace": "another-app",
+          "expected_revision": "3",
+          "metadata_schema_id": "acme.invoice-metadata.v1",
+          "metadata_schema_version": 1,
+          "values": {}
+        }
+      }
+    },
+    {
+      "name": "file-read-is-get-only",
+      "schema_id": "almira.app.transfer-read.output.v1",
+      "expected": "valid",
+      "instance": {
+        "schema_version": 1,
+        "request_id": "018f0000-0000-7000-8000-000000000124",
+        "operation_id": "018f0000-0000-7000-8000-000000000125",
+        "disposition": "succeeded",
+        "result": {
+          "generation_id": "018f0000-0000-7000-8000-000000000126",
+          "read": {
+            "method": "GET",
+            "url": "https://transfer.invalid/one-use",
+            "headers": {},
+            "expires_at": "2026-10-17T12:05:00.000000Z",
+            "maximum_bytes": 1048576
+          }
+        }
+      }
+    },
+    {
+      "name": "file-read-refuses-upload-method",
+      "schema_id": "almira.app.transfer-read.output.v1",
+      "expected": "invalid",
+      "instance": {
+        "schema_version": 1,
+        "request_id": "018f0000-0000-7000-8000-000000000127",
+        "operation_id": "018f0000-0000-7000-8000-000000000128",
+        "disposition": "succeeded",
+        "result": {
+          "generation_id": "018f0000-0000-7000-8000-000000000129",
+          "read": {
+            "method": "PUT",
+            "url": "https://transfer.invalid/one-use",
+            "headers": {},
+            "expires_at": "2026-10-17T12:05:00.000000Z",
+            "maximum_bytes": 1048576
+          }
+        }
+      }
+    },
+    {
+      "name": "external-job-is-exact-generation-bound",
+      "schema_id": "almira.app.external-job-create.input.v1",
+      "expected": "valid",
+      "instance": {
+        "schema_version": 1,
+        "request_id": "018f0000-0000-7000-8000-000000000113",
+        "operation_id": "018f0000-0000-7000-8000-000000000114",
+        "target": {
+          "environment_id": "018f0000-0000-7000-8000-000000000115",
+          "collection_id": "018f0000-0000-7000-8000-000000000116",
+          "file_id": "018f0000-0000-7000-8000-000000000117",
+          "generation_id": "018f0000-0000-7000-8000-000000000118"
+        },
+        "arguments": {
+          "processor_id": "acme.invoice-enricher",
+          "processor_version": "1.4.0",
+          "output_contract_id": "acme.invoice-json.v1",
+          "expected_generation_revision": "7",
+          "deadline": "2026-10-17T12:05:00.000000Z"
+        }
+      }
+    },
+    {
+      "name": "external-job-refuses-path-only-input",
+      "schema_id": "almira.app.external-job-create.input.v1",
+      "expected": "invalid",
+      "instance": {
+        "schema_version": 1,
+        "request_id": "018f0000-0000-7000-8000-000000000119",
+        "operation_id": "018f0000-0000-7000-8000-000000000120",
+        "target": {
+          "environment_id": "018f0000-0000-7000-8000-000000000121",
+          "collection_id": "018f0000-0000-7000-8000-000000000122",
+          "file_id": "018f0000-0000-7000-8000-000000000123",
+          "generation_id": null
+        },
+        "arguments": {
+          "path": "incoming/invoice.pdf",
+          "processor_id": "acme.invoice-enricher",
+          "processor_version": "1.4.0",
+          "output_contract_id": "acme.invoice-json.v1",
+          "expected_generation_revision": "7",
+          "deadline": "2026-10-17T12:05:00.000000Z"
+        }
+      }
+    }
+  ]
+}

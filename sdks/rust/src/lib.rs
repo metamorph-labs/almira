@@ -24,4 +24,4 @@ pub use webhook::{
     VerifiedWebhook, WebhookHeaders, WebhookVerificationOptions, verify_webhook_signature,
 };
 
-pub const CONTRACT_VERSION: &str = "0.1.0-dev.36";
+pub const CONTRACT_VERSION: &str = "0.1.0-dev.38";

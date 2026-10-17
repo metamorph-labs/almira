@@ -1,0 +1,3741 @@
+{
+  "author_product_id": "almira",
+  "product_id": "almira",
+  "surface_version": 1,
+  "supported_project_kind_ids": [
+    "almira.storage"
+  ],
+  "schemas": [
+    {
+      "schema_id": "almira.app.delivery-create.input.v1",
+      "schema_version": 1,
+      "canonical_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://contracts.almira.dev/apps/delivery-create.input.v1.schema.json",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": 1
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "target": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "environment_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "collection_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "file_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "generation_id": {
+                "type": "string",
+                "format": "uuid"
+              }
+            },
+            "required": [
+              "environment_id",
+              "collection_id",
+              "file_id",
+              "generation_id"
+            ]
+          },
+          "arguments": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "delivery_kind": {
+                "enum": [
+                  "private_session",
+                  "public_share"
+                ]
+              },
+              "expires_at": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "required": [
+              "delivery_kind",
+              "expires_at"
+            ]
+          },
+          "operation_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "schema_version",
+          "request_id",
+          "target",
+          "arguments",
+          "operation_id"
+        ]
+      },
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "schema_id": "almira.app.delivery-create.output.v1",
+      "schema_version": 1,
+      "canonical_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://contracts.almira.dev/apps/delivery-create.output.v1.schema.json",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": 1
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "result": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "delivery_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "url": {
+                "type": "string",
+                "format": "uri",
+                "maxLength": 8192
+              },
+              "expires_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "revocable": {
+                "const": true
+              }
+            },
+            "required": [
+              "delivery_id",
+              "url",
+              "expires_at",
+              "revocable"
+            ]
+          },
+          "operation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "disposition": {
+            "enum": [
+              "succeeded",
+              "accepted",
+              "exact_replay"
+            ]
+          }
+        },
+        "required": [
+          "schema_version",
+          "request_id",
+          "result",
+          "operation_id",
+          "disposition"
+        ]
+      },
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "schema_id": "almira.app.diagnostics-read.input.v1",
+      "schema_version": 1,
+      "canonical_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://contracts.almira.dev/apps/diagnostics-read.input.v1.schema.json",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": 1
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "target": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "environment_id": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "collection_id": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "file_id": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "generation_id": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "environment_id",
+              "collection_id",
+              "file_id",
+              "generation_id"
+            ]
+          },
+          "arguments": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "include_recent_failures": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "include_recent_failures"
+            ]
+          }
+        },
+        "required": [
+          "schema_version",
+          "request_id",
+          "target",
+          "arguments"
+        ]
+      },
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "schema_id": "almira.app.diagnostics-read.output.v1",
+      "schema_version": 1,
+      "canonical_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://contracts.almira.dev/apps/diagnostics-read.output.v1.schema.json",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": 1
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "result": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "installation_state": {
+                "enum": [
+                  "active",
+                  "suspended",
+                  "uninstalled"
+                ]
+              },
+              "active_job_count": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "recent_safe_error_codes": {
+                "type": "array",
+                "maxItems": 20,
+                "items": {
+                  "type": "string",
+                  "pattern": "^[A-Z][A-Z0-9_]{0,95}$"
+                }
+              }
+            },
+            "required": [
+              "installation_state",
+              "active_job_count",
+              "recent_safe_error_codes"
+            ]
+          }
+        },
+        "required": [
+          "schema_version",
+          "request_id",
+          "result"
+        ]
+      },
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "schema_id": "almira.app.external-job-complete.input.v1",
+      "schema_version": 1,
+      "canonical_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://contracts.almira.dev/apps/external-job-complete.input.v1.schema.json",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": 1
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "target": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "environment_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "collection_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "file_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "generation_id": {
+                "type": "string",
+                "format": "uuid"
+              }
+            },
+            "required": [
+              "environment_id",
+              "collection_id",
+              "file_id",
+              "generation_id"
+            ]
+          },
+          "arguments": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "job_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "expected_job_revision": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              "staged_output_id": {
+                "type": "string",
+                "format": "uuid"
+              }
+            },
+            "required": [
+              "job_id",
+              "expected_job_revision",
+              "staged_output_id"
+            ]
+          },
+          "operation_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "schema_version",
+          "request_id",
+          "target",
+          "arguments",
+          "operation_id"
+        ]
+      },
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "schema_id": "almira.app.external-job-complete.output.v1",
+      "schema_version": 1,
+      "canonical_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://contracts.almira.dev/apps/external-job-complete.output.v1.schema.json",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": 1
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "result": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "job_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "revision": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              "input_generation_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "output_generation_id": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "state": {
+                "enum": [
+                  "pending",
+                  "ready_for_input",
+                  "processing",
+                  "output_staged",
+                  "validating",
+                  "succeeded",
+                  "failed",
+                  "cancelled",
+                  "expired"
+                ]
+              },
+              "deadline": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "safe_error_code": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[A-Z][A-Z0-9_]{0,95}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "job_id",
+              "revision",
+              "input_generation_id",
+              "output_generation_id",
+              "state",
+              "deadline",
+              "safe_error_code"
+            ]
+          },
+          "operation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "disposition": {
+            "enum": [
+              "succeeded",
+              "accepted",
+              "exact_replay"
+            ]
+          }
+        },
+        "required": [
+          "schema_version",
+          "request_id",
+          "result",
+          "operation_id",
+          "disposition"
+        ]
+      },
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "schema_id": "almira.app.external-job-create.input.v1",
+      "schema_version": 1,
+      "canonical_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://contracts.almira.dev/apps/external-job-create.input.v1.schema.json",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": 1
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "target": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "environment_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "collection_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "file_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "generation_id": {
+                "type": "string",
+                "format": "uuid"
+              }
+            },
+            "required": [
+              "environment_id",
+              "collection_id",
+              "file_id",
+              "generation_id"
+            ]
+          },
+          "arguments": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "processor_id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9._-]{0,127}$"
+              },
+              "processor_version": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "output_contract_id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9._-]{0,127}$"
+              },
+              "expected_generation_revision": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              "deadline": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "required": [
+              "processor_id",
+              "processor_version",
+              "output_contract_id",
+              "expected_generation_revision",
+              "deadline"
+            ]
+          },
+          "operation_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "schema_version",
+          "request_id",
+          "target",
+          "arguments",
+          "operation_id"
+        ]
+      },
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "schema_id": "almira.app.external-job-create.output.v1",
+      "schema_version": 1,
+      "canonical_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://contracts.almira.dev/apps/external-job-create.output.v1.schema.json",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": 1
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "result": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "job_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "revision": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              "input_generation_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "output_generation_id": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "state": {
+                "enum": [
+                  "pending",
+                  "ready_for_input",
+                  "processing",
+                  "output_staged",
+                  "validating",
+                  "succeeded",
+                  "failed",
+                  "cancelled",
+                  "expired"
+                ]
+              },
+              "deadline": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "safe_error_code": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[A-Z][A-Z0-9_]{0,95}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "job_id",
+              "revision",
+              "input_generation_id",
+              "output_generation_id",
+              "state",
+              "deadline",
+              "safe_error_code"
+            ]
+          },
+          "operation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "disposition": {
+            "enum": [
+              "succeeded",
+              "accepted",
+              "exact_replay"
+            ]
+          }
+        },
+        "required": [
+          "schema_version",
+          "request_id",
+          "result",
+          "operation_id",
+          "disposition"
+        ]
+      },
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "schema_id": "almira.app.external-job-input.input.v1",
+      "schema_version": 1,
+      "canonical_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://contracts.almira.dev/apps/external-job-input.input.v1.schema.json",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": 1
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "target": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "environment_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "collection_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "file_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "generation_id": {
+                "type": "string",
+                "format": "uuid"
+              }
+            },
+            "required": [
+              "environment_id",
+              "collection_id",
+              "file_id",
+              "generation_id"
+            ]
+          },
+          "arguments": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "job_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "expected_job_revision": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              }
+            },
+            "required": [
+              "job_id",
+              "expected_job_revision"
+            ]
+          },
+          "operation_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "schema_version",
+          "request_id",
+          "target",
+          "arguments",
+          "operation_id"
+        ]
+      },
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "schema_id": "almira.app.external-job-input.output.v1",
+      "schema_version": 1,
+      "canonical_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://contracts.almira.dev/apps/external-job-input.output.v1.schema.json",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": 1
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "result": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "job_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "input_generation_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "read": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "method": {
+                    "enum": [
+                      "GET"
+                    ]
+                  },
+                  "url": {
+                    "type": "string",
+                    "format": "uri",
+                    "maxLength": 8192
+                  },
+                  "headers": {
+                    "type": "object",
+                    "maxProperties": 32,
+                    "additionalProperties": {
+                      "type": "string",
+                      "maxLength": 8192
+                    }
+                  },
+                  "expires_at": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "maximum_bytes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 5497558138880
+                  }
+                },
+                "required": [
+                  "method",
+                  "url",
+                  "headers",
+                  "expires_at",
+                  "maximum_bytes"
+                ]
+              }
+            },
+            "required": [
+              "job_id",
+              "input_generation_id",
+              "read"
+            ]
+          },
+          "operation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "disposition": {
+            "enum": [
+              "succeeded",
+              "accepted",
+              "exact_replay"
+            ]
+          }
+        },
+        "required": [
+          "schema_version",
+          "request_id",
+          "result",
+          "operation_id",
+          "disposition"
+        ]
+      },
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "schema_id": "almira.app.external-job-output.input.v1",
+      "schema_version": 1,
+      "canonical_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://contracts.almira.dev/apps/external-job-output.input.v1.schema.json",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": 1
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "target": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "environment_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "collection_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "file_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "generation_id": {
+                "type": "string",
+                "format": "uuid"
+              }
+            },
+            "required": [
+              "environment_id",
+              "collection_id",
+              "file_id",
+              "generation_id"
+            ]
+          },
+          "arguments": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "job_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "expected_job_revision": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              "media_type": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 255
+              },
+              "size_bytes": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "content_sha256": {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              }
+            },
+            "required": [
+              "job_id",
+              "expected_job_revision",
+              "media_type",
+              "size_bytes",
+              "content_sha256"
+            ]
+          },
+          "operation_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "schema_version",
+          "request_id",
+          "target",
+          "arguments",
+          "operation_id"
+        ]
+      },
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "schema_id": "almira.app.external-job-output.output.v1",
+      "schema_version": 1,
+      "canonical_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://contracts.almira.dev/apps/external-job-output.output.v1.schema.json",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": 1
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "result": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "job_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "staged_output_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "upload": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "method": {
+                    "enum": [
+                      "PUT",
+                      "POST"
+                    ]
+                  },
+                  "url": {
+                    "type": "string",
+                    "format": "uri",
+                    "maxLength": 8192
+                  },
+                  "headers": {
+                    "type": "object",
+                    "maxProperties": 32,
+                    "additionalProperties": {
+                      "type": "string",
+                      "maxLength": 8192
+                    }
+                  },
+                  "expires_at": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "maximum_bytes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 5497558138880
+                  }
+                },
+                "required": [
+                  "method",
+                  "url",
+                  "headers",
+                  "expires_at",
+                  "maximum_bytes"
+                ]
+              }
+            },
+            "required": [
+              "job_id",
+              "staged_output_id",
+              "upload"
+            ]
+          },
+          "operation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "disposition": {
+            "enum": [
+              "succeeded",
+              "accepted",
+              "exact_replay"
+            ]
+          }
+        },
+        "required": [
+          "schema_version",
+          "request_id",
+          "result",
+          "operation_id",
+          "disposition"
+        ]
+      },
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "schema_id": "almira.app.external-job-status.input.v1",
+      "schema_version": 1,
+      "canonical_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://contracts.almira.dev/apps/external-job-status.input.v1.schema.json",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": 1
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "target": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "environment_id": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "collection_id": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "file_id": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "generation_id": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "environment_id",
+              "collection_id",
+              "file_id",
+              "generation_id"
+            ]
+          },
+          "arguments": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "job_id": {
+                "type": "string",
+                "format": "uuid"
+              }
+            },
+            "required": [
+              "job_id"
+            ]
+          }
+        },
+        "required": [
+          "schema_version",
+          "request_id",
+          "target",
+          "arguments"
+        ]
+      },
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "schema_id": "almira.app.external-job-status.output.v1",
+      "schema_version": 1,
+      "canonical_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://contracts.almira.dev/apps/external-job-status.output.v1.schema.json",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": 1
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "result": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "job_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "revision": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              "input_generation_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "output_generation_id": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "state": {
+                "enum": [
+                  "pending",
+                  "ready_for_input",
+                  "processing",
+                  "output_staged",
+                  "validating",
+                  "succeeded",
+                  "failed",
+                  "cancelled",
+                  "expired"
+                ]
+              },
+              "deadline": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "safe_error_code": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[A-Z][A-Z0-9_]{0,95}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "job_id",
+              "revision",
+              "input_generation_id",
+              "output_generation_id",
+              "state",
+              "deadline",
+              "safe_error_code"
+            ]
+          }
+        },
+        "required": [
+          "schema_version",
+          "request_id",
+          "result"
+        ]
+      },
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "schema_id": "almira.app.file-search.input.v1",
+      "schema_version": 1,
+      "canonical_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://contracts.almira.dev/apps/file-search.input.v1.schema.json",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": 1
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "target": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "environment_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "collection_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "file_id": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "generation_id": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "environment_id",
+              "collection_id",
+              "file_id",
+              "generation_id"
+            ]
+          },
+          "arguments": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "query": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2048
+              },
+              "mode": {
+                "enum": [
+                  "keyword",
+                  "semantic",
+                  "hybrid"
+                ]
+              },
+              "cursor": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 2048
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "limit": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100
+              },
+              "filters": {
+                "type": "object",
+                "maxProperties": 32,
+                "propertyNames": {
+                  "pattern": "^[a-z][a-z0-9_.-]{0,63}$"
+                },
+                "additionalProperties": {
+                  "oneOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 4096
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            },
+            "required": [
+              "query",
+              "mode",
+              "cursor",
+              "limit",
+              "filters"
+            ]
+          }
+        },
+        "required": [
+          "schema_version",
+          "request_id",
+          "target",
+          "arguments"
+        ]
+      },
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "schema_id": "almira.app.file-search.output.v1",
+      "schema_version": 1,
+      "canonical_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://contracts.almira.dev/apps/file-search.output.v1.schema.json",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": 1
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "result": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "hits": {
+                "type": "array",
+                "maxItems": 100,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "file_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "generation_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "revision": {
+                      "type": "string",
+                      "pattern": "^[1-9][0-9]*$"
+                    },
+                    "media_type": {
+                      "type": "string",
+                      "maxLength": 255
+                    },
+                    "size_bytes": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "score": {
+                      "oneOf": [
+                        {
+                          "type": "number",
+                          "minimum": 0
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "file_id",
+                    "generation_id",
+                    "revision",
+                    "media_type",
+                    "size_bytes",
+                    "score"
+                  ]
+                }
+              },
+              "next_cursor": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 2048
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "projection_revision": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              }
+            },
+            "required": [
+              "hits",
+              "next_cursor",
+              "projection_revision"
+            ]
+          }
+        },
+        "required": [
+          "schema_version",
+          "request_id",
+          "result"
+        ]
+      },
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "schema_id": "almira.app.metadata-replace.input.v1",
+      "schema_version": 1,
+      "canonical_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://contracts.almira.dev/apps/metadata-replace.input.v1.schema.json",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": 1
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "target": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "environment_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "collection_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "file_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "generation_id": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "environment_id",
+              "collection_id",
+              "file_id",
+              "generation_id"
+            ]
+          },
+          "arguments": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "expected_revision": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              "metadata_schema_id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9._-]{0,127}$"
+              },
+              "metadata_schema_version": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "values": {
+                "type": "object",
+                "maxProperties": 64,
+                "propertyNames": {
+                  "pattern": "^[a-z][a-z0-9_.-]{0,63}$"
+                },
+                "additionalProperties": {
+                  "oneOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 4096
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            },
+            "required": [
+              "expected_revision",
+              "metadata_schema_id",
+              "metadata_schema_version",
+              "values"
+            ]
+          },
+          "operation_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "schema_version",
+          "request_id",
+          "target",
+          "arguments",
+          "operation_id"
+        ]
+      },
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "schema_id": "almira.app.metadata-replace.output.v1",
+      "schema_version": 1,
+      "canonical_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://contracts.almira.dev/apps/metadata-replace.output.v1.schema.json",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": 1
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "result": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "namespace_id": {
+                "type": "string",
+                "pattern": "^app-installation:[0-9a-f-]{36}$"
+              },
+              "namespace_revision": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              "metadata_schema_id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9._-]{0,127}$"
+              },
+              "metadata_schema_version": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "provenance": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "installation_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "app_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "manifest_revision": {
+                    "type": "string",
+                    "pattern": "^[1-9][0-9]*$"
+                  }
+                },
+                "required": [
+                  "installation_id",
+                  "app_id",
+                  "manifest_revision"
+                ]
+              },
+              "value_count": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 64
+              }
+            },
+            "required": [
+              "namespace_id",
+              "namespace_revision",
+              "metadata_schema_id",
+              "metadata_schema_version",
+              "provenance",
+              "value_count"
+            ]
+          },
+          "operation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "disposition": {
+            "enum": [
+              "succeeded",
+              "accepted",
+              "exact_replay"
+            ]
+          }
+        },
+        "required": [
+          "schema_version",
+          "request_id",
+          "result",
+          "operation_id",
+          "disposition"
+        ]
+      },
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "schema_id": "almira.app.operation-get.input.v1",
+      "schema_version": 1,
+      "canonical_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://contracts.almira.dev/apps/operation-get.input.v1.schema.json",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": 1
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "target": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "environment_id": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "collection_id": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "file_id": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "generation_id": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "environment_id",
+              "collection_id",
+              "file_id",
+              "generation_id"
+            ]
+          },
+          "arguments": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "operation_id": {
+                "type": "string",
+                "format": "uuid"
+              }
+            },
+            "required": [
+              "operation_id"
+            ]
+          }
+        },
+        "required": [
+          "schema_version",
+          "request_id",
+          "target",
+          "arguments"
+        ]
+      },
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "schema_id": "almira.app.operation-get.output.v1",
+      "schema_version": 1,
+      "canonical_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://contracts.almira.dev/apps/operation-get.output.v1.schema.json",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": 1
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "result": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "operation_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "state": {
+                "enum": [
+                  "pending",
+                  "succeeded",
+                  "refused",
+                  "failed",
+                  "outcome_unknown"
+                ]
+              },
+              "resource_id": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "resource_revision": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[1-9][0-9]*$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "safe_error_code": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[A-Z][A-Z0-9_]{0,95}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "operation_id",
+              "state",
+              "resource_id",
+              "resource_revision",
+              "safe_error_code"
+            ]
+          }
+        },
+        "required": [
+          "schema_version",
+          "request_id",
+          "result"
+        ]
+      },
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "schema_id": "almira.app.processing-request.input.v1",
+      "schema_version": 1,
+      "canonical_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://contracts.almira.dev/apps/processing-request.input.v1.schema.json",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": 1
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "target": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "environment_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "collection_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "file_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "generation_id": {
+                "type": "string",
+                "format": "uuid"
+              }
+            },
+            "required": [
+              "environment_id",
+              "collection_id",
+              "file_id",
+              "generation_id"
+            ]
+          },
+          "arguments": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "processing_kind": {
+                "enum": [
+                  "image_variants",
+                  "document_preview",
+                  "video_package"
+                ]
+              },
+              "preset_id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9._-]{0,127}$"
+              },
+              "expected_generation_revision": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              }
+            },
+            "required": [
+              "processing_kind",
+              "preset_id",
+              "expected_generation_revision"
+            ]
+          },
+          "operation_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "schema_version",
+          "request_id",
+          "target",
+          "arguments",
+          "operation_id"
+        ]
+      },
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "schema_id": "almira.app.processing-request.output.v1",
+      "schema_version": 1,
+      "canonical_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://contracts.almira.dev/apps/processing-request.output.v1.schema.json",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": 1
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "result": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "job_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "revision": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              "input_generation_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "output_generation_id": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "state": {
+                "enum": [
+                  "pending",
+                  "ready_for_input",
+                  "processing",
+                  "output_staged",
+                  "validating",
+                  "succeeded",
+                  "failed",
+                  "cancelled",
+                  "expired"
+                ]
+              },
+              "deadline": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "safe_error_code": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[A-Z][A-Z0-9_]{0,95}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "job_id",
+              "revision",
+              "input_generation_id",
+              "output_generation_id",
+              "state",
+              "deadline",
+              "safe_error_code"
+            ]
+          },
+          "operation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "disposition": {
+            "enum": [
+              "succeeded",
+              "accepted",
+              "exact_replay"
+            ]
+          }
+        },
+        "required": [
+          "schema_version",
+          "request_id",
+          "result",
+          "operation_id",
+          "disposition"
+        ]
+      },
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "schema_id": "almira.app.resource-discover.input.v1",
+      "schema_version": 1,
+      "canonical_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://contracts.almira.dev/apps/resource-discover.input.v1.schema.json",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": 1
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "target": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "environment_id": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "collection_id": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "file_id": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "generation_id": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "environment_id",
+              "collection_id",
+              "file_id",
+              "generation_id"
+            ]
+          },
+          "arguments": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "cursor": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 2048
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "limit": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100
+              },
+              "resource_kinds": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 4,
+                "uniqueItems": true,
+                "items": {
+                  "enum": [
+                    "environment",
+                    "collection",
+                    "file",
+                    "generation"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "cursor",
+              "limit",
+              "resource_kinds"
+            ]
+          }
+        },
+        "required": [
+          "schema_version",
+          "request_id",
+          "target",
+          "arguments"
+        ]
+      },
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "schema_id": "almira.app.resource-discover.output.v1",
+      "schema_version": 1,
+      "canonical_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://contracts.almira.dev/apps/resource-discover.output.v1.schema.json",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": 1
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "result": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "resources": {
+                "type": "array",
+                "maxItems": 100,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "resource_kind": {
+                      "enum": [
+                        "environment",
+                        "collection",
+                        "file",
+                        "generation"
+                      ]
+                    },
+                    "resource_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "parent_id": {
+                      "oneOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "revision": {
+                      "type": "string",
+                      "pattern": "^[1-9][0-9]*$"
+                    },
+                    "lifecycle": {
+                      "enum": [
+                        "active",
+                        "suspended",
+                        "deleted"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "resource_kind",
+                    "resource_id",
+                    "parent_id",
+                    "revision",
+                    "lifecycle"
+                  ]
+                }
+              },
+              "next_cursor": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 2048
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "resources",
+              "next_cursor"
+            ]
+          }
+        },
+        "required": [
+          "schema_version",
+          "request_id",
+          "result"
+        ]
+      },
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "schema_id": "almira.app.transfer-create.input.v1",
+      "schema_version": 1,
+      "canonical_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://contracts.almira.dev/apps/transfer-create.input.v1.schema.json",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": 1
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "target": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "environment_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "collection_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "file_id": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "generation_id": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "environment_id",
+              "collection_id",
+              "file_id",
+              "generation_id"
+            ]
+          },
+          "arguments": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "logical_path": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "media_type": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 255
+              },
+              "size_bytes": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "content_sha256": {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              }
+            },
+            "required": [
+              "logical_path",
+              "media_type",
+              "size_bytes",
+              "content_sha256"
+            ]
+          },
+          "operation_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "schema_version",
+          "request_id",
+          "target",
+          "arguments",
+          "operation_id"
+        ]
+      },
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "schema_id": "almira.app.transfer-create.output.v1",
+      "schema_version": 1,
+      "canonical_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://contracts.almira.dev/apps/transfer-create.output.v1.schema.json",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": 1
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "result": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "transfer_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "transfer": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "method": {
+                    "enum": [
+                      "PUT",
+                      "POST"
+                    ]
+                  },
+                  "url": {
+                    "type": "string",
+                    "format": "uri",
+                    "maxLength": 8192
+                  },
+                  "headers": {
+                    "type": "object",
+                    "maxProperties": 32,
+                    "additionalProperties": {
+                      "type": "string",
+                      "maxLength": 8192
+                    }
+                  },
+                  "expires_at": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "maximum_bytes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 5497558138880
+                  }
+                },
+                "required": [
+                  "method",
+                  "url",
+                  "headers",
+                  "expires_at",
+                  "maximum_bytes"
+                ]
+              }
+            },
+            "required": [
+              "transfer_id",
+              "transfer"
+            ]
+          },
+          "operation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "disposition": {
+            "enum": [
+              "succeeded",
+              "accepted",
+              "exact_replay"
+            ]
+          }
+        },
+        "required": [
+          "schema_version",
+          "request_id",
+          "result",
+          "operation_id",
+          "disposition"
+        ]
+      },
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "schema_id": "almira.app.transfer-finalize.input.v1",
+      "schema_version": 1,
+      "canonical_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://contracts.almira.dev/apps/transfer-finalize.input.v1.schema.json",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": 1
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "target": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "environment_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "collection_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "file_id": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "generation_id": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "environment_id",
+              "collection_id",
+              "file_id",
+              "generation_id"
+            ]
+          },
+          "arguments": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "transfer_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "completion_evidence": {
+                "type": "object",
+                "minProperties": 1,
+                "maxProperties": 16
+              }
+            },
+            "required": [
+              "transfer_id",
+              "completion_evidence"
+            ]
+          },
+          "operation_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "schema_version",
+          "request_id",
+          "target",
+          "arguments",
+          "operation_id"
+        ]
+      },
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "schema_id": "almira.app.transfer-finalize.output.v1",
+      "schema_version": 1,
+      "canonical_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://contracts.almira.dev/apps/transfer-finalize.output.v1.schema.json",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": 1
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "result": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "file_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "generation_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "revision": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              "safety_state": {
+                "enum": [
+                  "not_required",
+                  "scan_pending",
+                  "clean",
+                  "blocked"
+                ]
+              },
+              "lifecycle": {
+                "enum": [
+                  "pending_transfer",
+                  "safety_pending",
+                  "available",
+                  "unavailable"
+                ]
+              }
+            },
+            "required": [
+              "file_id",
+              "generation_id",
+              "revision",
+              "safety_state",
+              "lifecycle"
+            ]
+          },
+          "operation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "disposition": {
+            "enum": [
+              "succeeded",
+              "accepted",
+              "exact_replay"
+            ]
+          }
+        },
+        "required": [
+          "schema_version",
+          "request_id",
+          "result",
+          "operation_id",
+          "disposition"
+        ]
+      },
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "schema_id": "almira.app.transfer-read.input.v1",
+      "schema_version": 1,
+      "canonical_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://contracts.almira.dev/apps/transfer-read.input.v1.schema.json",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": 1
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "target": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "environment_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "collection_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "file_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "generation_id": {
+                "type": "string",
+                "format": "uuid"
+              }
+            },
+            "required": [
+              "environment_id",
+              "collection_id",
+              "file_id",
+              "generation_id"
+            ]
+          },
+          "arguments": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "expected_generation_revision": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              }
+            },
+            "required": [
+              "expected_generation_revision"
+            ]
+          },
+          "operation_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "schema_version",
+          "request_id",
+          "target",
+          "arguments",
+          "operation_id"
+        ]
+      },
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "schema_id": "almira.app.transfer-read.output.v1",
+      "schema_version": 1,
+      "canonical_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://contracts.almira.dev/apps/transfer-read.output.v1.schema.json",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": 1
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "result": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "generation_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "read": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "method": {
+                    "enum": [
+                      "GET"
+                    ]
+                  },
+                  "url": {
+                    "type": "string",
+                    "format": "uri",
+                    "maxLength": 8192
+                  },
+                  "headers": {
+                    "type": "object",
+                    "maxProperties": 32,
+                    "additionalProperties": {
+                      "type": "string",
+                      "maxLength": 8192
+                    }
+                  },
+                  "expires_at": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "maximum_bytes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 5497558138880
+                  }
+                },
+                "required": [
+                  "method",
+                  "url",
+                  "headers",
+                  "expires_at",
+                  "maximum_bytes"
+                ]
+              }
+            },
+            "required": [
+              "generation_id",
+              "read"
+            ]
+          },
+          "operation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "disposition": {
+            "enum": [
+              "succeeded",
+              "accepted",
+              "exact_replay"
+            ]
+          }
+        },
+        "required": [
+          "schema_version",
+          "request_id",
+          "result",
+          "operation_id",
+          "disposition"
+        ]
+      },
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "schema_id": "almira.delivery.event-payload.v1",
+      "schema_version": 1,
+      "canonical_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://contracts.almira.dev/events/delivery-event.v1.schema.json",
+        "title": "Almira safe delivery configuration event payload",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "event_type_id",
+          "environment_id",
+          "collection_instance_id",
+          "configuration_revision",
+          "delivery_mode",
+          "cache_preset",
+          "domain_kind",
+          "domain_state"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": 1
+          },
+          "event_type_id": {
+            "const": "almira.delivery.configuration.changed.v1"
+          },
+          "environment_id": {
+            "$ref": "#/$defs/uuid_v7"
+          },
+          "collection_instance_id": {
+            "$ref": "#/$defs/uuid_v7"
+          },
+          "configuration_revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "delivery_mode": {
+            "enum": [
+              "off",
+              "public",
+              "private"
+            ]
+          },
+          "cache_preset": {
+            "enum": [
+              "no_store",
+              "revalidate",
+              "immutable_generation",
+              "private_session"
+            ]
+          },
+          "domain_kind": {
+            "enum": [
+              "managed",
+              "custom"
+            ]
+          },
+          "domain_state": {
+            "enum": [
+              "active",
+              "pending_dns",
+              "provisioning_certificate",
+              "failed",
+              "removing"
+            ]
+          }
+        },
+        "$defs": {
+          "uuid_v7": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          }
+        }
+      },
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "schema_id": "almira.file.event-payload.v1",
+      "schema_version": 1,
+      "canonical_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://contracts.almira.dev/events/file-event.v1.schema.json",
+        "title": "Almira safe file event payload",
+        "allOf": [
+          {
+            "oneOf": [
+              {
+                "properties": {
+                  "event_type_id": {
+                    "enum": [
+                      "almira.file.upload.started.v1",
+                      "almira.file.upload.completed.v1",
+                      "almira.file.available.v1",
+                      "almira.file.generation.replaced.v1"
+                    ]
+                  }
+                },
+                "required": [
+                  "generation_id",
+                  "generation_revision",
+                  "generation_number",
+                  "lifecycle_state"
+                ]
+              },
+              {
+                "properties": {
+                  "event_type_id": {
+                    "enum": [
+                      "almira.file.deleted.v1",
+                      "almira.file.restored.v1"
+                    ]
+                  }
+                },
+                "required": [
+                  "lifecycle_state"
+                ]
+              },
+              {
+                "properties": {
+                  "event_type_id": {
+                    "enum": [
+                      "almira.file.protection.scan-completed.v1",
+                      "almira.file.protection.scan-failed.v1",
+                      "almira.file.protection.malware-detected.v1"
+                    ]
+                  }
+                },
+                "required": [
+                  "generation_id",
+                  "generation_revision",
+                  "scan_state",
+                  "safety_state",
+                  "safe_result_code"
+                ]
+              },
+              {
+                "properties": {
+                  "event_type_id": {
+                    "const": "almira.file.metadata.updated.v1"
+                  }
+                },
+                "required": [
+                  "metadata_revision"
+                ]
+              },
+              {
+                "properties": {
+                  "event_type_id": {
+                    "enum": [
+                      "almira.file.extraction.completed.v1",
+                      "almira.file.extraction.failed.v1"
+                    ]
+                  }
+                },
+                "required": [
+                  "generation_id",
+                  "generation_revision",
+                  "extraction_revision",
+                  "extraction_kind",
+                  "extraction_state"
+                ]
+              },
+              {
+                "properties": {
+                  "event_type_id": {
+                    "enum": [
+                      "almira.media.processing.completed.v1",
+                      "almira.media.processing.failed.v1"
+                    ]
+                  }
+                },
+                "required": [
+                  "generation_id",
+                  "generation_revision",
+                  "job_id",
+                  "processing_kind",
+                  "processing_state",
+                  "output_count"
+                ]
+              }
+            ]
+          }
+        ],
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "event_type_id",
+          "environment_id",
+          "collection_instance_id",
+          "entry_id",
+          "entry_revision"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": 1
+          },
+          "event_type_id": {
+            "type": "string",
+            "maxLength": 128
+          },
+          "environment_id": {
+            "$ref": "#/$defs/uuid_v7"
+          },
+          "collection_instance_id": {
+            "$ref": "#/$defs/uuid_v7"
+          },
+          "entry_id": {
+            "$ref": "#/$defs/uuid_v7"
+          },
+          "generation_id": {
+            "$ref": "#/$defs/uuid_v7"
+          },
+          "job_id": {
+            "$ref": "#/$defs/uuid_v7"
+          },
+          "entry_revision": {
+            "$ref": "#/$defs/revision"
+          },
+          "generation_revision": {
+            "$ref": "#/$defs/revision"
+          },
+          "generation_number": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "metadata_revision": {
+            "$ref": "#/$defs/revision"
+          },
+          "extraction_revision": {
+            "$ref": "#/$defs/revision"
+          },
+          "lifecycle_state": {
+            "enum": [
+              "pending_transfer",
+              "safety_pending",
+              "available",
+              "unavailable",
+              "deleted",
+              "restored"
+            ]
+          },
+          "scan_state": {
+            "enum": [
+              "completed",
+              "failed"
+            ]
+          },
+          "safety_state": {
+            "enum": [
+              "not_required",
+              "scan_pending",
+              "clean",
+              "blocked"
+            ]
+          },
+          "safe_result_code": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[a-z][a-z0-9_]{0,63}$"
+          },
+          "extraction_kind": {
+            "enum": [
+              "technical",
+              "content",
+              "ocr",
+              "transcription"
+            ]
+          },
+          "extraction_state": {
+            "enum": [
+              "succeeded",
+              "failed"
+            ]
+          },
+          "processing_kind": {
+            "enum": [
+              "image_variants",
+              "document_preview",
+              "video_package"
+            ]
+          },
+          "processing_state": {
+            "enum": [
+              "succeeded",
+              "failed"
+            ]
+          },
+          "output_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 64
+          }
+        },
+        "$defs": {
+          "uuid_v7": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "lifecycle": {
+        "state": "active"
+      }
+    }
+  ],
+  "operations": [
+    {
+      "operation_id": "almira.integration.delivery.create",
+      "input_schema_id": "almira.app.delivery-create.input.v1",
+      "output_schema_id": "almira.app.delivery-create.output.v1",
+      "permission_id": "almira.delivery.create",
+      "actor_modes": [
+        "autonomous",
+        "user_delegated"
+      ],
+      "effect": "mutation",
+      "idempotency": "operation_id_with_outcome_query",
+      "outcome_query_operation_id": "almira.integration.operation.get",
+      "audit_event_type_id": "almira.integration.delivery.create.v1",
+      "data_categories": [
+        {
+          "category_id": "file_content",
+          "classification": "restricted"
+        }
+      ],
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "operation_id": "almira.integration.diagnostics.read",
+      "input_schema_id": "almira.app.diagnostics-read.input.v1",
+      "output_schema_id": "almira.app.diagnostics-read.output.v1",
+      "permission_id": "almira.storage.read",
+      "actor_modes": [
+        "autonomous",
+        "user_delegated"
+      ],
+      "effect": "read",
+      "idempotency": "none",
+      "outcome_query_operation_id": null,
+      "audit_event_type_id": "almira.integration.diagnostics.read.v1",
+      "data_categories": [
+        {
+          "category_id": "operational_diagnostics",
+          "classification": "internal"
+        }
+      ],
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "operation_id": "almira.integration.external-job.complete",
+      "input_schema_id": "almira.app.external-job-complete.input.v1",
+      "output_schema_id": "almira.app.external-job-complete.output.v1",
+      "permission_id": "almira.external_processing.execute",
+      "actor_modes": [
+        "autonomous",
+        "user_delegated"
+      ],
+      "effect": "mutation",
+      "idempotency": "operation_id_with_outcome_query",
+      "outcome_query_operation_id": "almira.integration.operation.get",
+      "audit_event_type_id": "almira.integration.external-job.complete.v1",
+      "data_categories": [
+        {
+          "category_id": "file_content",
+          "classification": "restricted"
+        }
+      ],
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "operation_id": "almira.integration.external-job.create",
+      "input_schema_id": "almira.app.external-job-create.input.v1",
+      "output_schema_id": "almira.app.external-job-create.output.v1",
+      "permission_id": "almira.external_processing.execute",
+      "actor_modes": [
+        "autonomous",
+        "user_delegated"
+      ],
+      "effect": "mutation",
+      "idempotency": "operation_id_with_outcome_query",
+      "outcome_query_operation_id": "almira.integration.operation.get",
+      "audit_event_type_id": "almira.integration.external-job.create.v1",
+      "data_categories": [
+        {
+          "category_id": "file_content",
+          "classification": "restricted"
+        }
+      ],
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "operation_id": "almira.integration.external-job.input",
+      "input_schema_id": "almira.app.external-job-input.input.v1",
+      "output_schema_id": "almira.app.external-job-input.output.v1",
+      "permission_id": "almira.file_content.read",
+      "actor_modes": [
+        "autonomous",
+        "user_delegated"
+      ],
+      "effect": "mutation",
+      "idempotency": "operation_id_with_outcome_query",
+      "outcome_query_operation_id": "almira.integration.operation.get",
+      "audit_event_type_id": "almira.integration.external-job.input.v1",
+      "data_categories": [
+        {
+          "category_id": "file_content",
+          "classification": "restricted"
+        }
+      ],
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "operation_id": "almira.integration.external-job.output",
+      "input_schema_id": "almira.app.external-job-output.input.v1",
+      "output_schema_id": "almira.app.external-job-output.output.v1",
+      "permission_id": "almira.external_processing.execute",
+      "actor_modes": [
+        "autonomous",
+        "user_delegated"
+      ],
+      "effect": "mutation",
+      "idempotency": "operation_id_with_outcome_query",
+      "outcome_query_operation_id": "almira.integration.operation.get",
+      "audit_event_type_id": "almira.integration.external-job.output.v1",
+      "data_categories": [
+        {
+          "category_id": "file_content",
+          "classification": "restricted"
+        }
+      ],
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "operation_id": "almira.integration.external-job.status",
+      "input_schema_id": "almira.app.external-job-status.input.v1",
+      "output_schema_id": "almira.app.external-job-status.output.v1",
+      "permission_id": "almira.external_processing.execute",
+      "actor_modes": [
+        "autonomous",
+        "user_delegated"
+      ],
+      "effect": "read",
+      "idempotency": "none",
+      "outcome_query_operation_id": null,
+      "audit_event_type_id": "almira.integration.external-job.status.v1",
+      "data_categories": [
+        {
+          "category_id": "processing_metadata",
+          "classification": "confidential"
+        }
+      ],
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "operation_id": "almira.integration.file.search",
+      "input_schema_id": "almira.app.file-search.input.v1",
+      "output_schema_id": "almira.app.file-search.output.v1",
+      "permission_id": "almira.storage.read",
+      "actor_modes": [
+        "autonomous",
+        "user_delegated"
+      ],
+      "effect": "read",
+      "idempotency": "none",
+      "outcome_query_operation_id": null,
+      "audit_event_type_id": "almira.integration.file.search.v1",
+      "data_categories": [
+        {
+          "category_id": "storage_metadata",
+          "classification": "confidential"
+        }
+      ],
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "operation_id": "almira.integration.metadata.replace",
+      "input_schema_id": "almira.app.metadata-replace.input.v1",
+      "output_schema_id": "almira.app.metadata-replace.output.v1",
+      "permission_id": "almira.app_metadata.update",
+      "actor_modes": [
+        "autonomous",
+        "user_delegated"
+      ],
+      "effect": "mutation",
+      "idempotency": "operation_id_with_outcome_query",
+      "outcome_query_operation_id": "almira.integration.operation.get",
+      "audit_event_type_id": "almira.integration.metadata.replace.v1",
+      "data_categories": [
+        {
+          "category_id": "app_metadata",
+          "classification": "confidential"
+        }
+      ],
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "operation_id": "almira.integration.operation.get",
+      "input_schema_id": "almira.app.operation-get.input.v1",
+      "output_schema_id": "almira.app.operation-get.output.v1",
+      "permission_id": "almira.storage.read",
+      "actor_modes": [
+        "autonomous",
+        "user_delegated"
+      ],
+      "effect": "read",
+      "idempotency": "none",
+      "outcome_query_operation_id": null,
+      "audit_event_type_id": "almira.integration.operation.get.v1",
+      "data_categories": [
+        {
+          "category_id": "operational_diagnostics",
+          "classification": "internal"
+        }
+      ],
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "operation_id": "almira.integration.processing.request",
+      "input_schema_id": "almira.app.processing-request.input.v1",
+      "output_schema_id": "almira.app.processing-request.output.v1",
+      "permission_id": "almira.storage.update",
+      "actor_modes": [
+        "autonomous",
+        "user_delegated"
+      ],
+      "effect": "mutation",
+      "idempotency": "operation_id_with_outcome_query",
+      "outcome_query_operation_id": "almira.integration.operation.get",
+      "audit_event_type_id": "almira.integration.processing.request.v1",
+      "data_categories": [
+        {
+          "category_id": "file_content",
+          "classification": "restricted"
+        }
+      ],
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "operation_id": "almira.integration.resource.discover",
+      "input_schema_id": "almira.app.resource-discover.input.v1",
+      "output_schema_id": "almira.app.resource-discover.output.v1",
+      "permission_id": "almira.storage.read",
+      "actor_modes": [
+        "autonomous",
+        "user_delegated"
+      ],
+      "effect": "read",
+      "idempotency": "none",
+      "outcome_query_operation_id": null,
+      "audit_event_type_id": "almira.integration.resource.discover.v1",
+      "data_categories": [
+        {
+          "category_id": "storage_metadata",
+          "classification": "confidential"
+        }
+      ],
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "operation_id": "almira.integration.transfer.create",
+      "input_schema_id": "almira.app.transfer-create.input.v1",
+      "output_schema_id": "almira.app.transfer-create.output.v1",
+      "permission_id": "almira.storage.create",
+      "actor_modes": [
+        "autonomous",
+        "user_delegated"
+      ],
+      "effect": "mutation",
+      "idempotency": "operation_id_with_outcome_query",
+      "outcome_query_operation_id": "almira.integration.operation.get",
+      "audit_event_type_id": "almira.integration.transfer.create.v1",
+      "data_categories": [
+        {
+          "category_id": "file_content",
+          "classification": "restricted"
+        },
+        {
+          "category_id": "storage_metadata",
+          "classification": "confidential"
+        }
+      ],
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "operation_id": "almira.integration.transfer.finalize",
+      "input_schema_id": "almira.app.transfer-finalize.input.v1",
+      "output_schema_id": "almira.app.transfer-finalize.output.v1",
+      "permission_id": "almira.storage.update",
+      "actor_modes": [
+        "autonomous",
+        "user_delegated"
+      ],
+      "effect": "mutation",
+      "idempotency": "operation_id_with_outcome_query",
+      "outcome_query_operation_id": "almira.integration.operation.get",
+      "audit_event_type_id": "almira.integration.transfer.finalize.v1",
+      "data_categories": [
+        {
+          "category_id": "file_content",
+          "classification": "restricted"
+        },
+        {
+          "category_id": "storage_metadata",
+          "classification": "confidential"
+        }
+      ],
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "operation_id": "almira.integration.transfer.read",
+      "input_schema_id": "almira.app.transfer-read.input.v1",
+      "output_schema_id": "almira.app.transfer-read.output.v1",
+      "permission_id": "almira.file_content.read",
+      "actor_modes": [
+        "autonomous",
+        "user_delegated"
+      ],
+      "effect": "mutation",
+      "idempotency": "operation_id_with_outcome_query",
+      "outcome_query_operation_id": "almira.integration.operation.get",
+      "audit_event_type_id": "almira.integration.transfer.read.v1",
+      "data_categories": [
+        {
+          "category_id": "file_content",
+          "classification": "restricted"
+        }
+      ],
+      "lifecycle": {
+        "state": "active"
+      }
+    }
+  ],
+  "events": [
+    {
+      "event_type_id": "almira.delivery.configuration.changed.v1",
+      "payload_schema_id": "almira.delivery.event-payload.v1",
+      "audit_event_type_id": "almira.delivery.configuration.changed.v1",
+      "data_categories": [
+        {
+          "category_id": "storage_metadata",
+          "classification": "confidential"
+        }
+      ],
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "event_type_id": "almira.file.available.v1",
+      "payload_schema_id": "almira.file.event-payload.v1",
+      "audit_event_type_id": "almira.file.available.v1",
+      "data_categories": [
+        {
+          "category_id": "storage_metadata",
+          "classification": "confidential"
+        }
+      ],
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "event_type_id": "almira.file.deleted.v1",
+      "payload_schema_id": "almira.file.event-payload.v1",
+      "audit_event_type_id": "almira.file.deleted.v1",
+      "data_categories": [
+        {
+          "category_id": "storage_metadata",
+          "classification": "confidential"
+        }
+      ],
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "event_type_id": "almira.file.extraction.completed.v1",
+      "payload_schema_id": "almira.file.event-payload.v1",
+      "audit_event_type_id": "almira.file.extraction.completed.v1",
+      "data_categories": [
+        {
+          "category_id": "storage_metadata",
+          "classification": "confidential"
+        }
+      ],
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "event_type_id": "almira.file.extraction.failed.v1",
+      "payload_schema_id": "almira.file.event-payload.v1",
+      "audit_event_type_id": "almira.file.extraction.failed.v1",
+      "data_categories": [
+        {
+          "category_id": "storage_metadata",
+          "classification": "confidential"
+        }
+      ],
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "event_type_id": "almira.file.generation.replaced.v1",
+      "payload_schema_id": "almira.file.event-payload.v1",
+      "audit_event_type_id": "almira.file.generation.replaced.v1",
+      "data_categories": [
+        {
+          "category_id": "storage_metadata",
+          "classification": "confidential"
+        }
+      ],
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "event_type_id": "almira.file.metadata.updated.v1",
+      "payload_schema_id": "almira.file.event-payload.v1",
+      "audit_event_type_id": "almira.file.metadata.updated.v1",
+      "data_categories": [
+        {
+          "category_id": "storage_metadata",
+          "classification": "confidential"
+        }
+      ],
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "event_type_id": "almira.file.protection.malware-detected.v1",
+      "payload_schema_id": "almira.file.event-payload.v1",
+      "audit_event_type_id": "almira.file.protection.malware-detected.v1",
+      "data_categories": [
+        {
+          "category_id": "storage_metadata",
+          "classification": "confidential"
+        }
+      ],
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "event_type_id": "almira.file.protection.scan-completed.v1",
+      "payload_schema_id": "almira.file.event-payload.v1",
+      "audit_event_type_id": "almira.file.protection.scan-completed.v1",
+      "data_categories": [
+        {
+          "category_id": "storage_metadata",
+          "classification": "confidential"
+        }
+      ],
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "event_type_id": "almira.file.protection.scan-failed.v1",
+      "payload_schema_id": "almira.file.event-payload.v1",
+      "audit_event_type_id": "almira.file.protection.scan-failed.v1",
+      "data_categories": [
+        {
+          "category_id": "storage_metadata",
+          "classification": "confidential"
+        }
+      ],
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "event_type_id": "almira.file.restored.v1",
+      "payload_schema_id": "almira.file.event-payload.v1",
+      "audit_event_type_id": "almira.file.restored.v1",
+      "data_categories": [
+        {
+          "category_id": "storage_metadata",
+          "classification": "confidential"
+        }
+      ],
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "event_type_id": "almira.file.upload.completed.v1",
+      "payload_schema_id": "almira.file.event-payload.v1",
+      "audit_event_type_id": "almira.file.upload.completed.v1",
+      "data_categories": [
+        {
+          "category_id": "storage_metadata",
+          "classification": "confidential"
+        }
+      ],
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "event_type_id": "almira.file.upload.started.v1",
+      "payload_schema_id": "almira.file.event-payload.v1",
+      "audit_event_type_id": "almira.file.upload.started.v1",
+      "data_categories": [
+        {
+          "category_id": "storage_metadata",
+          "classification": "confidential"
+        }
+      ],
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "event_type_id": "almira.media.processing.completed.v1",
+      "payload_schema_id": "almira.file.event-payload.v1",
+      "audit_event_type_id": "almira.media.processing.completed.v1",
+      "data_categories": [
+        {
+          "category_id": "storage_metadata",
+          "classification": "confidential"
+        }
+      ],
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "event_type_id": "almira.media.processing.failed.v1",
+      "payload_schema_id": "almira.file.event-payload.v1",
+      "audit_event_type_id": "almira.media.processing.failed.v1",
+      "data_categories": [
+        {
+          "category_id": "storage_metadata",
+          "classification": "confidential"
+        }
+      ],
+      "lifecycle": {
+        "state": "active"
+      }
+    }
+  ]
+}

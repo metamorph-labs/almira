@@ -1,17 +1,32 @@
 {
   "formatVersion": 1,
   "product": "almira",
-  "contractVersion": "0.1.0-dev.36",
+  "contractVersion": "0.1.0-dev.38",
   "source": {
     "repository": "metamorph-labs/almira-core",
     "algorithm": "sha256",
-    "digest": "f08f6d8695429f39aa6bcc607d63e255d96a0ee73867792cc9dbeb58886ac59a"
+    "digest": "97929994c106b8842b8244fd30cec467297639dbf4ab4f05fdcfab513dde49b9"
   },
   "bundle": {
     "algorithm": "sha256",
-    "digest": "f08f6d8695429f39aa6bcc607d63e255d96a0ee73867792cc9dbeb58886ac59a"
+    "digest": "97929994c106b8842b8244fd30cec467297639dbf4ab4f05fdcfab513dde49b9"
   },
   "files": [
+    {
+      "path": "apps/conformance/vectors.v1.json",
+      "size": 6269,
+      "digest": "480b37ffdd3bff9d874aaa02fff4890d82cb30fa56aeb2f8b2a989338ac459f9"
+    },
+    {
+      "path": "apps/product-surface.v1.json",
+      "size": 104040,
+      "digest": "824713e9e5f4368e63435f3e2e1a484932e8b31cf7183250fcd01b42b317a371"
+    },
+    {
+      "path": "apps/README.md",
+      "size": 1600,
+      "digest": "151576e4f4c1bbcc329c3a756841f6638e3f6af83c9c5d2d027373f712ed2e9d"
+    },
     {
       "path": "bundle.schema.json",
       "size": 1728,
@@ -30,12 +45,12 @@
     {
       "path": "conformance/vectors.v1.json",
       "size": 51292,
-      "digest": "5b98c45f2169bb151fc850607e17239f92b382daa911f0732d3af419b8e6b0ad"
+      "digest": "210ce4246bb37494d4e9c239cc1ad826a94b3bd51b5f414ddb7d294dcbb552fa"
     },
     {
       "path": "data-openapi.v1.json",
       "size": 23277,
-      "digest": "e619d0b839cc9d185e030074c6571160a3e9c7f274f5006b0972a6f72c3ee0bd"
+      "digest": "e71a3578104472a16124df69710dc4e885b653e99551dcfd0d7e9d2f7ceab7d6"
     },
     {
       "path": "errors.v1.json",
@@ -70,7 +85,7 @@
     {
       "path": "openapi.v1.json",
       "size": 262373,
-      "digest": "b6b9a2f5980db6937c0dc6160ff041065afa40a2984c1a99b9399e99d03f3dde"
+      "digest": "655c220c8ac6e00be8bd7a8ab15cf32d23f9e553d61160d6203fa78fa13f99ab"
     },
     {
       "path": "README.md",
@@ -80,7 +95,7 @@
     {
       "path": "release.json",
       "size": 70,
-      "digest": "5d034571f72a7ac01a2632ae083b60d23ece4bf360f144bce26173dc1ca37eef"
+      "digest": "238133d9d4e9942350324c6240f9e8999a7e15c95eeee52921a070951901960a"
     }
   ]
 }

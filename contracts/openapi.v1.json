@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Almira API",
-    "version": "0.1.0-dev.36",
+    "version": "0.1.0-dev.38",
     "description": "Provider-neutral application file storage management and data API."
   },
   "servers": [
@@ -7516,7 +7516,7 @@
             "const": "almira.verification.v1"
           },
           "contract_version": {
-            "const": "0.1.0-dev.36"
+            "const": "0.1.0-dev.38"
           },
           "verification_id": {
             "$ref": "#/components/schemas/UuidV7"
