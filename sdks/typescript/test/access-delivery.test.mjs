@@ -114,13 +114,30 @@ test("data client keeps capabilities off management headers and uses data-plane 
         : new Response(new Uint8Array([1, 2]), { headers: { "content-type": "application/octet-stream" } });
     },
   });
-  await client.listFilesWithCapability(collection);
+  await client.listFilesWithCapability(collection, {
+    limit: 25,
+    cursor: "next page",
+    pathPrefix: "avatars",
+    tag: "profile.photo",
+    metadataKey: "account.tier",
+    metadataValue: "pro",
+    verifiedMediaType: "image/jpeg",
+    minimumSizeBytes: 10,
+    maximumSizeBytes: 5000,
+    createdAfter: "2026-01-01T00:00:00Z",
+    createdBefore: "2026-02-01T00:00:00Z",
+    extractionKind: "technical",
+    extractionState: "succeeded",
+  });
   await client.searchFilesWithCapability(collection, { query: "invoice", mode: "lexical" });
   await client.listDerivativesWithCapability({ ...collection, entryId, generationId });
   await client.readDerivative({ ...collection, entryId, generationId, variantKey: "avatar/256.webp" });
   await client.readImmutableGeneration({ ...collection, entryId, generationId });
   await client.readShare(`alm_share_v1.${"a".repeat(43)}`);
-  assert.equal(calls[0].input, `https://almira.test/v1/data/${tenantId}/${projectId}/${environmentId}/${collectionInstanceId}/files`);
+  assert.equal(
+    calls[0].input,
+    `https://almira.test/v1/data/${tenantId}/${projectId}/${environmentId}/${collectionInstanceId}/files?limit=25&cursor=next+page&path_prefix=avatars&tag=profile.photo&metadata_key=account.tier&metadata_value=%22pro%22&verified_media_type=image%2Fjpeg&minimum_size_bytes=10&maximum_size_bytes=5000&created_after=2026-01-01T00%3A00%3A00Z&created_before=2026-02-01T00%3A00%3A00Z&extraction_kind=technical&extraction_state=succeeded`,
+  );
   assert.equal(calls[1].input, `https://almira.test/v1/data/${tenantId}/${projectId}/${environmentId}/${collectionInstanceId}/search`);
   assert.equal(calls[1].init.method, "POST");
   assert.deepEqual(JSON.parse(calls[1].init.body), { query: "invoice", mode: "lexical" });
@@ -141,6 +158,10 @@ test("data client refuses path-like derivative variant keys locally", async () =
   });
   await assert.rejects(
     client.readDerivative({ ...collection, entryId, generationId, variantKey: "hls/../secret" }),
+    (error) => error.code === "ALMIRA_CLIENT_INPUT_INVALID",
+  );
+  await assert.rejects(
+    client.listFilesWithCapability(collection, { pathPrefix: "../secret" }),
     (error) => error.code === "ALMIRA_CLIENT_INPUT_INVALID",
   );
 });

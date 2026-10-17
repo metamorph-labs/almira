@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
+from datetime import datetime
 from email.message import Message
 from http.client import HTTPMessage
 from typing import Any, BinaryIO, Callable, Iterable, Mapping, Protocol
@@ -209,6 +210,16 @@ class AlmiraDataClient:
         limit: int | None = None,
         cursor: str | None = None,
         path_prefix: str | None = None,
+        tag: str | None = None,
+        metadata_key: str | None = None,
+        metadata_value: bool | int | str | None = None,
+        verified_media_type: str | None = None,
+        minimum_size_bytes: int | None = None,
+        maximum_size_bytes: int | None = None,
+        created_after: str | None = None,
+        created_before: str | None = None,
+        extraction_kind: str | None = None,
+        extraction_state: str | None = None,
     ) -> Any:
         query: list[tuple[str, str]] = []
         if limit is not None:
@@ -220,9 +231,40 @@ class AlmiraDataClient:
                 _invalid_input()
             query.append(("cursor", cursor))
         if path_prefix is not None:
-            if not path_prefix or len(path_prefix) > 1024:
+            query.append(("path_prefix", _logical_path(path_prefix)))
+        if tag is not None:
+            query.append(("tag", _metadata_name(tag)))
+        if (metadata_key is None) != (metadata_value is None):
+            _invalid_input()
+        if metadata_key is not None:
+            query.append(("metadata_key", _metadata_name(metadata_key)))
+            query.append(("metadata_value", _metadata_scalar(metadata_value)))
+        if verified_media_type is not None:
+            if not re.fullmatch(r"[a-z0-9!#$&^_.+-]+/[a-z0-9!#$&^_.+-]+", verified_media_type):
                 _invalid_input()
-            query.append(("path_prefix", path_prefix))
+            query.append(("verified_media_type", verified_media_type))
+        if minimum_size_bytes is not None:
+            query.append(("minimum_size_bytes", str(_positive_size(minimum_size_bytes))))
+        if maximum_size_bytes is not None:
+            query.append(("maximum_size_bytes", str(_positive_size(maximum_size_bytes))))
+        if (
+            minimum_size_bytes is not None
+            and maximum_size_bytes is not None
+            and minimum_size_bytes > maximum_size_bytes
+        ):
+            _invalid_input()
+        if created_after is not None:
+            query.append(("created_after", _timestamp(created_after)))
+        if created_before is not None:
+            query.append(("created_before", _timestamp(created_before)))
+        if (extraction_kind is None) != (extraction_state is None):
+            _invalid_input()
+        if extraction_kind is not None and extraction_state is not None:
+            if extraction_kind not in {"technical", "content", "ocr", "transcription"}:
+                _invalid_input()
+            if extraction_state not in {"pending", "running", "succeeded", "failed", "unsupported"}:
+                _invalid_input()
+            query.extend((("extraction_kind", extraction_kind), ("extraction_state", extraction_state)))
         return self._json("GET", _with_query(_data_collection_path(reference, "/files"), query))
 
     def search_files_with_capability(
@@ -446,6 +488,50 @@ def _variant(value: str) -> str:
 
 def _with_query(path: str, values: list[tuple[str, str]]) -> str:
     return path if not values else f"{path}?{urlencode(values)}"
+
+
+def _metadata_name(value: str) -> str:
+    if not isinstance(value, str) or not re.fullmatch(r"[a-z](?:[a-z0-9._-]{0,62}[a-z0-9])?", value):
+        _invalid_input()
+    return value
+
+
+def _logical_path(value: str) -> str:
+    if not isinstance(value, str) or not 1 <= len(value) <= 1024:
+        _invalid_input()
+    segments = value.split("/")
+    if any(
+        not 1 <= len(segment) <= 255
+        or segment in {".", ".."}
+        or re.fullmatch(r"[A-Za-z0-9._~-]+", segment) is None
+        for segment in segments
+    ):
+        _invalid_input()
+    return value
+
+
+def _metadata_scalar(value: object) -> str:
+    if not isinstance(value, (bool, int, str)) or isinstance(value, str) and not 1 <= len(value) <= 512:
+        _invalid_input()
+    return json.dumps(value, separators=(",", ":"), ensure_ascii=False)
+
+
+def _positive_size(value: int) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= 10_737_418_240:
+        _invalid_input()
+    return value
+
+
+def _timestamp(value: str) -> str:
+    if not isinstance(value, str) or not value or len(value) > 64:
+        _invalid_input()
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            _invalid_input()
+    except ValueError as error:
+        raise AlmiraClientError("ALMIRA_CLIENT_INPUT_INVALID") from error
+    return value
 
 
 def _bounded_read(response: HttpResponse, limit: int) -> bytes:

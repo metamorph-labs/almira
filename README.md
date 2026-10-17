@@ -35,6 +35,10 @@ capability-only data-plane contract exactly, streams immutable generation and de
 keeps share reads credential-free, and has no runtime dependency outside the Python standard
 library.
 
+The dependency-free Go 1.23+ application data SDK is in [`sdks/go`](sdks/go). It provides typed
+metadata and search results, complete structured filtering, safe capability providers and closable
+streaming bodies while preserving the same capability-only and credential-free-share boundaries.
+
 The first management commands are in [`clients/cli`](clients/cli). The CLI uses predictable
 noun/verb commands, JSON-only stdout, stable exit codes and environment-backed credentials; it
 shares the SDK transport instead of implementing a second API client. Stable file identities can

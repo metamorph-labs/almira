@@ -97,7 +97,20 @@ class AlmiraPythonSdkTest(unittest.TestCase):
 
     def test_json_operations_use_exact_capability_scope(self) -> None:
         self.client.list_files_with_capability(
-            self.collection, limit=25, cursor="next page", path_prefix="avatars"
+            self.collection,
+            limit=25,
+            cursor="next page",
+            path_prefix="avatars",
+            tag="profile.photo",
+            metadata_key="account.tier",
+            metadata_value="pro",
+            verified_media_type="image/jpeg",
+            minimum_size_bytes=10,
+            maximum_size_bytes=5000,
+            created_after="2026-01-01T00:00:00Z",
+            created_before="2026-02-01T00:00:00Z",
+            extraction_kind="technical",
+            extraction_state="succeeded",
         )
         self.client.get_file_metadata_with_capability(self.file)
         self.client.search_files_with_capability(
@@ -109,7 +122,15 @@ class AlmiraPythonSdkTest(unittest.TestCase):
         self.assertEqual(
             [(method, url) for method, url, _, _ in self.transport.calls],
             [
-                ("GET", f"{base}/files?limit=25&cursor=next+page&path_prefix=avatars"),
+                (
+                    "GET",
+                    f"{base}/files?limit=25&cursor=next+page&path_prefix=avatars"
+                    "&tag=profile.photo&metadata_key=account.tier&metadata_value=%22pro%22"
+                    "&verified_media_type=image%2Fjpeg&minimum_size_bytes=10&maximum_size_bytes=5000"
+                    "&created_after=2026-01-01T00%3A00%3A00Z"
+                    "&created_before=2026-02-01T00%3A00%3A00Z"
+                    "&extraction_kind=technical&extraction_state=succeeded",
+                ),
                 ("GET", f"{base}/files/{ENTRY}"),
                 ("POST", f"{base}/search"),
                 ("GET", f"{base}/files/{ENTRY}/versions/{GENERATION}/derivatives"),
@@ -154,6 +175,8 @@ class AlmiraPythonSdkTest(unittest.TestCase):
             self.client.read_derivative(
                 DerivativeReference(TENANT, PROJECT, ENVIRONMENT, COLLECTION, ENTRY, GENERATION, "../secret")
             )
+        with self.assertRaisesRegex(AlmiraClientError, "ALMIRA_CLIENT_INPUT_INVALID"):
+            self.client.list_files_with_capability(self.collection, path_prefix="../secret")
         with self.assertRaisesRegex(AlmiraClientError, "ALMIRA_CLIENT_INPUT_INVALID"):
             AlmiraDataClient(base_url="https://almira.test", origin="https://app.example\nforwarded: bad")
         self.assertEqual(self.transport.calls, [])

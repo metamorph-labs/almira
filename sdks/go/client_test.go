@@ -1,0 +1,273 @@
+package almira
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"reflect"
+	"sort"
+	"strings"
+	"sync"
+	"testing"
+)
+
+const (
+	tenantID      = "018f0000-0000-7000-8000-000000000002"
+	projectID     = "018f0000-0000-7000-8000-000000000003"
+	environmentID = "018f0000-0000-7000-8000-000000000004"
+	collectionID  = "018f0000-0000-7000-8000-000000000005"
+	entryID       = "018f0000-0000-7000-8000-000000000006"
+	generationID  = "018f0000-0000-7000-8000-000000000007"
+	requestID     = "018f0000-0000-7000-8000-000000000008"
+	capability    = "alm_cap_v1.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+)
+
+var (
+	collection = CollectionReference{tenantID, projectID, environmentID, collectionID}
+	file       = FileReference{collection, entryID}
+	generation = ImmutableGenerationReference{file, generationID}
+)
+
+type recordedCall struct {
+	method string
+	path   string
+	query  map[string][]string
+	header http.Header
+	body   string
+}
+
+func TestMethodsAndVersionCoverPromotedContractExactly(t *testing.T) {
+	raw, err := os.ReadFile("../../contracts/data-openapi.v1.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var contract struct {
+		Info struct {
+			Version string `json:"version"`
+		} `json:"info"`
+		Paths map[string]map[string]struct {
+			OperationID string `json:"operationId"`
+		} `json:"paths"`
+	}
+	if err := json.Unmarshal(raw, &contract); err != nil {
+		t.Fatal(err)
+	}
+	var operations []string
+	for _, path := range contract.Paths {
+		for _, operation := range path {
+			if operation.OperationID != "" {
+				operations = append(operations, strings.ToUpper(operation.OperationID[:1])+operation.OperationID[1:])
+			}
+		}
+	}
+	typeOfClient := reflect.TypeOf((*Client)(nil))
+	methods := make([]string, 0, typeOfClient.NumMethod())
+	for index := 0; index < typeOfClient.NumMethod(); index++ {
+		methods = append(methods, typeOfClient.Method(index).Name)
+	}
+	sort.Strings(operations)
+	sort.Strings(methods)
+	if ContractVersion != contract.Info.Version {
+		t.Fatalf("version %q != %q", ContractVersion, contract.Info.Version)
+	}
+	if !reflect.DeepEqual(methods, operations) {
+		t.Fatalf("methods %v != operations %v", methods, operations)
+	}
+}
+
+func TestExactRoutesFiltersStreamingAndCredentialFreeShare(t *testing.T) {
+	var mutex sync.Mutex
+	var calls []recordedCall
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		raw, _ := io.ReadAll(request.Body)
+		mutex.Lock()
+		calls = append(calls, recordedCall{request.Method, request.URL.Path, request.URL.Query(), request.Header.Clone(), string(raw)})
+		mutex.Unlock()
+		if strings.Contains(request.URL.Path, "/delivery/") || strings.Contains(request.URL.Path, "/shares/") {
+			response.Header().Set("Content-Type", "text/plain")
+			response.Header().Set("Content-Length", "5")
+			response.Header().Set("ETag", `"v1"`)
+			response.WriteHeader(http.StatusPartialContent)
+			_, _ = response.Write([]byte("hello"))
+			return
+		}
+		response.Header().Set("Content-Type", "application/json")
+		switch {
+		case strings.HasSuffix(request.URL.Path, "/search"):
+			_, _ = response.Write([]byte(`{"items":[],"facets":[],"next_cursor":null,"facet_coverage":"returned_page","consistency":"eventual_projection_authoritative_recheck"}`))
+		case strings.HasSuffix(request.URL.Path, "/derivatives"):
+			_, _ = response.Write([]byte(`[]`))
+		case strings.HasSuffix(request.URL.Path, "/files/"+entryID):
+			_, _ = response.Write([]byte(`{}`))
+		default:
+			_, _ = response.Write([]byte(`{"entries":[],"next_cursor":null}`))
+		}
+	}))
+	defer server.Close()
+
+	client, err := NewClient(ClientOptions{BaseURL: server.URL, Capability: capability, Origin: "https://app.example"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = client.ListFilesWithCapability(context.Background(), collection, ListFilesOptions{
+		Limit: 25, Cursor: "next page", PathPrefix: "avatars", Tag: "profile.photo",
+		MetadataKey: "account.tier", MetadataValue: "pro", VerifiedMediaType: "image/jpeg",
+		MinimumSizeBytes: 10, MaximumSizeBytes: 5000,
+		CreatedAfter: "2026-01-01T00:00:00Z", CreatedBefore: "2026-02-01T00:00:00Z",
+		ExtractionKind: "technical", ExtractionState: "succeeded",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = client.GetFileMetadataWithCapability(context.Background(), file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = client.SearchFilesWithCapability(context.Background(), collection, SearchInput{Query: "portrait", Mode: "hybrid"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = client.ListDerivativesWithCapability(context.Background(), generation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stream, err := client.ReadImmutableGeneration(context.Background(), generation, ReadOptions{Range: "bytes=0-4", IfNoneMatch: `"old"`})
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := io.ReadAll(stream.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = stream.Body.Close()
+	if string(raw) != "hello" || stream.ContentLength == nil || *stream.ContentLength != 5 {
+		t.Fatalf("unexpected stream: %q %#v", raw, stream.ContentLength)
+	}
+	derivative := DerivativeReference{generation, "hls/720p/segment-1.m4s"}
+	derived, err := client.ReadDerivative(context.Background(), derivative, ReadOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = derived.Body.Close()
+	share, err := client.ReadShare(context.Background(), "alm_share_v1."+strings.Repeat("b", 43), ReadOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = share.Body.Close()
+
+	base := "/v1/data/" + tenantID + "/" + projectID + "/" + environmentID + "/" + collectionID
+	if calls[0].method != http.MethodGet || calls[0].path != base+"/files" {
+		t.Fatalf("list route: %#v", calls[0])
+	}
+	wantQuery := map[string][]string{
+		"limit": {"25"}, "cursor": {"next page"}, "path_prefix": {"avatars"}, "tag": {"profile.photo"},
+		"metadata_key": {"account.tier"}, "metadata_value": {`"pro"`}, "verified_media_type": {"image/jpeg"},
+		"minimum_size_bytes": {"10"}, "maximum_size_bytes": {"5000"},
+		"created_after": {"2026-01-01T00:00:00Z"}, "created_before": {"2026-02-01T00:00:00Z"},
+		"extraction_kind": {"technical"}, "extraction_state": {"succeeded"},
+	}
+	if !reflect.DeepEqual(calls[0].query, wantQuery) {
+		t.Fatalf("query: %#v", calls[0].query)
+	}
+	if calls[1].path != base+"/files/"+entryID || calls[2].path != base+"/search" ||
+		calls[3].path != base+"/files/"+entryID+"/versions/"+generationID+"/derivatives" {
+		t.Fatalf("data routes: %#v", calls[:4])
+	}
+	if calls[4].header.Get("Range") != "bytes=0-4" || !strings.HasSuffix(calls[5].path, "/variants/hls/720p/segment-1.m4s") {
+		t.Fatalf("delivery calls: %#v", calls[4:6])
+	}
+	for _, call := range calls[:6] {
+		if call.header.Get("Authorization") != "Bearer "+capability || call.header.Get("Origin") != "https://app.example" {
+			t.Fatalf("missing capability scope: %#v", call.header)
+		}
+	}
+	if calls[6].header.Get("Authorization") != "" || calls[6].header.Get("Origin") != "" {
+		t.Fatalf("share leaked credentials: %#v", calls[6].header)
+	}
+}
+
+func TestInvalidInputFailsBeforeTransport(t *testing.T) {
+	transport := roundTripperFunc(func(*http.Request) (*http.Response, error) {
+		t.Fatal("transport must not be called")
+		return nil, nil
+	})
+	client, err := NewClient(ClientOptions{BaseURL: "https://almira.test", Capability: capability, Transport: transport})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = client.ListFilesWithCapability(context.Background(), collection, ListFilesOptions{MetadataKey: "tier"})
+	assertClientCode(t, err, "ALMIRA_CLIENT_INPUT_INVALID")
+	_, err = client.ReadDerivative(context.Background(), DerivativeReference{generation, "../secret"}, ReadOptions{})
+	assertClientCode(t, err, "ALMIRA_CLIENT_INPUT_INVALID")
+	if _, err := NewClient(ClientOptions{BaseURL: "https://almira.test", Origin: "https://app.example\nforwarded: bad"}); err == nil {
+		t.Fatal("origin injection was accepted")
+	}
+}
+
+func TestAPIErrorsAndTransportFailuresAreTypedAndRedacted(t *testing.T) {
+	apiTransport := roundTripperFunc(func(*http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: 403,
+			Header:     http.Header{"Retry-After": {"7"}},
+			Body:       io.NopCloser(strings.NewReader(`{"code":"ALMIRA_CAPABILITY_REFUSED","request_id":"` + requestID + `"}`)),
+		}, nil
+	})
+	client, err := NewClient(ClientOptions{BaseURL: "https://almira.test", Capability: capability, Transport: apiTransport})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = client.GetFileMetadataWithCapability(context.Background(), file)
+	var apiError *APIError
+	if !errors.As(err, &apiError) || apiError.Code != "ALMIRA_CAPABILITY_REFUSED" ||
+		apiError.RequestID != requestID || apiError.RetryAfterSeconds == nil || *apiError.RetryAfterSeconds != 7 {
+		t.Fatalf("unexpected API error: %#v", err)
+	}
+
+	secret := errors.New("signed URL and secret details")
+	failing, err := NewClient(ClientOptions{
+		BaseURL: "https://almira.test", Capability: capability,
+		Transport: roundTripperFunc(func(*http.Request) (*http.Response, error) { return nil, secret }),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = failing.GetFileMetadataWithCapability(context.Background(), file)
+	assertClientCode(t, err, "ALMIRA_CLIENT_NETWORK")
+	if strings.Contains(err.Error(), secret.Error()) {
+		t.Fatal("transport detail leaked")
+	}
+}
+
+func TestCredentialProviderFailureIsRedacted(t *testing.T) {
+	client, err := NewClient(ClientOptions{
+		BaseURL:            "https://almira.test",
+		CapabilityProvider: func(context.Context) (string, error) { return "", errors.New("secret detail") },
+		Transport:          roundTripperFunc(func(*http.Request) (*http.Response, error) { t.Fatal("transport called"); return nil, nil }),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = client.GetFileMetadataWithCapability(context.Background(), file)
+	assertClientCode(t, err, "ALMIRA_CLIENT_CREDENTIAL_UNAVAILABLE")
+	if strings.Contains(err.Error(), "secret detail") {
+		t.Fatal("credential detail leaked")
+	}
+}
+
+type roundTripperFunc func(*http.Request) (*http.Response, error)
+
+func (function roundTripperFunc) RoundTrip(request *http.Request) (*http.Response, error) {
+	return function(request)
+}
+
+func assertClientCode(t *testing.T, err error, code string) {
+	t.Helper()
+	var clientError *ClientError
+	if !errors.As(err, &clientError) || clientError.Code != code {
+		t.Fatalf("error %#v does not have code %s", err, code)
+	}
+}

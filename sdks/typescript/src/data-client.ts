@@ -2,6 +2,9 @@ import { AlmiraApiError, AlmiraClientError } from "./errors.js";
 import { validateSearchInput } from "./client.js";
 import type {
   CollectionReference,
+  CustomMetadataValue,
+  ExtractionKind,
+  ExtractionState,
   FileEntry,
   FileEntryPage,
   FileReference,
@@ -10,6 +13,7 @@ import type {
   PrivateFileResponse,
   SearchInput,
   SearchPage,
+  Timestamp,
   UuidV7,
 } from "./types.js";
 
@@ -44,6 +48,20 @@ export interface DerivativeReference extends ImmutableGenerationReference {
   variantKey: string;
 }
 
+export interface DataFilePageOptions extends PageOptions {
+  pathPrefix?: string;
+  tag?: string;
+  metadataKey?: string;
+  metadataValue?: CustomMetadataValue;
+  verifiedMediaType?: string;
+  minimumSizeBytes?: number;
+  maximumSizeBytes?: number;
+  createdAfter?: Timestamp;
+  createdBefore?: Timestamp;
+  extractionKind?: ExtractionKind;
+  extractionState?: ExtractionState;
+}
+
 /** Capability-only application data client; it never accepts management credentials. */
 export class AlmiraDataClient {
   readonly #baseUrl: string;
@@ -69,15 +87,42 @@ export class AlmiraDataClient {
 
   async listFilesWithCapability(
     reference: CollectionReference,
-    options: PageOptions & { pathPrefix?: string } = {},
+    options: DataFilePageOptions = {},
   ): Promise<FileEntryPage> {
     const query = new URLSearchParams();
     if (options.limit !== undefined) {
       if (!Number.isSafeInteger(options.limit) || options.limit < 1 || options.limit > 100) invalidInput();
       query.set("limit", String(options.limit));
     }
-    if (options.cursor !== undefined) query.set("cursor", options.cursor);
-    if (options.pathPrefix !== undefined) query.set("path_prefix", options.pathPrefix);
+    if (options.cursor !== undefined) {
+      if (options.cursor.length === 0 || options.cursor.length > 2048) invalidInput();
+      query.set("cursor", options.cursor);
+    }
+    if (options.pathPrefix !== undefined) query.set("path_prefix", logicalPath(options.pathPrefix));
+    if (options.tag !== undefined) query.set("tag", metadataName(options.tag));
+    if ((options.metadataKey === undefined) !== (options.metadataValue === undefined)) invalidInput();
+    if (options.metadataKey !== undefined && options.metadataValue !== undefined) {
+      query.set("metadata_key", metadataName(options.metadataKey));
+      query.set("metadata_value", JSON.stringify(options.metadataValue));
+    }
+    if (options.verifiedMediaType !== undefined) {
+      if (!/^[a-z0-9!#$&^_.+-]+\/[a-z0-9!#$&^_.+-]+$/u.test(options.verifiedMediaType)) invalidInput();
+      query.set("verified_media_type", options.verifiedMediaType);
+    }
+    appendPositiveInteger(query, "minimum_size_bytes", options.minimumSizeBytes);
+    appendPositiveInteger(query, "maximum_size_bytes", options.maximumSizeBytes);
+    if (
+      options.minimumSizeBytes !== undefined &&
+      options.maximumSizeBytes !== undefined &&
+      options.minimumSizeBytes > options.maximumSizeBytes
+    ) invalidInput();
+    if (options.createdAfter !== undefined) query.set("created_after", timestamp(options.createdAfter));
+    if (options.createdBefore !== undefined) query.set("created_before", timestamp(options.createdBefore));
+    if ((options.extractionKind === undefined) !== (options.extractionState === undefined)) invalidInput();
+    if (options.extractionKind !== undefined && options.extractionState !== undefined) {
+      query.set("extraction_kind", options.extractionKind);
+      query.set("extraction_state", options.extractionState);
+    }
     return this.#json(withQuery(dataCollectionPath(reference, "/files"), query), options.signal);
   }
 
@@ -249,6 +294,34 @@ function variant(value: string): string {
 function withQuery(path: string, query: URLSearchParams): string {
   const encoded = query.toString();
   return encoded.length === 0 ? path : `${path}?${encoded}`;
+}
+
+function metadataName(value: string): string {
+  if (!/^[a-z](?:[a-z0-9._-]{0,62}[a-z0-9])?$/u.test(value)) invalidInput();
+  return value;
+}
+
+function logicalPath(value: string): string {
+  if (
+    value.length === 0 ||
+    value.length > 1024 ||
+    value.split("/").some((segment) =>
+      segment.length === 0 || segment.length > 255 || segment === "." || segment === ".." ||
+      !/^[A-Za-z0-9._~-]+$/u.test(segment)
+    )
+  ) invalidInput();
+  return value;
+}
+
+function appendPositiveInteger(query: URLSearchParams, name: string, value: number | undefined): void {
+  if (value === undefined) return;
+  if (!Number.isSafeInteger(value) || value < 1 || value > 10_737_418_240) invalidInput();
+  query.set(name, String(value));
+}
+
+function timestamp(value: string): string {
+  if (value.length > 64 || Number.isNaN(Date.parse(value))) invalidInput();
+  return value;
 }
 
 function invalidInput(): never {
