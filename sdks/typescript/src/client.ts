@@ -106,6 +106,9 @@ import type {
   StorageMigrationReference,
   SignedVerificationReceipt,
   SubjectReadOptions,
+  SubjectBindingOutcome,
+  SubjectBindingPage,
+  SubjectReference,
   TokenMutationDisposition,
   UpdateEnvironmentRequest,
   UuidV7,
@@ -588,6 +591,42 @@ export class AlmiraClient {
       method: "POST",
       headers: mutationHeaders(options.operationId),
       body: request,
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async bindSubject(
+    reference: FileReference,
+    subject: SubjectReference,
+    options: MutationOptions,
+  ): Promise<SubjectBindingOutcome> {
+    validateSubjectReference(subject);
+    return this.#json(filePath(reference, "/subject-bindings"), {
+      method: "POST",
+      headers: mutationHeaders(options.operationId),
+      body: subject,
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async listSubjectBindings(
+    reference: ProjectReference,
+    subject: SubjectReference,
+    options: PageOptions = {},
+  ): Promise<SubjectBindingPage> {
+    validateSubjectReference(subject);
+    const limit = options.limit ?? 50;
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) invalidInput();
+    if (options.cursor !== undefined && (options.cursor.length === 0 || options.cursor.length > 2048)) {
+      invalidInput();
+    }
+    return this.#json(projectPath(reference, "/subject-bindings/search"), {
+      method: "POST",
+      body: {
+        subject,
+        limit,
+        ...(options.cursor === undefined ? {} : { cursor: options.cursor }),
+      },
       signal: options.signal,
     }, reference.tenantId);
   }
@@ -1189,6 +1228,19 @@ function subjectHeaders(subject: BuilderSubject | undefined): Record<string, str
     return invalidInput();
   }
   return { "x-almira-subject-context": encoded };
+}
+
+function validateSubjectReference(subject: SubjectReference): void {
+  if (
+    typeof subject !== "object" ||
+    subject === null ||
+    !/^[a-z][a-z0-9._:-]{0,127}$/u.test(subject.namespace) ||
+    typeof subject.subject_id !== "string" ||
+    new TextEncoder().encode(subject.subject_id).length < 1 ||
+    new TextEncoder().encode(subject.subject_id).length > 255 ||
+    subject.subject_id.trim() !== subject.subject_id ||
+    /[\u0000-\u001f\u007f]/u.test(subject.subject_id)
+  ) invalidInput();
 }
 
 function canonicalJson(value: unknown): unknown {

@@ -5,7 +5,8 @@ use metamorph_almira::{
     DirectUploadHeader, DirectUploadPart, DirectUploadPartCompletion, DirectUploadResponse,
     DirectUploadTransport, Error, FileReference, FinalizeUploadRequest,
     ImmutableGenerationReference, ListFilesOptions, ReadAccessOperation, ReadOptions, RetryPolicy,
-    SearchInput, ServerClient, ServerClientOptions, TransferError, upload_direct_file_with,
+    SearchInput, ServerClient, ServerClientOptions, SubjectBindingPageOptions,
+    SubjectProjectReference, SubjectReference, TransferError, upload_direct_file_with,
 };
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
@@ -540,6 +541,97 @@ async fn server_upload_create_and_finalize_preserve_descriptor_evidence() {
     assert_eq!(completion["descriptor_id"], descriptor_id);
     assert_eq!(completion["etag"], "\"etag-one\"");
     assert_eq!(completion["provider_version"], "provider-v1");
+}
+
+#[tokio::test]
+async fn workload_subject_bindings_are_namespaced_and_operation_scoped() {
+    let binding_id = "018f0000-0000-7000-8000-000000000011";
+    let binding = format!(
+        r#"{{"binding_id":"{binding_id}","subject":{{"namespace":"auth0:primary","subject_id":"opaque|user-42"}},"environment_id":"{ENVIRONMENT}","collection_instance_id":"{COLLECTION}","entry_id":"{ENTRY}","entry_lifecycle":"active","created_at":"2026-10-17T12:00:00Z"}}"#
+    );
+    let bind_response = format!(r#"{{"disposition":"applied","binding":{binding}}}"#);
+    let list_response = format!(r#"{{"items":[{binding}],"next_cursor":null}}"#);
+    let (base_url, requests) = serve(
+        2,
+        Arc::new(move |request| Response {
+            status: if request.target.ends_with("/subject-bindings/search") {
+                "200 OK"
+            } else {
+                "201 Created"
+            },
+            content_type: "application/json",
+            headers: vec![],
+            body: if request.target.ends_with("/subject-bindings/search") {
+                list_response.clone()
+            } else {
+                bind_response.clone()
+            },
+        }),
+    );
+    let server = ServerClient::new(ServerClientOptions::new(
+        &base_url,
+        "workload_session_evidence",
+    ))
+    .unwrap();
+    let subject = SubjectReference {
+        namespace: "auth0:primary".into(),
+        subject_id: "opaque|user-42".into(),
+    };
+    let outcome = server
+        .bind_subject(
+            &FileReference {
+                collection: collection(),
+                entry_id: ENTRY.into(),
+            },
+            &subject,
+            REQUEST,
+        )
+        .await
+        .unwrap();
+    let page = server
+        .list_subject_bindings(
+            &SubjectProjectReference {
+                tenant_id: TENANT.into(),
+                project_id: PROJECT.into(),
+            },
+            &subject,
+            &SubjectBindingPageOptions {
+                limit: 25,
+                cursor: Some("next".into()),
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(outcome.binding.entry_id, ENTRY);
+    assert_eq!(page.items.len(), 1);
+    assert!(!format!("{subject:?}").contains("opaque|user-42"));
+
+    let bind = requests.recv().unwrap();
+    let list = requests.recv().unwrap();
+    assert!(bind.target.ends_with(&format!(
+        "/collections/{COLLECTION}/files/{ENTRY}/subject-bindings"
+    )));
+    assert_eq!(
+        bind.headers.get("idempotency-key").map(String::as_str),
+        Some(REQUEST)
+    );
+    assert_eq!(
+        list.target,
+        format!("/v1/projects/{PROJECT}/subject-bindings/search")
+    );
+    assert!(!list.headers.contains_key("idempotency-key"));
+    assert_eq!(
+        serde_json::from_str::<Value>(&bind.body).unwrap(),
+        serde_json::json!({"namespace": "auth0:primary", "subject_id": "opaque|user-42"})
+    );
+    assert_eq!(
+        serde_json::from_str::<Value>(&list.body).unwrap(),
+        serde_json::json!({
+            "subject": {"namespace": "auth0:primary", "subject_id": "opaque|user-42"},
+            "limit": 25,
+            "cursor": "next"
+        })
+    );
 }
 
 struct RecordingDirectTransport {

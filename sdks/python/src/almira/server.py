@@ -34,6 +34,7 @@ MEDIA_TYPE = re.compile(r"^[a-z0-9!#$&^_.+-]+/[a-z0-9!#$&^_.+-]+$")
 HEADER_NAME = re.compile(r"^[a-z0-9-]{1,128}$")
 PROVIDER_RECEIPT = re.compile(r"^[!-~]{1,256}$")
 PROVIDER_VERSION = re.compile(r"^(?!.*[/?#])(?!.*\\)[!-~]{1,256}$")
+SUBJECT_NAMESPACE = re.compile(r"^[a-z][a-z0-9._:-]{0,127}$")
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,6 +43,41 @@ class BuilderSubject:
     organization_id: str | None = None
     roles: tuple[str, ...] = ()
     attributes: Mapping[str, str] = field(default_factory=dict)
+
+
+@dataclass(frozen=True, slots=True)
+class SubjectProjectReference:
+    tenant_id: str
+    project_id: str
+
+
+@dataclass(frozen=True, slots=True)
+class SubjectReference:
+    namespace: str
+    subject_id: str = field(repr=False)
+
+
+@dataclass(frozen=True, slots=True)
+class SubjectBinding:
+    binding_id: str
+    subject: SubjectReference = field(repr=False)
+    environment_id: str
+    collection_instance_id: str
+    entry_id: str
+    entry_lifecycle: str
+    created_at: str
+
+
+@dataclass(frozen=True, slots=True)
+class SubjectBindingOutcome:
+    disposition: str
+    binding: SubjectBinding
+
+
+@dataclass(frozen=True, slots=True)
+class SubjectBindingPage:
+    items: tuple[SubjectBinding, ...]
+    next_cursor: str | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -240,6 +276,55 @@ class AlmiraServerClient:
         )
         return _file_generation(value)
 
+    def bind_subject(
+        self,
+        reference: CollectionReference,
+        entry_id: str,
+        subject: SubjectReference,
+        *,
+        operation_id: str,
+    ) -> SubjectBindingOutcome:
+        entry_id = _uuid(entry_id)
+        value = self._json(
+            "POST",
+            _collection_path(reference, f"/files/{entry_id}/subject-bindings"),
+            reference.tenant_id,
+            operation_id,
+            _subject_payload(subject),
+            201,
+        )
+        return _subject_binding_outcome(value)
+
+    def list_subject_bindings(
+        self,
+        reference: SubjectProjectReference,
+        subject: SubjectReference,
+        *,
+        limit: int = 50,
+        cursor: str | None = None,
+    ) -> SubjectBindingPage:
+        if (
+            not isinstance(reference, SubjectProjectReference)
+            or isinstance(limit, bool)
+            or not 1 <= limit <= 100
+            or cursor is not None
+            and (not isinstance(cursor, str) or not 1 <= len(cursor) <= 2048)
+        ):
+            _invalid_input()
+        value = self._json(
+            "POST",
+            f"/v1/projects/{_uuid(reference.project_id)}/subject-bindings/search",
+            reference.tenant_id,
+            None,
+            {
+                "subject": _subject_payload(subject),
+                "limit": limit,
+                **({} if cursor is None else {"cursor": cursor}),
+            },
+            200,
+        )
+        return _subject_binding_page(value)
+
     def create_capability_data_client(
         self,
         reference: CollectionReference,
@@ -288,12 +373,13 @@ class AlmiraServerClient:
         method: str,
         path: str,
         tenant_id: str,
-        operation_id: str,
+        operation_id: str | None,
         value: object | None,
         expected_status: int,
     ) -> Any:
-        operation_id = _uuid(operation_id)
         tenant_id = _uuid(tenant_id)
+        if operation_id is not None:
+            operation_id = _uuid(operation_id)
         try:
             evidence = self._workload_session() if callable(self._workload_session) else self._workload_session
         except Exception as error:
@@ -304,9 +390,10 @@ class AlmiraServerClient:
         headers = {
             "accept": "application/json",
             "authorization": f"MetamorphWorkload {evidence}",
-            "idempotency-key": operation_id,
             "x-almira-tenant-id": tenant_id,
         }
+        if operation_id is not None:
+            headers["idempotency-key"] = operation_id
         if body is not None:
             headers["content-type"] = "application/json"
         try:
@@ -423,6 +510,82 @@ def _finalize_request_payload(request: FinalizeUploadRequest) -> dict[str, objec
         "size_bytes": request.size_bytes,
         "content_sha256": request.content_sha256,
     }
+
+
+def _subject_payload(subject: SubjectReference) -> dict[str, str]:
+    if (
+        not isinstance(subject, SubjectReference)
+        or SUBJECT_NAMESPACE.fullmatch(subject.namespace) is None
+        or not _opaque(subject.subject_id)
+        or len(subject.subject_id.encode("utf-8")) > 255
+    ):
+        _invalid_input()
+    return {"namespace": subject.namespace, "subject_id": subject.subject_id}
+
+
+def _subject_binding(value: object) -> SubjectBinding:
+    expected = {
+        "binding_id",
+        "subject",
+        "environment_id",
+        "collection_instance_id",
+        "entry_id",
+        "entry_lifecycle",
+        "created_at",
+    }
+    if not isinstance(value, dict) or set(value) != expected:
+        _invalid_response()
+    raw_subject = value["subject"]
+    if (
+        any(
+            not isinstance(value[key], str) or UUID_V7.fullmatch(value[key]) is None
+            for key in ("binding_id", "environment_id", "collection_instance_id", "entry_id")
+        )
+        or not isinstance(raw_subject, dict)
+        or set(raw_subject) != {"namespace", "subject_id"}
+        or not isinstance(raw_subject["namespace"], str)
+        or SUBJECT_NAMESPACE.fullmatch(raw_subject["namespace"]) is None
+        or not _opaque(raw_subject["subject_id"])
+        or len(raw_subject["subject_id"].encode("utf-8")) > 255
+        or value["entry_lifecycle"] not in {"active", "restricted", "deleted"}
+        or not isinstance(value["created_at"], str)
+        or not _timestamp(value["created_at"])
+    ):
+        _invalid_response()
+    return SubjectBinding(
+        binding_id=value["binding_id"],
+        subject=SubjectReference(raw_subject["namespace"], raw_subject["subject_id"]),
+        environment_id=value["environment_id"],
+        collection_instance_id=value["collection_instance_id"],
+        entry_id=value["entry_id"],
+        entry_lifecycle=value["entry_lifecycle"],
+        created_at=value["created_at"],
+    )
+
+
+def _subject_binding_outcome(value: object) -> SubjectBindingOutcome:
+    if (
+        not isinstance(value, dict)
+        or set(value) != {"disposition", "binding"}
+        or value["disposition"] not in {"applied", "already_bound", "exact_replay"}
+    ):
+        _invalid_response()
+    return SubjectBindingOutcome(value["disposition"], _subject_binding(value["binding"]))
+
+
+def _subject_binding_page(value: object) -> SubjectBindingPage:
+    if not isinstance(value, dict) or set(value) != {"items", "next_cursor"}:
+        _invalid_response()
+    items = value["items"]
+    cursor = value["next_cursor"]
+    if (
+        not isinstance(items, list)
+        or len(items) > 100
+        or cursor is not None
+        and (not isinstance(cursor, str) or not 1 <= len(cursor) <= 2048)
+    ):
+        _invalid_response()
+    return SubjectBindingPage(tuple(_subject_binding(item) for item in items), cursor)
 
 
 def _grant(value: object) -> CapabilitySessionGrant:

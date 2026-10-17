@@ -172,6 +172,10 @@ Variant keys are opaque Almira names, not provider paths or URLs.
 
 Application backends can pass a normalized `subject` with `listFiles`, `getFileMetadata`, and
 `readPrivateFile`; the SDK puts its canonical context on that same workload-authenticated call.
+Use `bindSubject` to persist a namespaced opaque builder-user-to-file lifecycle association and
+`listSubjectBindings` to discover retained files for that subject across the project. These
+workload-only operations support the builder's privacy workflows; the subject remains lifecycle
+metadata and never becomes an Almira authorization identity.
 For browser and other end-user data paths, use the deliberately separate `AlmiraDataClient`. It
 accepts only `alm_cap_v1` or `alm_local_v1` capabilities, never PATs, SAKs, workload sessions, or
 product cookies. Browser runtimes supply `Origin`; non-browser runtimes pass the canonical origin

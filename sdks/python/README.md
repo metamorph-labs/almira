@@ -47,6 +47,10 @@ one-use transfer URLs, signed headers and capability tokens are redacted from SD
 Pass that descriptor and a seekable binary source to `upload_direct`; it streams only the exact
 declared slices to the object provider, never adds an Almira credential or follows a redirect,
 does not retry an ambiguous write, and returns the typed evidence for `finalize_upload`.
+`bind_subject` and `list_subject_bindings` persist and discover namespaced opaque builder-user
+lifecycle associations under workload evidence. They support the builder's privacy workflows;
+subjects are lifecycle metadata, never Almira authorization identities, and opaque identifiers are
+redacted from SDK representations.
 
 Management and resource provisioning remain in the Almira CLI/MCP or the management client. The
 builder application's backend obtains bounded capability sessions under its short-lived Metamorph

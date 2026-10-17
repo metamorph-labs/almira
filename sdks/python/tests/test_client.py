@@ -33,6 +33,8 @@ from almira import (  # noqa: E402
     ImmutableGenerationReference,
     FinalizeUploadRequest,
     RetryPolicy,
+    SubjectProjectReference,
+    SubjectReference,
     upload_direct,
 )
 from almira import __contract_version__  # noqa: E402
@@ -410,6 +412,55 @@ class AlmiraPythonSdkTest(unittest.TestCase):
             "size_bytes": 5,
             "content_sha256": content_sha256,
         })
+
+    def test_workload_subject_bindings_are_namespaced_and_operation_scoped(self) -> None:
+        calls: list[tuple[str, str, dict[str, str], bytes | None]] = []
+        subject = SubjectReference("auth0:primary", "opaque|user-42")
+        binding = {
+            "binding_id": REQUEST,
+            "subject": {"namespace": "auth0:primary", "subject_id": "opaque|user-42"},
+            "environment_id": ENVIRONMENT,
+            "collection_instance_id": COLLECTION,
+            "entry_id": ENTRY,
+            "entry_lifecycle": "active",
+            "created_at": "2026-10-17T12:00:00Z",
+        }
+
+        def transport(method: str, url: str, headers: dict[str, str], body: bytes | None) -> HttpResponse:
+            calls.append((method, url, dict(headers), body))
+            if url.endswith("/subject-bindings"):
+                return response({"disposition": "applied", "binding": binding}, 201)
+            return response({"items": [binding], "next_cursor": None})
+
+        server = AlmiraServerClient(
+            base_url="https://almira.test",
+            workload_session="workload_session",
+            transport=transport,
+        )
+        collection = CollectionReference(TENANT, PROJECT, ENVIRONMENT, COLLECTION)
+        outcome = server.bind_subject(collection, ENTRY, subject, operation_id=REQUEST)
+        page = server.list_subject_bindings(
+            SubjectProjectReference(TENANT, PROJECT),
+            subject,
+            limit=25,
+            cursor="next",
+        )
+        self.assertEqual(outcome.binding.entry_id, ENTRY)
+        self.assertEqual(len(page.items), 1)
+        self.assertNotIn("opaque|user-42", repr(subject))
+        self.assertEqual(calls[0][2]["idempotency-key"], REQUEST)
+        self.assertNotIn("idempotency-key", calls[1][2])
+        self.assertEqual(
+            [json.loads(call[3] or b"{}") for call in calls],
+            [
+                {"namespace": "auth0:primary", "subject_id": "opaque|user-42"},
+                {
+                    "subject": {"namespace": "auth0:primary", "subject_id": "opaque|user-42"},
+                    "limit": 25,
+                    "cursor": "next",
+                },
+            ],
+        )
 
     def test_direct_upload_streams_exact_parts_without_almira_credentials(self) -> None:
         content_sha256 = f"sha256:{'a' * 64}"

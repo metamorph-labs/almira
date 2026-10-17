@@ -47,4 +47,9 @@ from `Debug` output.
 adds no Almira credential, refuses redirects and automatic retries, and returns the typed evidence
 accepted by `finalize_upload`.
 
+`bind_subject` and `list_subject_bindings` let the builder workload associate a namespaced opaque
+end-user identifier with retained files and discover those bindings for privacy workflows. They use
+workload evidence, not browser capabilities; the subject is lifecycle metadata and never becomes
+an Almira authorization identity. Opaque subject identifiers are redacted from `Debug` output.
+
 Run `cargo test` in this directory, or `pnpm check` at the public repository root.

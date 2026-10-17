@@ -11,7 +11,8 @@ pub use server::{
     CapabilitySessionGrant, CreateCapabilitySessionRequest, CreateUploadOutcome,
     CreateUploadRequest, DirectUploadDescriptor, DirectUploadHeader, DirectUploadPart,
     DirectUploadPartCompletion, FinalizeUploadRequest, ReadAccessOperation, ServerClient,
-    ServerClientOptions,
+    ServerClientOptions, SubjectBinding, SubjectBindingOutcome, SubjectBindingPage,
+    SubjectBindingPageOptions, SubjectProjectReference, SubjectReference,
 };
 pub use transfer::{
     DirectUploadResponse, DirectUploadTransport, ReqwestDirectUploadTransport, TransferError,
@@ -19,4 +20,4 @@ pub use transfer::{
 };
 pub use types::*;
 
-pub const CONTRACT_VERSION: &str = "0.1.0-dev.33";
+pub const CONTRACT_VERSION: &str = "0.1.0-dev.34";

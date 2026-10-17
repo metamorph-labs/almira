@@ -397,6 +397,58 @@ test("workload evidence uses its distinct framing and is resolved for every call
   assert.equal(calls, 2);
 });
 
+test("workload-only subject bindings stay distinct from authorization identity", async () => {
+  const calls = [];
+  const subject = { namespace: "auth0:primary", subject_id: "opaque|user-42" };
+  const binding = {
+    binding_id: operationId,
+    subject,
+    environment_id: environmentId,
+    collection_instance_id: collectionInstanceId,
+    entry_id: entryId,
+    entry_lifecycle: "active",
+    created_at: "2026-10-17T12:00:00Z",
+  };
+  const client = new AlmiraClient({
+    workloadSession: "workload_session",
+    fetch: async (input, init) => {
+      calls.push({ input, init });
+      return calls.length === 1
+        ? json({ disposition: "applied", binding }, { status: 201 })
+        : json({ items: [binding], next_cursor: null });
+    },
+  });
+  const collection = { tenantId, projectId, environmentId, collectionInstanceId };
+  await client.bindSubject({ ...collection, entryId }, subject, { operationId });
+  await client.listSubjectBindings({ tenantId, projectId }, subject, { limit: 25, cursor: "next" });
+  assert.deepEqual(calls.map(({ input, init }) => ({
+    input,
+    authorization: init.headers.get("authorization"),
+    operation: init.headers.get("idempotency-key"),
+    body: JSON.parse(init.body),
+  })), [
+    {
+      input: `/v1/projects/${projectId}/environments/${environmentId}/collections/${collectionInstanceId}/files/${entryId}/subject-bindings`,
+      authorization: "MetamorphWorkload workload_session",
+      operation: operationId,
+      body: subject,
+    },
+    {
+      input: `/v1/projects/${projectId}/subject-bindings/search`,
+      authorization: "MetamorphWorkload workload_session",
+      operation: null,
+      body: { subject, limit: 25, cursor: "next" },
+    },
+  ]);
+  await assert.rejects(
+    client.listSubjectBindings(
+      { tenantId, projectId },
+      { namespace: "Auth0 Primary", subject_id: "opaque|user-42" },
+    ),
+    (error) => error instanceof AlmiraClientError && error.code === "ALMIRA_CLIENT_INPUT_INVALID",
+  );
+});
+
 test("authentication modes and PAT or SAK framing fail closed", async () => {
   assert.throws(
     () => new AlmiraClient({ credential: "mm_pat_v1.test", workloadSession: "e30" }),

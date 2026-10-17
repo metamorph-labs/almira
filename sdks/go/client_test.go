@@ -428,6 +428,61 @@ func TestServerUploadCreateAndFinalizePreserveDescriptorEvidence(t *testing.T) {
 	}
 }
 
+func TestWorkloadSubjectBindingsAreNamespacedAndOperationScoped(t *testing.T) {
+	subject := SubjectReference{Namespace: "auth0:primary", SubjectID: "opaque|user-42"}
+	binding := fmt.Sprintf(
+		`{"binding_id":"%s","subject":{"namespace":"auth0:primary","subject_id":"opaque|user-42"},"environment_id":"%s","collection_instance_id":"%s","entry_id":"%s","entry_lifecycle":"active","created_at":"2026-10-17T12:00:00Z"}`,
+		requestID, environmentID, collectionID, entryID,
+	)
+	var calls []recordedCall
+	transport := roundTripperFunc(func(request *http.Request) (*http.Response, error) {
+		raw, _ := io.ReadAll(request.Body)
+		calls = append(calls, recordedCall{
+			method: request.Method, path: request.URL.Path, header: request.Header.Clone(), body: string(raw),
+		})
+		status := http.StatusOK
+		body := `{"items":[` + binding + `],"next_cursor":null}`
+		if strings.HasSuffix(request.URL.Path, "/files/"+entryID+"/subject-bindings") {
+			status = http.StatusCreated
+			body = `{"disposition":"applied","binding":` + binding + `}`
+		}
+		return &http.Response{
+			StatusCode: status,
+			Header:     http.Header{"Content-Type": {"application/json"}},
+			Body:       io.NopCloser(strings.NewReader(body)),
+		}, nil
+	})
+	server, err := NewServerClient(ServerClientOptions{
+		BaseURL: "https://almira.test", WorkloadSession: "workload_session", Transport: transport,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	collection := CollectionReference{TenantID: tenantID, ProjectID: projectID, EnvironmentID: environmentID, CollectionInstanceID: collectionID}
+	outcome, err := server.BindSubject(
+		context.Background(), FileReference{CollectionReference: collection, EntryID: entryID}, subject, requestID,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	page, err := server.ListSubjectBindings(
+		context.Background(), SubjectProjectReference{TenantID: tenantID, ProjectID: projectID}, subject,
+		SubjectBindingPageOptions{Limit: 25, Cursor: "next"},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if outcome.Binding.EntryID != entryID || len(page.Items) != 1 || strings.Contains(fmt.Sprintf("%#v", subject), subject.SubjectID) {
+		t.Fatalf("subject binding response or redaction drifted: %#v %#v", outcome, page)
+	}
+	if len(calls) != 2 || calls[0].header.Get("Idempotency-Key") != requestID ||
+		calls[1].header.Get("Idempotency-Key") != "" ||
+		calls[0].header.Get("Authorization") != "MetamorphWorkload workload_session" ||
+		calls[1].path != "/v1/projects/"+projectID+"/subject-bindings/search" {
+		t.Fatalf("subject binding request drifted: %#v", calls)
+	}
+}
+
 func TestDirectUploadStreamsExactPartsWithoutAlmiraCredentials(t *testing.T) {
 	contentSHA256 := "sha256:" + strings.Repeat("a", 64)
 	descriptor := DirectUploadDescriptor{

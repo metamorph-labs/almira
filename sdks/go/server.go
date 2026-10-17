@@ -17,11 +17,12 @@ import (
 )
 
 var (
-	workloadSessionPattern = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
-	labelPattern           = regexp.MustCompile(`^[a-z][a-z0-9._:-]{0,63}$`)
-	contentSHA256Pattern   = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
-	headerNamePattern      = regexp.MustCompile(`^[a-z0-9-]{1,128}$`)
-	browserHostPattern     = regexp.MustCompile(`^[a-z0-9][a-z0-9.-]*$`)
+	workloadSessionPattern  = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
+	labelPattern            = regexp.MustCompile(`^[a-z][a-z0-9._:-]{0,63}$`)
+	subjectNamespacePattern = regexp.MustCompile(`^[a-z][a-z0-9._:-]{0,127}$`)
+	contentSHA256Pattern    = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
+	headerNamePattern       = regexp.MustCompile(`^[a-z0-9-]{1,128}$`)
+	browserHostPattern      = regexp.MustCompile(`^[a-z0-9][a-z0-9.-]*$`)
 )
 
 type WorkloadSessionProvider func(context.Context) (string, error)
@@ -31,6 +32,53 @@ type BuilderSubject struct {
 	OrganizationID *string           `json:"organization_id,omitempty"`
 	Roles          []string          `json:"roles"`
 	Attributes     map[string]string `json:"attributes"`
+}
+
+type SubjectProjectReference struct {
+	TenantID  string
+	ProjectID string
+}
+
+type SubjectReference struct {
+	Namespace string `json:"namespace"`
+	SubjectID string `json:"subject_id"`
+}
+
+func (subject SubjectReference) String() string {
+	return "SubjectReference{Namespace:" + subject.Namespace + ", SubjectID:[REDACTED]}"
+}
+
+func (subject SubjectReference) GoString() string { return subject.String() }
+
+type SubjectBinding struct {
+	BindingID            string           `json:"binding_id"`
+	Subject              SubjectReference `json:"subject"`
+	EnvironmentID        string           `json:"environment_id"`
+	CollectionInstanceID string           `json:"collection_instance_id"`
+	EntryID              string           `json:"entry_id"`
+	EntryLifecycle       string           `json:"entry_lifecycle"`
+	CreatedAt            string           `json:"created_at"`
+}
+
+func (binding SubjectBinding) String() string {
+	return "SubjectBinding{BindingID:" + binding.BindingID + ", Subject:[REDACTED], EntryID:" + binding.EntryID + "}"
+}
+
+func (binding SubjectBinding) GoString() string { return binding.String() }
+
+type SubjectBindingOutcome struct {
+	Disposition string         `json:"disposition"`
+	Binding     SubjectBinding `json:"binding"`
+}
+
+type SubjectBindingPage struct {
+	Items      []SubjectBinding `json:"items"`
+	NextCursor *string          `json:"next_cursor"`
+}
+
+type SubjectBindingPageOptions struct {
+	Limit  int
+	Cursor string
 }
 
 type CapabilityResource struct {
@@ -279,6 +327,77 @@ func (c *ServerClient) FinalizeUpload(
 	return generation, nil
 }
 
+func (c *ServerClient) BindSubject(
+	ctx context.Context,
+	reference FileReference,
+	subject SubjectReference,
+	operationID string,
+) (SubjectBindingOutcome, error) {
+	var zero SubjectBindingOutcome
+	if !validSubjectReference(subject) {
+		return zero, invalidInput()
+	}
+	path, err := managementCollectionPath(reference.CollectionReference, "/files/"+reference.EntryID+"/subject-bindings")
+	if err != nil {
+		return zero, err
+	}
+	if _, err := uuid(reference.EntryID); err != nil {
+		return zero, err
+	}
+	outcome, err := serverRequestJSON[SubjectBindingOutcome](
+		c, ctx, http.MethodPost, path, reference.TenantID, operationID, subject, http.StatusCreated,
+	)
+	if err != nil {
+		return zero, err
+	}
+	if !validSubjectBinding(outcome.Binding) ||
+		outcome.Disposition != "applied" && outcome.Disposition != "already_bound" && outcome.Disposition != "exact_replay" {
+		return zero, invalidResponse()
+	}
+	return outcome, nil
+}
+
+func (c *ServerClient) ListSubjectBindings(
+	ctx context.Context,
+	reference SubjectProjectReference,
+	subject SubjectReference,
+	options SubjectBindingPageOptions,
+) (SubjectBindingPage, error) {
+	var zero SubjectBindingPage
+	limit := options.Limit
+	if limit == 0 {
+		limit = 50
+	}
+	if !validSubjectReference(subject) || limit < 1 || limit > 100 || len(options.Cursor) > 2048 {
+		return zero, invalidInput()
+	}
+	projectID, err := uuid(reference.ProjectID)
+	if err != nil {
+		return zero, err
+	}
+	body := struct {
+		Subject SubjectReference `json:"subject"`
+		Limit   int              `json:"limit"`
+		Cursor  string           `json:"cursor,omitempty"`
+	}{Subject: subject, Limit: limit, Cursor: options.Cursor}
+	page, err := serverReadJSON[SubjectBindingPage](
+		c, ctx, http.MethodPost, "/v1/projects/"+projectID+"/subject-bindings/search",
+		reference.TenantID, body, http.StatusOK,
+	)
+	if err != nil {
+		return zero, err
+	}
+	if len(page.Items) > 100 || page.NextCursor != nil && (len(*page.NextCursor) < 1 || len(*page.NextCursor) > 2048) {
+		return zero, invalidResponse()
+	}
+	for _, binding := range page.Items {
+		if !validSubjectBinding(binding) {
+			return zero, invalidResponse()
+		}
+	}
+	return page, nil
+}
+
 func (c *ServerClient) CreateCapabilityDataClient(
 	ctx context.Context,
 	reference CollectionReference,
@@ -330,6 +449,27 @@ func serverRequestJSON[T any](
 	value any,
 	expectedStatus int,
 ) (T, error) {
+	return serverJSON[T](c, ctx, method, path, tenantID, operationID, true, value, expectedStatus)
+}
+
+func serverReadJSON[T any](
+	c *ServerClient,
+	ctx context.Context,
+	method, path, tenantID string,
+	value any,
+	expectedStatus int,
+) (T, error) {
+	return serverJSON[T](c, ctx, method, path, tenantID, "", false, value, expectedStatus)
+}
+
+func serverJSON[T any](
+	c *ServerClient,
+	ctx context.Context,
+	method, path, tenantID, operationID string,
+	requireOperation bool,
+	value any,
+	expectedStatus int,
+) (T, error) {
 	var zero T
 	if ctx == nil {
 		return zero, invalidInput()
@@ -338,9 +478,11 @@ func serverRequestJSON[T any](
 	if err != nil {
 		return zero, err
 	}
-	operationID, err = uuid(operationID)
-	if err != nil {
-		return zero, err
+	if requireOperation {
+		operationID, err = uuid(operationID)
+		if err != nil {
+			return zero, err
+		}
 	}
 	evidence := c.workloadSession
 	if c.workloadSessionProvider != nil {
@@ -365,7 +507,9 @@ func serverRequestJSON[T any](
 	}
 	request.Header.Set("Accept", "application/json")
 	request.Header.Set("Authorization", "MetamorphWorkload "+evidence)
-	request.Header.Set("Idempotency-Key", operationID)
+	if requireOperation {
+		request.Header.Set("Idempotency-Key", operationID)
+	}
 	request.Header.Set("X-Almira-Tenant-Id", tenantID)
 	if body != nil {
 		request.Header.Set("Content-Type", "application/json")
@@ -408,6 +552,19 @@ func serverRequestJSON[T any](
 		return zero, invalidResponse()
 	}
 	return zero, nil
+}
+
+func validSubjectReference(subject SubjectReference) bool {
+	return subjectNamespacePattern.MatchString(subject.Namespace) && utf8.ValidString(subject.SubjectID) &&
+		validOpaque(subject.SubjectID) && len(subject.SubjectID) <= 255
+}
+
+func validSubjectBinding(binding SubjectBinding) bool {
+	return uuidV7Pattern.MatchString(binding.BindingID) && validSubjectReference(binding.Subject) &&
+		uuidV7Pattern.MatchString(binding.EnvironmentID) && uuidV7Pattern.MatchString(binding.CollectionInstanceID) &&
+		uuidV7Pattern.MatchString(binding.EntryID) &&
+		(binding.EntryLifecycle == "active" || binding.EntryLifecycle == "restricted" || binding.EntryLifecycle == "deleted") &&
+		validTimestamp(binding.CreatedAt)
 }
 
 func validateCapabilityRequest(request CreateCapabilitySessionRequest) error {

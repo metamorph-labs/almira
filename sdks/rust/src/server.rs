@@ -23,6 +23,85 @@ pub struct BuilderSubject {
     pub attributes: BTreeMap<String, String>,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SubjectProjectReference {
+    pub tenant_id: String,
+    pub project_id: String,
+}
+
+#[derive(Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SubjectReference {
+    pub namespace: String,
+    pub subject_id: String,
+}
+
+impl Debug for SubjectReference {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("SubjectReference")
+            .field("namespace", &self.namespace)
+            .field("subject_id", &"[REDACTED]")
+            .finish()
+    }
+}
+
+#[derive(Clone, Eq, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SubjectBinding {
+    pub binding_id: String,
+    pub subject: SubjectReference,
+    pub environment_id: String,
+    pub collection_instance_id: String,
+    pub entry_id: String,
+    pub entry_lifecycle: String,
+    pub created_at: String,
+}
+
+impl Debug for SubjectBinding {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("SubjectBinding")
+            .field("binding_id", &self.binding_id)
+            .field("subject", &"[REDACTED]")
+            .field("environment_id", &self.environment_id)
+            .field("collection_instance_id", &self.collection_instance_id)
+            .field("entry_id", &self.entry_id)
+            .field("entry_lifecycle", &self.entry_lifecycle)
+            .field("created_at", &self.created_at)
+            .finish()
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SubjectBindingOutcome {
+    pub disposition: String,
+    pub binding: SubjectBinding,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SubjectBindingPage {
+    pub items: Vec<SubjectBinding>,
+    pub next_cursor: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SubjectBindingPageOptions {
+    pub limit: u16,
+    pub cursor: Option<String>,
+}
+
+impl Default for SubjectBindingPageOptions {
+    fn default() -> Self {
+        Self {
+            limit: 50,
+            cursor: None,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum CapabilityResource {
@@ -282,7 +361,7 @@ impl ServerClient {
                 Method::POST,
                 &path,
                 &reference.tenant_id,
-                operation_id,
+                Some(operation_id),
                 Some(request),
                 StatusCode::CREATED,
             )
@@ -299,12 +378,12 @@ impl ServerClient {
     ) -> Result<CreateUploadOutcome, Error> {
         validate_create_upload_request(request)?;
         let path = management_collection_path(reference, "/uploads")?;
-        let outcome = self
+        let outcome: CreateUploadOutcome = self
             .request_json(
                 Method::POST,
                 &path,
                 &reference.tenant_id,
-                operation_id,
+                Some(operation_id),
                 Some(request),
                 StatusCode::CREATED,
             )
@@ -333,7 +412,7 @@ impl ServerClient {
                 Method::POST,
                 &path,
                 &reference.tenant_id,
-                operation_id,
+                Some(operation_id),
                 Some(request),
                 StatusCode::OK,
             )
@@ -342,6 +421,97 @@ impl ServerClient {
             return Err(invalid_response());
         }
         Ok(generation)
+    }
+
+    pub async fn bind_subject(
+        &self,
+        reference: &crate::types::FileReference,
+        subject: &SubjectReference,
+        operation_id: &str,
+    ) -> Result<SubjectBindingOutcome, Error> {
+        if !valid_subject_reference(subject) || !valid_uuid_v7(&reference.entry_id) {
+            return Err(invalid_input());
+        }
+        let path = management_collection_path(
+            &reference.collection,
+            &format!("/files/{}/subject-bindings", reference.entry_id),
+        )?;
+        let outcome: SubjectBindingOutcome = self
+            .request_json(
+                Method::POST,
+                &path,
+                &reference.collection.tenant_id,
+                Some(operation_id),
+                Some(subject),
+                StatusCode::CREATED,
+            )
+            .await?;
+        if !matches!(
+            outcome.disposition.as_str(),
+            "applied" | "already_bound" | "exact_replay"
+        ) || !valid_subject_binding(&outcome.binding)
+        {
+            return Err(invalid_response());
+        }
+        Ok(outcome)
+    }
+
+    pub async fn list_subject_bindings(
+        &self,
+        reference: &SubjectProjectReference,
+        subject: &SubjectReference,
+        options: &SubjectBindingPageOptions,
+    ) -> Result<SubjectBindingPage, Error> {
+        if !valid_uuid_v7(&reference.project_id)
+            || !valid_subject_reference(subject)
+            || options.limit == 0
+            || options.limit > 100
+            || options
+                .cursor
+                .as_ref()
+                .is_some_and(|value| value.is_empty() || value.len() > 2048)
+        {
+            return Err(invalid_input());
+        }
+        #[derive(Serialize)]
+        #[serde(deny_unknown_fields)]
+        struct Request<'a> {
+            subject: &'a SubjectReference,
+            limit: u16,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            cursor: Option<&'a str>,
+        }
+        let path = format!(
+            "/v1/projects/{}/subject-bindings/search",
+            reference.project_id
+        );
+        let page: SubjectBindingPage = self
+            .request_json(
+                Method::POST,
+                &path,
+                &reference.tenant_id,
+                None,
+                Some(&Request {
+                    subject,
+                    limit: options.limit,
+                    cursor: options.cursor.as_deref(),
+                }),
+                StatusCode::OK,
+            )
+            .await?;
+        if page.items.len() > 100
+            || page
+                .next_cursor
+                .as_ref()
+                .is_some_and(|value| value.is_empty() || value.len() > 2048)
+            || page
+                .items
+                .iter()
+                .any(|binding| !valid_subject_binding(binding))
+        {
+            return Err(invalid_response());
+        }
+        Ok(page)
     }
 
     pub async fn create_capability_data_client(
@@ -380,7 +550,7 @@ impl ServerClient {
                 Method::DELETE,
                 &path,
                 &reference.tenant_id,
-                operation_id,
+                Some(operation_id),
                 None,
                 StatusCode::OK,
             )
@@ -396,11 +566,11 @@ impl ServerClient {
         method: Method,
         path: &str,
         tenant_id: &str,
-        operation_id: &str,
+        operation_id: Option<&str>,
         body: Option<&B>,
         expected_status: StatusCode,
     ) -> Result<T, Error> {
-        if !valid_uuid_v7(tenant_id) || !valid_uuid_v7(operation_id) {
+        if !valid_uuid_v7(tenant_id) || operation_id.is_some_and(|value| !valid_uuid_v7(value)) {
             return Err(invalid_input());
         }
         let evidence = match &self.workload_session {
@@ -419,10 +589,12 @@ impl ServerClient {
             HeaderValue::from_str(&format!("MetamorphWorkload {evidence}"))
                 .map_err(|_| invalid_input())?,
         );
-        headers.insert(
-            "idempotency-key",
-            HeaderValue::from_str(operation_id).map_err(|_| invalid_input())?,
-        );
+        if let Some(operation_id) = operation_id {
+            headers.insert(
+                "idempotency-key",
+                HeaderValue::from_str(operation_id).map_err(|_| invalid_input())?,
+            );
+        }
         headers.insert(
             "x-almira-tenant-id",
             HeaderValue::from_str(tenant_id).map_err(|_| invalid_input())?,
@@ -638,6 +810,35 @@ fn valid_file_generation(generation: &crate::types::FileGeneration) -> bool {
         )
         && generation.revision > 0
         && valid_timestamp(&generation.created_at)
+}
+
+fn valid_subject_reference(subject: &SubjectReference) -> bool {
+    let namespace = subject.namespace.as_bytes();
+    !namespace.is_empty()
+        && namespace.len() <= 128
+        && namespace[0].is_ascii_lowercase()
+        && namespace.iter().all(|byte| {
+            byte.is_ascii_lowercase()
+                || byte.is_ascii_digit()
+                || matches!(byte, b'.' | b'_' | b':' | b'-')
+        })
+        && !subject.subject_id.is_empty()
+        && subject.subject_id.len() <= 255
+        && subject.subject_id.trim() == subject.subject_id
+        && !subject.subject_id.chars().any(char::is_control)
+}
+
+fn valid_subject_binding(binding: &SubjectBinding) -> bool {
+    valid_uuid_v7(&binding.binding_id)
+        && valid_subject_reference(&binding.subject)
+        && valid_uuid_v7(&binding.environment_id)
+        && valid_uuid_v7(&binding.collection_instance_id)
+        && valid_uuid_v7(&binding.entry_id)
+        && matches!(
+            binding.entry_lifecycle.as_str(),
+            "active" | "restricted" | "deleted"
+        )
+        && valid_timestamp(&binding.created_at)
 }
 
 fn valid_content_sha256(value: &str) -> bool {

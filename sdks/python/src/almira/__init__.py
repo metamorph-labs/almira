@@ -27,6 +27,11 @@ from .server import (
     DirectUploadPartCompletion,
     FinalizeUploadRequest,
     FileGeneration,
+    SubjectBinding,
+    SubjectBindingOutcome,
+    SubjectBindingPage,
+    SubjectProjectReference,
+    SubjectReference,
 )
 from .transfer import AlmiraTransferError, DirectUploadResponse, upload_direct
 
@@ -55,10 +60,15 @@ __all__ = [
     "DirectUploadPartCompletion",
     "FinalizeUploadRequest",
     "FileGeneration",
+    "SubjectBinding",
+    "SubjectBindingOutcome",
+    "SubjectBindingPage",
+    "SubjectProjectReference",
+    "SubjectReference",
     "AlmiraTransferError",
     "DirectUploadResponse",
     "upload_direct",
 ]
 
-__version__ = "0.1.0.dev31"
-__contract_version__ = "0.1.0-dev.33"
+__version__ = "0.1.0.dev34"
+__contract_version__ = "0.1.0-dev.34"

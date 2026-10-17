@@ -634,7 +634,7 @@ export interface VerificationCheck {
 
 export interface VerificationReceipt {
   receipt_version: "almira.verification.v1";
-  contract_version: "0.1.0-dev.33";
+  contract_version: "0.1.0-dev.34";
   verification_id: UuidV7;
   realm_id: UuidV7;
   tenant_id: UuidV7;
@@ -983,6 +983,32 @@ export interface BuilderSubject {
   organization_id?: string | null | undefined;
   roles?: string[] | undefined;
   attributes?: Record<string, string> | undefined;
+}
+
+/** Opaque builder-owned lifecycle metadata, distinct from BuilderSubject authorization context. */
+export interface SubjectReference {
+  namespace: string;
+  subject_id: string;
+}
+
+export interface SubjectBinding {
+  binding_id: UuidV7;
+  subject: SubjectReference;
+  environment_id: UuidV7;
+  collection_instance_id: UuidV7;
+  entry_id: UuidV7;
+  entry_lifecycle: "active" | "restricted" | "deleted";
+  created_at: Timestamp;
+}
+
+export interface SubjectBindingOutcome {
+  disposition: "applied" | "already_bound" | "exact_replay";
+  binding: SubjectBinding;
+}
+
+export interface SubjectBindingPage {
+  items: SubjectBinding[];
+  next_cursor: string | null;
 }
 
 export type AccessSubject =

@@ -42,5 +42,9 @@ from SDK formatting.
 `UploadDirect` streams exact descriptor slices from an `io.ReaderAt` directly to the object
 provider, adds no Almira credential, refuses redirects and automatic retries, and returns the typed
 evidence accepted by `FinalizeUpload`.
+`BindSubject` and `ListSubjectBindings` persist and discover namespaced opaque builder-user
+lifecycle associations under workload evidence. They support the builder's privacy workflows;
+subjects are lifecycle metadata, never Almira authorization identities, and opaque identifiers are
+redacted from SDK formatting.
 
 Run `go test ./...` in this directory, or `pnpm check` at the public repository root.

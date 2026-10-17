@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Almira API",
-    "version": "0.1.0-dev.33",
+    "version": "0.1.0-dev.34",
     "description": "Provider-neutral application file storage management and data API."
   },
   "servers": [
@@ -91,6 +91,60 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/subject-bindings/search": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "post": {
+        "operationId": "listSubjectBindings",
+        "security": [
+          {
+            "customerWorkload": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListSubjectBindingsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Retained file bindings for one builder-owned opaque subject.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubjectBindingPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
           },
           "503": {
             "$ref": "#/components/responses/Unavailable"
@@ -1918,6 +1972,78 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/MetadataMutationOutcome"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/files/{entry_id}/subject-bindings": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "post": {
+        "operationId": "bindSubject",
+        "security": [
+          {
+            "customerWorkload": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/EntryId"
+          },
+          {
+            "$ref": "#/components/parameters/OperationId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubjectReference"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Opaque lifecycle binding created, already present, or exactly replayed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubjectBindingOutcome"
                 }
               }
             }
@@ -7390,7 +7516,7 @@
             "const": "almira.verification.v1"
           },
           "contract_version": {
-            "const": "0.1.0-dev.33"
+            "const": "0.1.0-dev.34"
           },
           "verification_id": {
             "$ref": "#/components/schemas/UuidV7"
@@ -9435,6 +9561,143 @@
           "policy_issuer_epoch": {
             "type": "integer",
             "minimum": 1
+          }
+        }
+      },
+      "SubjectReference": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "namespace",
+          "subject_id"
+        ],
+        "properties": {
+          "namespace": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+          },
+          "subject_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255,
+            "pattern": "^[^\\u0000-\\u001f\\u007f]+$",
+            "x-almira-trimmed": true,
+            "x-almira-utf8-min-bytes": 1,
+            "x-almira-utf8-max-bytes": 255
+          }
+        },
+        "description": "Builder-owned opaque lifecycle reference; never an Almira authorization identity."
+      },
+      "SubjectBinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "binding_id",
+          "subject",
+          "environment_id",
+          "collection_instance_id",
+          "entry_id",
+          "entry_lifecycle",
+          "created_at"
+        ],
+        "properties": {
+          "binding_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "subject": {
+            "$ref": "#/components/schemas/SubjectReference"
+          },
+          "environment_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "collection_instance_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "entry_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "entry_lifecycle": {
+            "type": "string",
+            "enum": [
+              "active",
+              "restricted",
+              "deleted"
+            ]
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        }
+      },
+      "SubjectBindingOutcome": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "disposition",
+          "binding"
+        ],
+        "properties": {
+          "disposition": {
+            "type": "string",
+            "enum": [
+              "applied",
+              "already_bound",
+              "exact_replay"
+            ]
+          },
+          "binding": {
+            "$ref": "#/components/schemas/SubjectBinding"
+          }
+        }
+      },
+      "ListSubjectBindingsRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "subject",
+          "limit"
+        ],
+        "properties": {
+          "subject": {
+            "$ref": "#/components/schemas/SubjectReference"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "cursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 2048
+          }
+        }
+      },
+      "SubjectBindingPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/SubjectBinding"
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 2048
           }
         }
       },
