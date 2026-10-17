@@ -14,7 +14,7 @@
   },
   "scripts": {
     "build": "pnpm --filter @metamorph-labs/almira-sdk build && pnpm --filter @metamorph-labs/almira-cli build && pnpm --filter @metamorph-labs/almira-mcp build && pnpm --filter @metamorph-labs/almira-example-node-upload build",
-    "check": "pnpm check:foundation && pnpm check:plugins && pnpm contracts:verify && pnpm build && pnpm test:contracts && pnpm test:sdk && pnpm test:python && pnpm test:go && pnpm test:cli && pnpm test:mcp && pnpm test:examples",
+    "check": "pnpm check:foundation && pnpm check:plugins && pnpm contracts:verify && pnpm build && pnpm test:contracts && pnpm test:sdk && pnpm test:python && pnpm test:go && pnpm test:rust && pnpm test:cli && pnpm test:mcp && pnpm test:examples",
     "check:foundation": "node scripts/check-foundation.mjs",
     "check:plugins": "node scripts/check-plugins.mjs",
     "contracts:accept": "node tools/contracts/bundle.mjs accept",
@@ -23,6 +23,7 @@
     "test:sdk": "pnpm --filter @metamorph-labs/almira-sdk test",
     "test:python": "PYTHONPATH=sdks/python/src python3 -m unittest discover -s sdks/python/tests -v",
     "test:go": "cd sdks/go && go test ./...",
+    "test:rust": "cd sdks/rust && cargo test --locked --all-targets && cargo clippy --locked --all-targets -- -D warnings",
     "test:cli": "pnpm --filter @metamorph-labs/almira-cli test",
     "test:mcp": "pnpm --filter @metamorph-labs/almira-mcp test",
     "test:examples": "pnpm --filter './examples/*' test"
