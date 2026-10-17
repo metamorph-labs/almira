@@ -13,10 +13,12 @@ import type {
   Collection,
   CollectionExtractionConfig,
   CollectionMediaConfig,
+  CollectionProtectionConfig,
   CollectionPage,
   CollectionReference,
   CreateCollectionOutcome,
   CreateCollectionRequest,
+  CreateProtectionReviewRequest,
   CreateCapabilitySessionRequest,
   CreateEnvironmentRequest,
   CreateFileVersionRequest,
@@ -58,6 +60,11 @@ import type {
   PrivateFileResponse,
   ProcessingJobPage,
   ProcessingJobReference,
+  ProtectionCasePage,
+  ProtectionCasePageOptions,
+  ProtectionConfigOutcome,
+  ProtectionReviewOutcome,
+  ProtectionScanOutcome,
   ProjectReference,
   ReadPrivateFileOptions,
   RegisterLocalIssuerRequest,
@@ -67,6 +74,7 @@ import type {
   ReplaceDeliveryConfigRequest,
   ReplaceCollectionExtractionRequest,
   ReplaceCollectionMediaRequest,
+  ReplaceCollectionProtectionRequest,
   ReplaceEntryMetadataRequest,
   RenameFileRequest,
   RestoreFileGenerationRequest,
@@ -331,6 +339,82 @@ export class AlmiraClient {
       body: request,
       signal: options.signal,
     }, reference.tenantId);
+  }
+
+  async getCollectionProtection(
+    reference: CollectionReference,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<CollectionProtectionConfig> {
+    return this.#json(collectionPath(reference, "/protection"), {
+      method: "GET",
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async replaceCollectionProtection(
+    reference: CollectionReference,
+    request: ReplaceCollectionProtectionRequest,
+    options: MutationOptions,
+  ): Promise<ProtectionConfigOutcome> {
+    return this.#json(collectionPath(reference, "/protection"), {
+      method: "PUT",
+      headers: mutationHeaders(options.operationId),
+      body: request,
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async listProtectionCases(
+    reference: EnvironmentReference,
+    options: ProtectionCasePageOptions = {},
+  ): Promise<ProtectionCasePage> {
+    const query = new URLSearchParams();
+    appendPage(query, options);
+    if (options.collectionInstanceId !== undefined) {
+      query.set("collection_instance_id", uuid(options.collectionInstanceId));
+    }
+    if (options.safetyState !== undefined) {
+      if (!["scan_pending", "clean", "blocked"].includes(options.safetyState)) invalidInput();
+      query.set("safety_state", options.safetyState);
+    }
+    return this.#json(withQuery(environmentPath(reference, "/protection/cases"), query), {
+      method: "GET",
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async requestProtectionRescan(
+    reference: GenerationReference,
+    request: { expected_revision: number },
+    options: MutationOptions,
+  ): Promise<ProtectionScanOutcome> {
+    return this.#json(
+      filePath(reference, `/versions/${uuid(reference.generationId)}/protection-rescans`),
+      {
+        method: "POST",
+        headers: mutationHeaders(options.operationId),
+        body: request,
+        signal: options.signal,
+      },
+      reference.tenantId,
+    );
+  }
+
+  async createProtectionReview(
+    reference: GenerationReference,
+    request: CreateProtectionReviewRequest,
+    options: MutationOptions,
+  ): Promise<ProtectionReviewOutcome> {
+    return this.#json(
+      filePath(reference, `/versions/${uuid(reference.generationId)}/protection-reviews`),
+      {
+        method: "POST",
+        headers: mutationHeaders(options.operationId),
+        body: request,
+        signal: options.signal,
+      },
+      reference.tenantId,
+    );
   }
 
   async listProcessingJobs(

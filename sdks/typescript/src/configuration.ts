@@ -105,6 +105,16 @@ export type AlmiraConfigurationAction =
       readonly collection_key: string;
       readonly expected_revision: number | null;
       readonly config: NonNullable<AlmiraConfigurationCollectionV1["media"]>;
+    }
+  | {
+      readonly action_id: string;
+      readonly operation: "collection_protection.replace";
+      readonly environment_id: UuidV7 | null;
+      readonly environment_key: string;
+      readonly collection_instance_id: UuidV7 | null;
+      readonly collection_key: string;
+      readonly expected_revision: number | null;
+      readonly config: { readonly malware_scan_required: boolean };
     };
 
 export interface AlmiraConfigurationConflict {
@@ -256,6 +266,16 @@ export async function previewConfiguration(
           continue;
         }
         let expectedRevision = existing.revision;
+        if (existing.malware_scan_required !== collection.malware_scan_required) {
+          actions.push(protectionAction(
+            desired.key,
+            environment.environment_id,
+            existing.collection_instance_id,
+            collection,
+            expectedRevision,
+          ));
+          expectedRevision += 1;
+        }
         if (collection.extraction !== undefined && !extractionSettingsMatch(existing, collection.extraction)) {
           actions.push(extractionAction(
             desired.key,
@@ -277,8 +297,9 @@ export async function previewConfiguration(
               environment.environment_id,
               existing.collection_instance_id,
               collection,
-              currentMedia.revision,
+              expectedRevision,
             ));
+            expectedRevision += 1;
           }
         }
         if (existing.storage_class !== collection.storage_class) {
@@ -430,18 +451,35 @@ export async function applyConfiguration(
         { expected_revision: expectedRevision, config: action.config },
         { operationId, ...signalOptions },
       );
+      if (created !== undefined) created.revision = outcome.config.revision;
       receipts.push(receipt(action, operationId, outcome.disposition));
     } else if (action.operation === "collection_media.replace") {
       const created = createdCollections.get(collectionMapKey(action.environment_key, action.collection_key));
       const collectionInstanceId = action.collection_instance_id ?? created?.id;
-      if (collectionInstanceId === undefined) {
+      const expectedRevision = action.expected_revision ?? created?.revision;
+      if (collectionInstanceId === undefined || expectedRevision === undefined) {
         throw new AlmiraClientError("ALMIRA_CLIENT_RESPONSE_INVALID");
       }
       const outcome = await client.replaceCollectionMedia(
         { ...environment, collectionInstanceId },
-        { expected_revision: action.expected_revision ?? 1, config: action.config },
+        { expected_revision: expectedRevision, config: action.config },
         { operationId, ...signalOptions },
       );
+      if (created !== undefined) created.revision = outcome.config.revision;
+      receipts.push(receipt(action, operationId, outcome.disposition));
+    } else if (action.operation === "collection_protection.replace") {
+      const created = createdCollections.get(collectionMapKey(action.environment_key, action.collection_key));
+      const collectionInstanceId = action.collection_instance_id ?? created?.id;
+      const expectedRevision = action.expected_revision ?? created?.revision;
+      if (collectionInstanceId === undefined || expectedRevision === undefined) {
+        throw new AlmiraClientError("ALMIRA_CLIENT_RESPONSE_INVALID");
+      }
+      const outcome = await client.replaceCollectionProtection(
+        { ...environment, collectionInstanceId },
+        { expected_revision: expectedRevision, config: action.config },
+        { operationId, ...signalOptions },
+      );
+      if (created !== undefined) created.revision = outcome.config.revision;
       receipts.push(receipt(action, operationId, outcome.disposition));
     } else {
       const capabilities = await client.getStorageCapabilities(environment, signalOptions);
@@ -657,8 +695,7 @@ async function listAllCollections(
 }
 
 function collectionSettingsMatch(existing: Collection, desired: AlmiraConfigurationCollectionV1): boolean {
-  return existing.display_name === desired.display_name &&
-    existing.malware_scan_required === desired.malware_scan_required;
+  return existing.display_name === desired.display_name;
 }
 
 function extractionSettingsMatch(
@@ -773,6 +810,25 @@ function mediaAction(
     collection_key: collection.key,
     expected_revision: expectedRevision,
     config: collection.media,
+  };
+}
+
+function protectionAction(
+  environmentKey: string,
+  environmentId: UuidV7 | null,
+  collectionInstanceId: UuidV7 | null,
+  collection: AlmiraConfigurationCollectionV1,
+  expectedRevision: number | null,
+): AlmiraConfigurationAction {
+  return {
+    action_id: `collection_protection.replace:${environmentKey}:${collection.key}`,
+    operation: "collection_protection.replace",
+    environment_id: environmentId,
+    environment_key: environmentKey,
+    collection_instance_id: collectionInstanceId,
+    collection_key: collection.key,
+    expected_revision: expectedRevision,
+    config: { malware_scan_required: collection.malware_scan_required },
   };
 }
 

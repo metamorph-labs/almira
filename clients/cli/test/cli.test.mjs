@@ -339,6 +339,91 @@ test("media, job, and derivative commands expose exact scoped management operati
   ]);
 });
 
+test("protection and scan commands expose policy, cases, rescan, and review without release", async (context) => {
+  const directory = await mkdtemp(join(tmpdir(), "almira-protection-"));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const reviewInput = join(directory, "review.json");
+  const reviewRequest = {
+    expected_revision: 5,
+    review: {
+      decision: "suspected_false_positive",
+      reason: "Escalated for an independent scanner review.",
+    },
+  };
+  await writeFile(reviewInput, JSON.stringify(reviewRequest));
+  const collectionId = "018f0000-0000-7000-8000-000000000012";
+  const entryId = "018f0000-0000-7000-8000-000000000013";
+  const generationId = "018f0000-0000-7000-8000-000000000014";
+  const requests = [];
+  const invoke = async (arguments_) => {
+    const stream = io();
+    const exitCode = await runCli(arguments_, {
+      environment,
+      io: stream.value,
+      fetch: async (input, init) => {
+        requests.push({ input, init });
+        if (input.includes("/protection/cases")) return json({ cases: [], next_cursor: null });
+        if (input.endsWith("/protection-rescans")) return json({ disposition: "applied", job: {} }, 201);
+        if (input.endsWith("/protection-reviews")) return json({ disposition: "applied", review: {} }, 201);
+        return json(init.method === "GET" ? {} : { disposition: "applied", config: {} });
+      },
+    });
+    assert.equal(exitCode, 0, stream.output.stderr.join(""));
+  };
+  const environmentScope = [
+    "--tenant", tenantId, "--project", projectId, "--environment", environmentId,
+  ];
+  const collectionScope = [...environmentScope, "--collection", collectionId];
+  const generationScope = [
+    ...collectionScope, "--entry", entryId, "--generation", generationId,
+  ];
+
+  await invoke(["protection", "get", ...collectionScope]);
+  await invoke([
+    "protection", "set", ...collectionScope,
+    "--scan", "required", "--revision", "2", "--operation-id", operationId,
+  ]);
+  await invoke([
+    "scan", "list", ...environmentScope,
+    "--collection", collectionId, "--state", "blocked", "--limit", "25", "--cursor", "next page",
+  ]);
+  await invoke([
+    "scan", "rescan", ...generationScope,
+    "--revision", "4", "--operation-id", operationId,
+  ]);
+  await invoke([
+    "scan", "review", ...generationScope,
+    "--input", reviewInput, "--operation-id", operationId,
+  ]);
+
+  const base = `https://almira.test/v1/projects/${projectId}/environments/${environmentId}`;
+  const collectionBase = `${base}/collections/${collectionId}`;
+  const generationBase = `${collectionBase}/files/${entryId}/versions/${generationId}`;
+  assert.deepEqual(requests.map(({ input, init }) => ({
+    input,
+    method: init.method,
+    body: init.body === undefined ? undefined : JSON.parse(init.body),
+  })), [
+    { input: `${collectionBase}/protection`, method: "GET", body: undefined },
+    {
+      input: `${collectionBase}/protection`, method: "PUT",
+      body: { expected_revision: 2, config: { malware_scan_required: true } },
+    },
+    {
+      input: `${base}/protection/cases?limit=25&cursor=next+page&collection_instance_id=${collectionId}&safety_state=blocked`,
+      method: "GET", body: undefined,
+    },
+    {
+      input: `${generationBase}/protection-rescans`, method: "POST",
+      body: { expected_revision: 4 },
+    },
+    {
+      input: `${generationBase}/protection-reviews`, method: "POST",
+      body: reviewRequest,
+    },
+  ]);
+});
+
 test("file search exposes hybrid retrieval, filters, facets, and paging as one call", async () => {
   const stream = io();
   const collectionId = "018f0000-0000-7000-8000-000000000012";

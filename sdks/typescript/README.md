@@ -90,6 +90,15 @@ reads and starts the server-defined recycle window;
 management callers can use `listFiles({ includeDeleted: true })` and `restoreFile` before expiry.
 Builder-subject listing never admits `includeDeleted`.
 
+Collection malware policy is managed with `getCollectionProtection` and
+`replaceCollectionProtection`. A policy replacement applies only to generations created after
+the change; it never relabels historical bytes. `listProtectionCases` returns bounded,
+environment-wide safe status and scanner provenance. `requestProtectionRescan` targets one exact
+generation and immediately removes it from delivery until FileService returns a clean verdict.
+`createProtectionReview` records only `confirmed_blocked` or `suspected_false_positive` with a
+bounded, content-free reason. Reviews are audit records: they never release content, change the
+FileService verdict, or bypass quarantine, and the API deliberately exposes no release method.
+
 Every available generation receives safe technical extraction with immutable source-digest and
 extractor provenance. Collection owners use `getCollectionExtraction` and
 `replaceCollectionExtraction` to opt into content, OCR, transcription, and collection-level
@@ -132,4 +141,6 @@ for the public `almira.yaml` v1 model. Preview performs reads only. Apply refuse
 mutation, preserves unlisted resources, checks advertised storage classes, starts governed
 class-only migrations, applies explicit collection extraction/vector controls, and returns a
 resumable receipt rooted in the caller-supplied operation ID. Optional `media` blocks converge
-through the same collection media API.
+through the same collection media API. An explicit `malware_scan_required` change converges through
+the collection protection API in the same revision-safe protection → extraction → media → storage
+class sequence.

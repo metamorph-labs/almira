@@ -18,6 +18,11 @@ never log or forward them beyond their declared use. Capability tokens cannot be
 management surface, and PATs, SAKs and product sessions cannot be used on the browser data surface.
 The APIs never accept a provider, bucket, endpoint or object key from ordinary callers.
 
+The management contract exposes collection-level future-generation malware policy,
+environment-wide safe protection cases, exact-generation rescans, and immutable administrative
+reviews. Rescans gate delivery immediately, but FileService remains the verdict/quarantine owner.
+Reviews cannot release content or override that owner, and no public release operation exists.
+
 The optional asymmetric local-issuer flow returns only public protocol/configuration material. A
 builder workload caches the signing configuration and signs canonical claims with its own
 protected Ed25519 key; Almira never accepts or returns that private key. A stale-token refusal is

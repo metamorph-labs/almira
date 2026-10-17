@@ -57,6 +57,8 @@ test("tool catalog is closed and marks destructive behavior accurately", async (
       "almira_collection_list",
       "almira_collection_media_get",
       "almira_collection_media_replace",
+      "almira_collection_protection_get",
+      "almira_collection_protection_replace",
       "almira_configuration_apply",
       "almira_configuration_preview",
       "almira_delivery_get",
@@ -90,6 +92,9 @@ test("tool catalog is closed and marks destructive behavior accurately", async (
       "almira_processing_job_retry",
       "almira_processing_jobs_list",
       "almira_project_bootstrap",
+      "almira_protection_cases_list",
+      "almira_protection_rescan",
+      "almira_protection_review_create",
       "almira_share_create",
       "almira_share_revoke",
       "almira_storage_capabilities_get",
@@ -252,6 +257,115 @@ test("media tools preserve configuration, job, and immutable generation scope", 
     ["POST", `${base}/processing-jobs/${jobId}/cancel`],
     ["GET", `${base}/files/${entryId}/versions/${generationId}/derivatives`],
   ]);
+});
+
+test("protection tools expose policy, cases, rescan, and review but no verdict override", async (context) => {
+  const environmentId = "018f0000-0000-7000-8000-000000000004";
+  const collectionId = "018f0000-0000-7000-8000-000000000005";
+  const entryId = "018f0000-0000-7000-8000-000000000006";
+  const operationId = "018f0000-0000-7000-8000-000000000007";
+  const generationId = "018f0000-0000-7000-8000-000000000009";
+  const requests = [];
+  const connection = await connected(async (input, init) => {
+    requests.push({ input, init });
+    if (input.includes("/protection/cases")) return json({ cases: [], next_cursor: null });
+    if (input.endsWith("/protection-rescans")) return json({ disposition: "applied", job: {} }, 201);
+    if (input.endsWith("/protection-reviews")) return json({ disposition: "applied", review: {} }, 201);
+    return json(init.method === "GET" ? {} : { disposition: "applied", config: {} });
+  });
+  context.after(async () => {
+    await connection.client.close();
+    await connection.server.close();
+  });
+  const collectionScope = {
+    tenant_id: tenantId,
+    project_id: projectId,
+    environment_id: environmentId,
+    collection_instance_id: collectionId,
+  };
+  await connection.client.callTool({
+    name: "almira_collection_protection_get",
+    arguments: collectionScope,
+  });
+  await connection.client.callTool({
+    name: "almira_collection_protection_replace",
+    arguments: {
+      ...collectionScope,
+      expected_revision: 2,
+      malware_scan_required: true,
+      operation_id: operationId,
+    },
+  });
+  await connection.client.callTool({
+    name: "almira_protection_cases_list",
+    arguments: {
+      tenant_id: tenantId,
+      project_id: projectId,
+      environment_id: environmentId,
+      collection_instance_id: collectionId,
+      safety_state: "blocked",
+      limit: 25,
+      cursor: "next page",
+    },
+  });
+  await connection.client.callTool({
+    name: "almira_protection_rescan",
+    arguments: {
+      ...collectionScope,
+      entry_id: entryId,
+      generation_id: generationId,
+      expected_revision: 4,
+      operation_id: operationId,
+    },
+  });
+  await connection.client.callTool({
+    name: "almira_protection_review_create",
+    arguments: {
+      ...collectionScope,
+      entry_id: entryId,
+      generation_id: generationId,
+      expected_revision: 5,
+      decision: "suspected_false_positive",
+      reason: "Escalated for an independent scanner review.",
+      operation_id: operationId,
+    },
+  });
+
+  const base = `https://almira.test/v1/projects/${projectId}/environments/${environmentId}`;
+  const collectionBase = `${base}/collections/${collectionId}`;
+  const generationBase = `${collectionBase}/files/${entryId}/versions/${generationId}`;
+  assert.deepEqual(requests.map(({ input, init }) => ({
+    input,
+    method: init.method,
+    body: init.body === undefined ? undefined : JSON.parse(init.body),
+  })), [
+    { input: `${collectionBase}/protection`, method: "GET", body: undefined },
+    {
+      input: `${collectionBase}/protection`, method: "PUT",
+      body: { expected_revision: 2, config: { malware_scan_required: true } },
+    },
+    {
+      input: `${base}/protection/cases?limit=25&cursor=next+page&collection_instance_id=${collectionId}&safety_state=blocked`,
+      method: "GET", body: undefined,
+    },
+    {
+      input: `${generationBase}/protection-rescans`, method: "POST",
+      body: { expected_revision: 4 },
+    },
+    {
+      input: `${generationBase}/protection-reviews`, method: "POST",
+      body: {
+        expected_revision: 5,
+        review: {
+          decision: "suspected_false_positive",
+          reason: "Escalated for an independent scanner review.",
+        },
+      },
+    },
+  ]);
+
+  const tools = await connection.client.listTools();
+  assert.equal(tools.tools.some((tool) => /release/iu.test(tool.name)), false);
 });
 
 test("file lifecycle tools preserve stable entry scope, revisions, and operation identity", async (context) => {

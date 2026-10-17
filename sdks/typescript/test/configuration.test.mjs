@@ -594,3 +594,144 @@ test("existing collection class changes plan and apply a governed migration", as
     receipt.actions[0].operation_id,
   );
 });
+
+test("existing collection protection, extraction, media, and class changes share one revision chain", async () => {
+  const collectionId = "018f0000-0000-7000-8000-000000000061";
+  const calls = [];
+  const client = new AlmiraClient({
+    credential: "mm_sak_v1.test",
+    fetch: async (input, init) => {
+      calls.push({ input, init });
+      if (input.endsWith("/environments") && init.method === "GET") {
+        return response({ environments: [{
+          environment_id: environmentId,
+          environment_key: "development",
+          display_name: "Development",
+          system_key: "development",
+          operating_model: "managed",
+          lifecycle: "active",
+          revision: 1,
+          created_at: "2026-10-17T00:00:00Z",
+          updated_at: "2026-10-17T00:00:00Z",
+        }] });
+      }
+      if (input.includes("/collections?") && init.method === "GET") {
+        return response({ collections: [{
+          collection_id: "018f0000-0000-7000-8000-000000000060",
+          collection_instance_id: collectionId,
+          environment_id: environmentId,
+          collection_key: "documents",
+          display_name: "Documents",
+          access_template: "private",
+          storage_class: "normal",
+          storage_binding_state: "ready",
+          technical_metadata_extraction: true,
+          malware_scan_required: false,
+          content_extraction: false,
+          ocr_extraction: false,
+          transcription_extraction: false,
+          vector_indexing: false,
+          delivery_mode: "off",
+          revision: 4,
+          created_at: "2026-10-17T00:00:00Z",
+        }], next_cursor: null });
+      }
+      if (input.endsWith("/storage-capabilities") && init.method === "GET") {
+        return response({
+          environment_id: environmentId,
+          deployment_profile: "hosted",
+          catalog_revision: 1,
+          catalog_digest: `sha256:${"a".repeat(64)}`,
+          expires_at: "2099-10-17T00:00:00Z",
+          provider_matrix: {
+            hosted: ["aws_s3", "google_cloud_storage", "azure_blob"],
+            connected_site: ["aws_s3", "google_cloud_storage", "azure_blob"],
+          },
+          realizations: [{
+            realization_id: "018f0000-0000-7000-8000-000000000040",
+            display_name: "Managed storage",
+            provider_family: "aws_s3",
+            operating_model: "managed",
+            location_id: "region.one",
+            storage_classes: ["normal", "express"],
+            health: "ready",
+            capability_generation: 1,
+            evidence_digest: `sha256:${"b".repeat(64)}`,
+          }],
+        });
+      }
+      if (input.endsWith(`/collections/${collectionId}/media`) && init.method === "GET") {
+        return response({
+          collection_instance_id: collectionId,
+          image_presets: {},
+          document_previews: false,
+          video_profile: null,
+          revision: 4,
+          updated_at: "2026-10-17T00:00:00Z",
+        });
+      }
+      if (input.endsWith(`/collections/${collectionId}/protection`) && init.method === "PUT") {
+        return response({ disposition: "applied", config: { revision: 5 } });
+      }
+      if (input.endsWith(`/collections/${collectionId}/extraction`) && init.method === "PUT") {
+        return response({ disposition: "applied", config: { revision: 6 } });
+      }
+      if (input.endsWith(`/collections/${collectionId}/media`) && init.method === "PUT") {
+        return response({ disposition: "applied", config: { revision: 7 } });
+      }
+      if (input.endsWith(`/collections/${collectionId}/storage-migrations`) && init.method === "POST") {
+        return response({ disposition: "applied", migration: { migration_id: operationId } }, 201);
+      }
+      assert.fail(`unexpected request: ${init.method} ${input}`);
+    },
+  });
+  const desired = {
+    api_version: "almira/v1",
+    environments: [{
+      key: "development",
+      display_name: "Development",
+      collections: [{
+        key: "documents",
+        display_name: "Documents",
+        malware_scan_required: true,
+        storage_class: "express",
+        extraction: { content: true, ocr: false, transcription: false, vector_indexing: true },
+        media: {
+          image_presets: {},
+          document_previews: true,
+          video_profile: null,
+        },
+      }],
+    }],
+  };
+
+  const plan = await previewConfiguration(client, { tenantId, projectId }, desired);
+  assert.deepEqual(plan.conflicts, []);
+  assert.deepEqual(plan.actions.map((action) => [action.operation, action.expected_revision]), [
+    ["collection_protection.replace", 4],
+    ["collection_extraction.replace", 5],
+    ["collection_media.replace", 6],
+    ["storage_migration.start", undefined],
+  ]);
+  assert.equal(plan.actions[3].expected_collection_revision, 7);
+
+  const receipt = await applyConfiguration(
+    client,
+    { tenantId, projectId },
+    desired,
+    { operationId },
+  );
+  assert.deepEqual(receipt.actions.map((action) => action.action_id), [
+    "collection_protection.replace:development:documents",
+    "collection_extraction.replace:development:documents",
+    "collection_media.replace:development:documents",
+    "storage_migration.start:development:documents",
+  ]);
+  const mutations = calls.filter(({ init }) => init.method !== "GET");
+  assert.deepEqual(mutations.map(({ init }) => JSON.parse(init.body)), [
+    { expected_revision: 4, config: { malware_scan_required: true } },
+    { expected_revision: 5, config: { content: true, ocr: false, transcription: false, vector_indexing: true } },
+    { expected_revision: 6, config: { image_presets: {}, document_previews: true, video_profile: null } },
+    { target_storage_class: "express", expected_collection_revision: 7 },
+  ]);
+});

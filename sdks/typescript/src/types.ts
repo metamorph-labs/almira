@@ -208,6 +208,116 @@ export interface MediaConfigOutcome {
   config: CollectionMediaConfig;
 }
 
+export interface CollectionProtectionInput {
+  malware_scan_required: boolean;
+}
+
+export interface CollectionProtectionConfig extends CollectionProtectionInput {
+  collection_instance_id: UuidV7;
+  applies_to_new_generations_only: true;
+  revision: number;
+  updated_at: Timestamp;
+}
+
+export interface ReplaceCollectionProtectionRequest {
+  expected_revision: number;
+  config: CollectionProtectionInput;
+}
+
+export interface ProtectionConfigOutcome {
+  disposition: "applied" | "exact_replay";
+  config: CollectionProtectionConfig;
+}
+
+export type ProtectionReviewDecision = "confirmed_blocked" | "suspected_false_positive";
+
+export interface ProtectionReviewInput {
+  decision: ProtectionReviewDecision;
+  reason: string;
+}
+
+export interface ProtectionReview {
+  review_id: UuidV7;
+  entry_id: UuidV7;
+  generation_id: UuidV7;
+  decision: ProtectionReviewDecision;
+  reason: string;
+  generation_revision: number;
+  created_at: Timestamp;
+}
+
+export interface ProtectionScanEvidence {
+  engine_version: string;
+  signature_version: string;
+  signature_published_at: Timestamp;
+  safe_result_code: string;
+}
+
+export type ProtectionScanState =
+  | "queued"
+  | "running"
+  | "retry_wait"
+  | "scan_pending"
+  | "clean"
+  | "blocked"
+  | "failed";
+
+export interface ProtectionScanJob {
+  job_id: UuidV7;
+  entry_id: UuidV7;
+  generation_id: UuidV7;
+  state: ProtectionScanState;
+  source_content_sha256: ContentSha256;
+  attempt_count: number;
+  failure_code: string | null;
+  evidence: ProtectionScanEvidence | null;
+  revision: number;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+}
+
+export interface ProtectionScanOutcome {
+  disposition: "applied" | "exact_replay";
+  job: ProtectionScanJob;
+}
+
+export interface ProtectionReviewOutcome {
+  disposition: "applied" | "exact_replay";
+  review: ProtectionReview;
+}
+
+export interface ProtectionCase {
+  collection_instance_id: UuidV7;
+  entry_id: UuidV7;
+  generation_id: UuidV7;
+  generation_number: number;
+  logical_path: string;
+  malware_scan_requirement: "required";
+  safety_state: "scan_pending" | "clean" | "blocked";
+  generation_revision: number;
+  latest_scan_job: ProtectionScanJob | null;
+  latest_review: ProtectionReview | null;
+  updated_at: Timestamp;
+}
+
+export interface ProtectionCasePage {
+  cases: ProtectionCase[];
+  next_cursor: string | null;
+}
+
+export interface ProtectionCasePageOptions extends PageOptions {
+  collectionInstanceId?: UuidV7;
+  safetyState?: "scan_pending" | "clean" | "blocked";
+}
+
+export interface ProtectionMutationRequest {
+  expected_revision: number;
+}
+
+export interface CreateProtectionReviewRequest extends ProtectionMutationRequest {
+  review: ProtectionReviewInput;
+}
+
 export type ProcessingKind = "image_variants" | "document_preview" | "video_package";
 export type ProcessingState =
   | "pending"

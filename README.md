@@ -20,6 +20,8 @@ Declarative setup uses the closed [`almira.yaml`](examples/almira.yaml) v1 forma
 read-only and additive; apply preserves unlisted resources and executes the same scoped operations
 available individually through the SDK, CLI, MCP server, and console. A class-only collection
 change starts the same governed, resumable storage migration exposed by those surfaces.
+Collection malware policy is equally declarative: changing it affects new generations only, while
+an exact-generation rescan immediately gates delivery until FileService returns a clean verdict.
 
 The dependency-light TypeScript client is in [`sdks/typescript`](sdks/typescript). It covers every
 operation in the promoted contract and supports same-origin browser sessions, PATs, SAKs and
@@ -34,8 +36,12 @@ shares the SDK transport instead of implementing a second API client. Stable fil
 be listed with their immutable generations, renamed without copying bytes, switched to a retained
 generation, moved into a bounded recycle window, and restored while that window remains open.
 Collections expose mandatory safe technical extraction plus explicit content, OCR and transcription
-controls. Bounded customer metadata and exact structured filters are available across the SDK, CLI,
-MCP server and console; protected extracted text remains behind its distinct authorization.
+controls. Collection protection, environment-wide scan cases, exact-generation rescans and
+content-free administrative reviews are available across the SDK, CLI, MCP server and console.
+FileService remains the scan/quarantine authority; a review cannot release or override content and
+there is intentionally no release operation. Bounded customer metadata and exact structured
+filters are available across every surface; protected extracted text remains behind its distinct
+authorization.
 
 The stdio MCP server is in [`clients/mcp`](clients/mcp). It presents the same bounded management
 slice to external coding agents, leaves approvals with the MCP host and deliberately keeps

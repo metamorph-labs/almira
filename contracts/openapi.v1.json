@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Almira API",
-    "version": "0.1.0-dev.24",
+    "version": "0.1.0-dev.26",
     "description": "Provider-neutral application file storage management and data API."
   },
   "servers": [
@@ -367,6 +367,89 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/environments/{environment_id}/protection/cases": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "get": {
+        "operationId": "listProtectionCases",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "name": "collection_instance_id",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/UuidV7"
+            }
+          },
+          {
+            "name": "safety_state",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "scan_pending",
+                "clean",
+                "blocked"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Environment-wide scan-gated generation cases, optionally filtered by collection or safety state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProtectionCasePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
           },
           "503": {
             "$ref": "#/components/responses/Unavailable"
@@ -1579,6 +1662,146 @@
         }
       }
     },
+    "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/files/{entry_id}/versions/{generation_id}/protection-rescans": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "post": {
+        "operationId": "requestProtectionRescan",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/EntryId"
+          },
+          {
+            "$ref": "#/components/parameters/GenerationId"
+          },
+          {
+            "$ref": "#/components/parameters/OperationId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProtectionMutationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Exact-generation rescan durably queued; delivery is immediately unavailable until FileService reports clean.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProtectionScanOutcome"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/files/{entry_id}/versions/{generation_id}/protection-reviews": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "post": {
+        "operationId": "createProtectionReview",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/EntryId"
+          },
+          {
+            "$ref": "#/components/parameters/GenerationId"
+          },
+          {
+            "$ref": "#/components/parameters/OperationId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProtectionReviewRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Immutable administrative review recorded without changing FileService's verdict.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProtectionReviewOutcome"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
     "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/files/{entry_id}/versions/{generation_id}/extracted-content/{kind}": {
       "parameters": [
         {
@@ -2028,6 +2251,108 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/MediaConfigOutcome"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/protection": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "get": {
+        "operationId": "getCollectionProtection",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current future-generation malware scanning policy.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectionProtectionConfig"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      },
+      "put": {
+        "operationId": "replaceCollectionProtection",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/OperationId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplaceCollectionProtectionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Protection policy replaced or exactly replayed; existing generations are unchanged.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProtectionConfigOutcome"
                 }
               }
             }
@@ -4538,6 +4863,443 @@
           "cancelled",
           "superseded"
         ]
+      },
+      "CollectionProtectionInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "malware_scan_required"
+        ],
+        "properties": {
+          "malware_scan_required": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CollectionProtectionConfig": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "collection_instance_id",
+          "malware_scan_required",
+          "applies_to_new_generations_only",
+          "revision",
+          "updated_at"
+        ],
+        "properties": {
+          "collection_instance_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "malware_scan_required": {
+            "type": "boolean"
+          },
+          "applies_to_new_generations_only": {
+            "const": true
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "updated_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        }
+      },
+      "ProtectionConfigOutcome": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "disposition",
+          "config"
+        ],
+        "properties": {
+          "disposition": {
+            "type": "string",
+            "enum": [
+              "applied",
+              "exact_replay"
+            ]
+          },
+          "config": {
+            "$ref": "#/components/schemas/CollectionProtectionConfig"
+          }
+        }
+      },
+      "ProtectionReviewDecision": {
+        "type": "string",
+        "enum": [
+          "confirmed_blocked",
+          "suspected_false_positive"
+        ]
+      },
+      "ProtectionReviewInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "decision",
+          "reason"
+        ],
+        "properties": {
+          "decision": {
+            "$ref": "#/components/schemas/ProtectionReviewDecision"
+          },
+          "reason": {
+            "description": "Content-free administrative reason, canonical without surrounding whitespace and bounded to 12-1000 UTF-8 bytes.",
+            "type": "string",
+            "minLength": 12,
+            "maxLength": 1000,
+            "pattern": "^[^\\u0000-\\u001F\\u007F]+$",
+            "x-almira-trimmed": true,
+            "x-almira-utf8-min-bytes": 12,
+            "x-almira-utf8-max-bytes": 1000
+          }
+        }
+      },
+      "ProtectionReview": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "review_id",
+          "entry_id",
+          "generation_id",
+          "decision",
+          "reason",
+          "generation_revision",
+          "created_at"
+        ],
+        "properties": {
+          "review_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "entry_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "generation_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "decision": {
+            "$ref": "#/components/schemas/ProtectionReviewDecision"
+          },
+          "reason": {
+            "description": "Canonical content-free administrative reason retained from the validated request.",
+            "type": "string",
+            "minLength": 12,
+            "maxLength": 1000,
+            "pattern": "^[^\\u0000-\\u001F\\u007F]+$",
+            "x-almira-trimmed": true,
+            "x-almira-utf8-min-bytes": 12,
+            "x-almira-utf8-max-bytes": 1000
+          },
+          "generation_revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        }
+      },
+      "ProtectionReviewOutcome": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "disposition",
+          "review"
+        ],
+        "properties": {
+          "disposition": {
+            "type": "string",
+            "enum": [
+              "applied",
+              "exact_replay"
+            ]
+          },
+          "review": {
+            "$ref": "#/components/schemas/ProtectionReview"
+          }
+        }
+      },
+      "ProtectionScanEvidence": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "engine_version",
+          "signature_version",
+          "signature_published_at",
+          "safe_result_code"
+        ],
+        "properties": {
+          "engine_version": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 96,
+            "pattern": "^(?!.*[\"\\\\])[\\x21-\\x7E]+$"
+          },
+          "signature_version": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 96,
+            "pattern": "^(?!.*[\"\\\\])[\\x21-\\x7E]+$"
+          },
+          "signature_published_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "safe_result_code": {
+            "type": "string",
+            "pattern": "^FIL_SCAN_[A-Z0-9_]{1,87}$"
+          }
+        }
+      },
+      "ProtectionScanState": {
+        "type": "string",
+        "enum": [
+          "queued",
+          "running",
+          "retry_wait",
+          "scan_pending",
+          "clean",
+          "blocked",
+          "failed"
+        ]
+      },
+      "ProtectionScanJob": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "job_id",
+          "entry_id",
+          "generation_id",
+          "state",
+          "source_content_sha256",
+          "attempt_count",
+          "failure_code",
+          "evidence",
+          "revision",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "job_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "entry_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "generation_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "state": {
+            "$ref": "#/components/schemas/ProtectionScanState"
+          },
+          "source_content_sha256": {
+            "$ref": "#/components/schemas/ContentSha256"
+          },
+          "attempt_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 20
+          },
+          "failure_code": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^ALMIRA_PROTECTION_[A-Z0-9_]{1,77}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "evidence": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ProtectionScanEvidence"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "updated_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        }
+      },
+      "ProtectionScanOutcome": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "disposition",
+          "job"
+        ],
+        "properties": {
+          "disposition": {
+            "type": "string",
+            "enum": [
+              "applied",
+              "exact_replay"
+            ]
+          },
+          "job": {
+            "$ref": "#/components/schemas/ProtectionScanJob"
+          }
+        }
+      },
+      "ProtectionCase": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "collection_instance_id",
+          "entry_id",
+          "generation_id",
+          "generation_number",
+          "logical_path",
+          "malware_scan_requirement",
+          "safety_state",
+          "generation_revision",
+          "latest_scan_job",
+          "latest_review",
+          "updated_at"
+        ],
+        "properties": {
+          "collection_instance_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "entry_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "generation_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "generation_number": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "logical_path": {
+            "$ref": "#/components/schemas/LogicalPath"
+          },
+          "malware_scan_requirement": {
+            "const": "required"
+          },
+          "safety_state": {
+            "type": "string",
+            "enum": [
+              "scan_pending",
+              "clean",
+              "blocked"
+            ]
+          },
+          "generation_revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "latest_scan_job": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ProtectionScanJob"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "latest_review": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ProtectionReview"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "updated_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        }
+      },
+      "ProtectionCasePage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "cases",
+          "next_cursor"
+        ],
+        "properties": {
+          "cases": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/ProtectionCase"
+            }
+          },
+          "next_cursor": {
+            "oneOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2048
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "ReplaceCollectionProtectionRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "expected_revision",
+          "config"
+        ],
+        "properties": {
+          "expected_revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "config": {
+            "$ref": "#/components/schemas/CollectionProtectionInput"
+          }
+        }
+      },
+      "ProtectionMutationRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "expected_revision"
+        ],
+        "properties": {
+          "expected_revision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "CreateProtectionReviewRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "expected_revision",
+          "review"
+        ],
+        "properties": {
+          "expected_revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "review": {
+            "$ref": "#/components/schemas/ProtectionReviewInput"
+          }
+        }
       },
       "ProcessingJob": {
         "type": "object",

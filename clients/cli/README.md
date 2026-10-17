@@ -48,6 +48,17 @@ almira migration get \
   --environment 018f0000-0000-7000-8000-000000000004 \
   --collection 018f0000-0000-7000-8000-000000000012 \
   --migration 018f0000-0000-7000-8000-000000000013
+almira protection set \
+  --tenant 018f0000-0000-7000-8000-000000000002 \
+  --project 018f0000-0000-7000-8000-000000000003 \
+  --environment 018f0000-0000-7000-8000-000000000004 \
+  --collection 018f0000-0000-7000-8000-000000000012 \
+  --scan required --revision 2
+almira scan list \
+  --tenant 018f0000-0000-7000-8000-000000000002 \
+  --project 018f0000-0000-7000-8000-000000000003 \
+  --environment 018f0000-0000-7000-8000-000000000004 \
+  --state blocked
 ```
 
 `tenancy-project.json` is the exact successful Tenancy `project.get` result for the selected
@@ -79,6 +90,15 @@ diff. `config apply` is additive: omitted environments, origins, and collections
 It returns a root `operation_id` plus deterministic child operation IDs; reuse the root ID after an
 ambiguous outcome. A class-only collection change starts the same governed migration; other
 unsupported existing collection changes are conflicts, never silent no-ops.
+
+Collection malware controls use `protection get|set`. A replacement applies only to new
+generations. `scan list` reports bounded environment-wide cases and accepts optional
+`--collection`, `--state`, `--page-size`, and `--cursor` filters. `scan rescan` targets one exact
+`--entry` and `--generation`, requires its current `--revision`, and gates delivery immediately
+until FileService returns clean. `scan review` accepts an exact JSON `--input FILE` containing
+`expected_revision` and a `confirmed_blocked` or `suspected_false_positive` review. Reviews are
+content-free audit records and never release content or override FileService; no release command
+exists.
 
 File lifecycle commands are `file list|get|versions|rename|select-version|delete|restore`.
 Renaming changes only the stable entry path; versions remain immutable. `file delete` immediately

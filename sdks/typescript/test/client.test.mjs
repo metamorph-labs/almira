@@ -469,6 +469,78 @@ test("media methods preserve collection and immutable generation scope", async (
     .every(({ init }) => init.headers.get("idempotency-key") === operationId));
 });
 
+test("protection methods preserve environment, collection, and exact-generation scope", async () => {
+  const calls = [];
+  const client = new AlmiraClient({
+    credential: "mm_pat_v1.test",
+    fetch: async (input, init) => {
+      calls.push({ input, init });
+      if (input.includes("/protection/cases")) return json({ cases: [], next_cursor: null });
+      if (input.endsWith("/protection-rescans")) return json({ disposition: "applied", job: {} }, { status: 201 });
+      if (input.endsWith("/protection-reviews")) return json({ disposition: "applied", review: {} }, { status: 201 });
+      return json(init.method === "PUT"
+        ? { disposition: "applied", config: {} }
+        : {});
+    },
+  });
+  const environment = { tenantId, projectId, environmentId };
+  const collection = { ...environment, collectionInstanceId };
+  const generation = { ...collection, entryId, generationId };
+
+  await client.getCollectionProtection(collection);
+  await client.replaceCollectionProtection(collection, {
+    expected_revision: 2,
+    config: { malware_scan_required: true },
+  }, { operationId });
+  await client.listProtectionCases(environment, {
+    collectionInstanceId,
+    safetyState: "blocked",
+    limit: 25,
+    cursor: "next page",
+  });
+  await client.requestProtectionRescan(generation, { expected_revision: 3 }, { operationId });
+  await client.createProtectionReview(generation, {
+    expected_revision: 4,
+    review: {
+      decision: "suspected_false_positive",
+      reason: "Escalated for an independent scanner review.",
+    },
+  }, { operationId });
+
+  const collectionBase = `/v1/projects/${projectId}/environments/${environmentId}/collections/${collectionInstanceId}`;
+  const generationBase = `${collectionBase}/files/${entryId}/versions/${generationId}`;
+  assert.deepEqual(calls.map(({ input, init }) => ({
+    input,
+    method: init.method,
+    operationId: init.headers.get("idempotency-key"),
+    body: init.body === undefined ? undefined : JSON.parse(init.body),
+  })), [
+    { input: `${collectionBase}/protection`, method: "GET", operationId: null, body: undefined },
+    {
+      input: `${collectionBase}/protection`, method: "PUT", operationId,
+      body: { expected_revision: 2, config: { malware_scan_required: true } },
+    },
+    {
+      input: `/v1/projects/${projectId}/environments/${environmentId}/protection/cases?limit=25&cursor=next+page&collection_instance_id=${collectionInstanceId}&safety_state=blocked`,
+      method: "GET", operationId: null, body: undefined,
+    },
+    {
+      input: `${generationBase}/protection-rescans`, method: "POST", operationId,
+      body: { expected_revision: 3 },
+    },
+    {
+      input: `${generationBase}/protection-reviews`, method: "POST", operationId,
+      body: {
+        expected_revision: 4,
+        review: {
+          decision: "suspected_false_positive",
+          reason: "Escalated for an independent scanner review.",
+        },
+      },
+    },
+  ]);
+});
+
 test("metadata filters fail locally when paired fields or ranges are incoherent", async () => {
   const client = new AlmiraClient({ fetch: async () => assert.fail("invalid filters must not call the API") });
   const reference = { tenantId, projectId, environmentId, collectionInstanceId };

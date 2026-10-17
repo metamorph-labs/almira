@@ -12,6 +12,7 @@ import {
   previewConfiguration,
   type AccessSimulation,
   type CreateShareRequest,
+  type CreateProtectionReviewRequest,
   type RegisterLocalIssuerRequest,
   type ReplaceAccessPolicyRequest,
   type ReplaceCollectionExtractionRequest,
@@ -65,6 +66,11 @@ Commands:
   extraction content      Read separately protected extracted content
   media get               Read collection image/document/video processing controls
   media set               Replace collection media controls from --input JSON
+  protection get          Read future-generation malware scanning policy
+  protection set          Require or disable scanning for future generations
+  scan list               List environment-wide scan-gated generations
+  scan rescan             Queue an exact-generation FileService rescan
+  scan review             Record a content-free review from --input JSON
   job list                List collection media-processing jobs
   job retry               Retry a failed or cancelled media-processing job
   job cancel              Cancel pending media-processing work
@@ -157,6 +163,7 @@ const options = {
   project: { type: "string" },
   revision: { type: "string" },
   scan: { type: "string" },
+  state: { type: "string" },
   "created-after": { type: "string" },
   "created-before": { type: "string" },
   "extraction-kind": { type: "string" },
@@ -331,6 +338,59 @@ export async function runCli(arguments_: string[], dependencies: CliDependencies
       result = await client.replaceCollectionMedia(
         collectionReference(values, tenantId, projectId),
         await readJson<ReplaceCollectionMediaRequest>(required(values, "input")),
+        { operationId },
+      );
+    } else if (noun === "protection" && verb === "get") {
+      result = await client.getCollectionProtection(collectionReference(values, tenantId, projectId));
+    } else if (noun === "protection" && verb === "set") {
+      operationId = mutationId(values);
+      mutation = true;
+      const scan = required(values, "scan");
+      if (scan !== "required" && scan !== "optional") throw new CliUsageError();
+      result = await client.replaceCollectionProtection(
+        collectionReference(values, tenantId, projectId),
+        {
+          expected_revision: positiveInteger(values, "revision"),
+          config: { malware_scan_required: scan === "required" },
+        },
+        { operationId },
+      );
+    } else if (noun === "scan" && verb === "list") {
+      const safetyState = stringValue(values, "state");
+      if (safetyState !== undefined && !["scan_pending", "clean", "blocked"].includes(safetyState)) {
+        throw new CliUsageError();
+      }
+      const collectionInstanceId = stringValue(values, "collection");
+      result = await client.listProtectionCases(
+        { ...reference, environmentId: required(values, "environment") },
+        {
+          ...page(values),
+          ...(collectionInstanceId === undefined ? {} : { collectionInstanceId }),
+          ...(safetyState === undefined ? {} : {
+            safetyState: safetyState as "scan_pending" | "clean" | "blocked",
+          }),
+        },
+      );
+    } else if (noun === "scan" && verb === "rescan") {
+      operationId = mutationId(values);
+      mutation = true;
+      result = await client.requestProtectionRescan(
+        {
+          ...fileReference(values, tenantId, projectId),
+          generationId: required(values, "generation"),
+        },
+        { expected_revision: positiveInteger(values, "revision") },
+        { operationId },
+      );
+    } else if (noun === "scan" && verb === "review") {
+      operationId = mutationId(values);
+      mutation = true;
+      result = await client.createProtectionReview(
+        {
+          ...fileReference(values, tenantId, projectId),
+          generationId: required(values, "generation"),
+        },
+        await readJson<CreateProtectionReviewRequest>(required(values, "input")),
         { operationId },
       );
     } else if (noun === "job" && verb === "list") {
@@ -584,6 +644,11 @@ const commandOptions = new Map<string, ReadonlySet<string>>([
   ["extraction:content", collectionCommandOptions("entry", "generation", "kind")],
   ["media:get", collectionCommandOptions()],
   ["media:set", collectionCommandOptions("input", "operation-id")],
+  ["protection:get", collectionCommandOptions()],
+  ["protection:set", collectionCommandOptions("operation-id", "revision", "scan")],
+  ["scan:list", new Set(["base-url", "collection", "cursor", "environment", "limit", "project", "state", "tenant"])],
+  ["scan:rescan", collectionCommandOptions("entry", "generation", "operation-id", "revision")],
+  ["scan:review", collectionCommandOptions("entry", "generation", "input", "operation-id")],
   ["job:list", collectionCommandOptions("cursor", "limit")],
   ["job:retry", collectionCommandOptions("job", "operation-id", "revision")],
   ["job:cancel", collectionCommandOptions("job", "operation-id", "revision")],

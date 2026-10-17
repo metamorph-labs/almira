@@ -1,15 +1,15 @@
 {
   "formatVersion": 1,
   "product": "almira",
-  "contractVersion": "0.1.0-dev.24",
+  "contractVersion": "0.1.0-dev.26",
   "source": {
     "repository": "metamorph-labs/almira-core",
     "algorithm": "sha256",
-    "digest": "ae1fe9b365bfd67865b34486f595db84a6e115dab9a5831fae4a9b021dca430a"
+    "digest": "eb1911496bbca9d82b444aa4d8ae168d844a1d40e271a0fa5fc2658933ef42b9"
   },
   "bundle": {
     "algorithm": "sha256",
-    "digest": "ae1fe9b365bfd67865b34486f595db84a6e115dab9a5831fae4a9b021dca430a"
+    "digest": "eb1911496bbca9d82b444aa4d8ae168d844a1d40e271a0fa5fc2658933ef42b9"
   },
   "files": [
     {
@@ -29,33 +29,33 @@
     },
     {
       "path": "conformance/vectors.v1.json",
-      "size": 34285,
-      "digest": "284b1d921e297d46afff2a1de2573ec616b13cac2cfe7adc300f6b4b5db29208"
+      "size": 39632,
+      "digest": "5ed880debb8cf42e1c5cae6a200df029ee2d4450f51960dc582befe6b23abc90"
     },
     {
       "path": "data-openapi.v1.json",
       "size": 23277,
-      "digest": "28eac16aa51c0e02b1b4394dfc202f899ad3e4e00124f29cf85f1e46ff7e9bf3"
+      "digest": "e541b1ad515fefcd025b461b592813ff722408ce20c681d72cea47d14f958d93"
     },
     {
       "path": "errors.v1.json",
-      "size": 16640,
-      "digest": "c8c8d2110673a21804b5a16b961bf2df3d39cbeaf81c65ce64fed1dbaeaadb61"
+      "size": 18140,
+      "digest": "b6b991cf00be147c77de8cb4889c1931bf6fb04fbba1364de5017da98c026fe9"
     },
     {
       "path": "openapi.v1.json",
-      "size": 193833,
-      "digest": "8a29256d3203cc4c70e158d06de6f62e39f9daa1033088c391ecf1a1c2f4cf0a"
+      "size": 214649,
+      "digest": "af5886eba29dd9dd064590089df02ebb4c071575c2cfec0edbb66b1dacd123ef"
     },
     {
       "path": "README.md",
-      "size": 2049,
-      "digest": "300be6e4a07dead2ae4e7f807563948a3f5fabe7cf2522ea317ecb7f235b977c"
+      "size": 2421,
+      "digest": "2ce1d36cb1e38d0255d95deaf4d73081896b7dd3a99a4efd90fee9e5df791188"
     },
     {
       "path": "release.json",
       "size": 70,
-      "digest": "c1d8e4f8345a5e798f7b83d188a2ab8853d99d0175627baa8da0a3c4e0a0baa7"
+      "digest": "0971cdb10a03e703a6e5301625d4f34cc7fab0733c4fe196465b62e0d2a15646"
     }
   ]
 }

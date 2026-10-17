@@ -954,6 +954,112 @@
       "expected": "invalid"
     },
     {
+      "name": "collection_protection_is_future_generation_scoped",
+      "schema": "CollectionProtectionConfig",
+      "instance": {
+        "collection_instance_id": "018f0000-0000-7000-8000-000000000031",
+        "malware_scan_required": true,
+        "applies_to_new_generations_only": true,
+        "revision": 2,
+        "updated_at": "2026-10-17T00:00:00Z"
+      },
+      "expected": "valid"
+    },
+    {
+      "name": "collection_protection_cannot_claim_retroactive_policy",
+      "schema": "CollectionProtectionConfig",
+      "instance": {
+        "collection_instance_id": "018f0000-0000-7000-8000-000000000031",
+        "malware_scan_required": true,
+        "applies_to_new_generations_only": false,
+        "revision": 2,
+        "updated_at": "2026-10-17T00:00:00Z"
+      },
+      "expected": "invalid"
+    },
+    {
+      "name": "blocked_protection_case_exposes_safe_provenance_only",
+      "schema": "ProtectionCase",
+      "instance": {
+        "collection_instance_id": "018f0000-0000-7000-8000-000000000031",
+        "entry_id": "018f0000-0000-7000-8000-000000000032",
+        "generation_id": "018f0000-0000-7000-8000-000000000033",
+        "generation_number": 1,
+        "logical_path": "quarantine/upload.bin",
+        "malware_scan_requirement": "required",
+        "safety_state": "blocked",
+        "generation_revision": 3,
+        "latest_scan_job": {
+          "job_id": "018f0000-0000-7000-8000-000000000034",
+          "entry_id": "018f0000-0000-7000-8000-000000000032",
+          "generation_id": "018f0000-0000-7000-8000-000000000033",
+          "state": "blocked",
+          "source_content_sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "attempt_count": 1,
+          "failure_code": null,
+          "evidence": {
+            "engine_version": "engine-1.2.3",
+            "signature_version": "definitions-42",
+            "signature_published_at": "2026-10-17T00:00:00Z",
+            "safe_result_code": "FIL_SCAN_BLOCKED"
+          },
+          "revision": 2,
+          "created_at": "2026-10-17T00:00:00Z",
+          "updated_at": "2026-10-17T00:00:01Z"
+        },
+        "latest_review": null,
+        "updated_at": "2026-10-17T00:00:01Z"
+      },
+      "expected": "valid"
+    },
+    {
+      "name": "protection_review_cannot_request_release",
+      "schema": "CreateProtectionReviewRequest",
+      "instance": {
+        "expected_revision": 3,
+        "review": {
+          "decision": "release",
+          "reason": "Release this file after manual review."
+        }
+      },
+      "expected": "invalid"
+    },
+    {
+      "name": "protection_review_reason_must_be_canonical",
+      "schema": "CreateProtectionReviewRequest",
+      "instance": {
+        "expected_revision": 3,
+        "review": {
+          "decision": "suspected_false_positive",
+          "reason": " review requires a canonical reason"
+        }
+      },
+      "expected": "invalid"
+    },
+    {
+      "name": "protection_review_reason_is_bounded_in_utf8_bytes",
+      "schema": "CreateProtectionReviewRequest",
+      "instance": {
+        "expected_revision": 3,
+        "review": {
+          "decision": "confirmed_blocked",
+          "reason": "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé"
+        }
+      },
+      "expected": "invalid"
+    },
+    {
+      "name": "scanner_provenance_rejects_unsafe_components",
+      "schema": "ProtectionScanEvidence",
+      "instance": {
+        "engine_version": "engine-\"raw-threat",
+        "signature_version": "definitions-42",
+        "signature_published_at": "2026-10-17T00:00:00Z",
+        "safe_result_code": "FIL_SCAN_BLOCKED"
+      },
+      "expected": "invalid"
+    },
+    {
       "name": "safe_error_envelope",
       "schema": "Error",
       "instance": {
@@ -1105,6 +1211,18 @@
       "condition": "the placement-selected media processor is unavailable or returns a malformed response",
       "code": "ALMIRA_MEDIA_PROCESSOR_UNAVAILABLE",
       "http_status": 503
+    },
+    {
+      "name": "stale_protection_revision_conflicts",
+      "condition": "a protection policy, review, or rescan is requested against a stale revision",
+      "code": "ALMIRA_PROTECTION_REVISION_CONFLICT",
+      "http_status": 409
+    },
+    {
+      "name": "protection_review_never_overrides_fileservice",
+      "condition": "an administrative review is requested for a generation that FileService has not blocked",
+      "code": "ALMIRA_PROTECTION_STATE_CONFLICT",
+      "http_status": 409
     }
   ]
 }

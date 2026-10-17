@@ -46,6 +46,13 @@ Media tools read and replace bounded image presets, document previews and the op
 ready derivatives for one immutable source generation. They expose only Almira variant identities
 and pinned processor provenance—never provider object coordinates or media bytes.
 
+Protection tools read and replace the collection's future-generation scan policy, list bounded
+environment-wide cases, request an exact-generation rescan, and record a content-free
+administrative review. Requesting a rescan immediately removes that generation from delivery until
+FileService reports it clean. FileService alone owns scan verdict and quarantine state; a review
+can record only `confirmed_blocked` or `suspected_false_positive`, cannot release or override the
+generation, and there is intentionally no release tool.
+
 The same bounded catalog includes policy read/replace/simulation, CDN delivery read/replace,
 revocable generation shares, and local issuer registration/rotation/revocation/signing
 configuration. The MCP server handles public keys and declared ceilings only; it never accepts a
@@ -63,7 +70,8 @@ public `almira.yaml` v1 schema. Preview is read-only; apply preserves unlisted r
 deterministic child operation IDs beneath its reusable root `operation_id`. Class-only changes use
 the same storage-migration operation, while explicit extraction/vector settings are applied through
 the ordinary collection extraction operation and explicit media settings use the ordinary
-collection media operation.
+collection media operation. Explicit malware-policy changes use the ordinary collection
+protection operation in the same revision-safe sequence.
 
 The server uses the official MCP TypeScript SDK v2 and the 2026-07-28 protocol over stdio. Stdout is
 reserved exclusively for MCP; safe startup diagnostics use stderr.

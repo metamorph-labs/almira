@@ -221,6 +221,10 @@ const localIssuerCeiling = z.object({
   audiences: z.array(z.url().max(2048)).min(1).max(16),
   maximum_lifetime_seconds: z.number().int().min(60).max(900),
 }).strict();
+const protectionReviewReason = z.string().refine((value) => {
+  const bytes = new TextEncoder().encode(value).length;
+  return bytes >= 12 && bytes <= 1000 && value === value.trim() && !/[\u0000-\u001f\u007f]/u.test(value);
+}, { message: "reason must be 12-1000 UTF-8 bytes without surrounding whitespace or controls" });
 
 const readAnnotations = {
   readOnlyHint: true,
@@ -252,7 +256,7 @@ const outputSchema = z
 
 /** Creates one stdio-safe MCP server over the canonical Almira SDK client. */
 export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
-  const server = new McpServer({ name: "almira", version: "0.1.0-dev.24" });
+  const server = new McpServer({ name: "almira", version: "0.1.0-dev.26" });
 
   server.registerTool(
     "almira_project_bootstrap",
@@ -646,6 +650,141 @@ export function createAlmiraMcpServer(client: AlmiraClient): McpServer {
             ...(config.video_profile === undefined ? {} : { video_profile: config.video_profile }),
           },
         },
+        { operationId: id },
+      ), id);
+    },
+  );
+
+  server.registerTool(
+    "almira_collection_protection_get",
+    {
+      title: "Get collection protection policy",
+      description: "Read whether malware scanning is required for future generations in one collection.",
+      inputSchema: z.object(collectionScope).strict(),
+      outputSchema,
+      annotations: readAnnotations,
+    },
+    async ({ tenant_id, project_id, environment_id, collection_instance_id }) =>
+      execute(() => client.getCollectionProtection(
+        collectionReference(tenant_id, project_id, environment_id, collection_instance_id),
+      )),
+  );
+
+  server.registerTool(
+    "almira_collection_protection_replace",
+    {
+      title: "Replace collection protection policy",
+      description: "Require or disable FileService malware scanning for new generations only, using optimistic revision control.",
+      inputSchema: z.object({
+        ...collectionScope,
+        expected_revision: z.number().int().min(1),
+        malware_scan_required: z.boolean(),
+        operation_id: operationId,
+      }).strict(),
+      outputSchema,
+      annotations: mutationAnnotations,
+    },
+    async ({
+      tenant_id, project_id, environment_id, collection_instance_id,
+      expected_revision, malware_scan_required, operation_id,
+    }) => {
+      const id = operation_id ?? createOperationId();
+      return execute(() => client.replaceCollectionProtection(
+        collectionReference(tenant_id, project_id, environment_id, collection_instance_id),
+        { expected_revision, config: { malware_scan_required } },
+        { operationId: id },
+      ), id);
+    },
+  );
+
+  server.registerTool(
+    "almira_protection_cases_list",
+    {
+      title: "List protection cases",
+      description: "List scan-gated generations across one environment with optional collection and safety-state filters.",
+      inputSchema: z.object({
+        ...scope,
+        environment_id: uuid,
+        collection_instance_id: uuid.optional(),
+        safety_state: z.enum(["scan_pending", "clean", "blocked"]).optional(),
+        ...page,
+      }).strict(),
+      outputSchema,
+      annotations: readAnnotations,
+    },
+    async ({
+      tenant_id, project_id, environment_id, collection_instance_id,
+      safety_state, limit, cursor,
+    }) => execute(() => client.listProtectionCases(
+      { tenantId: tenant_id, projectId: project_id, environmentId: environment_id },
+      {
+        ...(collection_instance_id === undefined ? {} : { collectionInstanceId: collection_instance_id }),
+        ...(safety_state === undefined ? {} : { safetyState: safety_state }),
+        ...(limit === undefined ? {} : { limit }),
+        ...(cursor === undefined ? {} : { cursor }),
+      },
+    )),
+  );
+
+  server.registerTool(
+    "almira_protection_rescan",
+    {
+      title: "Request exact-generation protection rescan",
+      description: "Immediately gate one generation and ask FileService, the verdict authority, to rescan it.",
+      inputSchema: z.object({
+        ...collectionScope,
+        entry_id: uuid,
+        generation_id: uuid,
+        expected_revision: z.number().int().min(1),
+        operation_id: operationId,
+      }).strict(),
+      outputSchema,
+      annotations: mutationAnnotations,
+    },
+    async ({
+      tenant_id, project_id, environment_id, collection_instance_id,
+      entry_id, generation_id, expected_revision, operation_id,
+    }) => {
+      const id = operation_id ?? createOperationId();
+      return execute(() => client.requestProtectionRescan(
+        {
+          ...fileReference(tenant_id, project_id, environment_id, collection_instance_id, entry_id),
+          generationId: generation_id,
+        },
+        { expected_revision },
+        { operationId: id },
+      ), id);
+    },
+  );
+
+  server.registerTool(
+    "almira_protection_review_create",
+    {
+      title: "Record protection review",
+      description: "Record a content-free blocked-generation review; reviews never release content or override FileService.",
+      inputSchema: z.object({
+        ...collectionScope,
+        entry_id: uuid,
+        generation_id: uuid,
+        expected_revision: z.number().int().min(1),
+        decision: z.enum(["confirmed_blocked", "suspected_false_positive"]),
+        reason: protectionReviewReason,
+        operation_id: operationId,
+      }).strict(),
+      outputSchema,
+      annotations: mutationAnnotations,
+    },
+    async ({
+      tenant_id, project_id, environment_id, collection_instance_id, entry_id,
+      generation_id, expected_revision, decision, reason, operation_id,
+    }) => {
+      const id = operation_id ?? createOperationId();
+      return execute(() => client.createProtectionReview(
+        {
+          ...fileReference(tenant_id, project_id, environment_id, collection_instance_id, entry_id),
+          generationId: generation_id,
+        },
+        { expected_revision, review: { decision, reason } },
         { operationId: id },
       ), id);
     },

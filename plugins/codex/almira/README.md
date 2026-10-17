@@ -10,3 +10,7 @@ Metamorph workload evidence instead.
 
 The MCP server package is pinned in `.mcp.json`. One-use direct-transfer capabilities remain in the
 application process and are never returned by the management tools.
+
+The management catalog includes collection protection, safe scan-case inspection, exact-generation
+rescan, and content-free review tools. FileService remains authoritative for verdicts and
+quarantine; the plugin has no release or verdict-override tool.
