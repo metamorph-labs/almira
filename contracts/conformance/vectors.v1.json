@@ -1212,6 +1212,29 @@
         ]
       },
       "expected": "invalid"
+    },
+    {
+      "name": "exact_generation_copy_is_closed",
+      "schema": "CopyFileRequest",
+      "instance": {
+        "source_entry_id": "018f0000-0000-7000-8000-000000000081",
+        "source_generation_id": "018f0000-0000-7000-8000-000000000083",
+        "destination_path": "archive/report-copy.pdf",
+        "expected_source_revision": 3
+      },
+      "expected": "valid"
+    },
+    {
+      "name": "file_copy_cannot_select_a_provider",
+      "schema": "CopyFileRequest",
+      "instance": {
+        "source_entry_id": "018f0000-0000-7000-8000-000000000081",
+        "source_generation_id": "018f0000-0000-7000-8000-000000000083",
+        "destination_path": "archive/report-copy.pdf",
+        "expected_source_revision": 3,
+        "provider": "aws_s3"
+      },
+      "expected": "invalid"
     }
   ],
   "error_vectors": [
@@ -1226,6 +1249,12 @@
       "condition": "the same stable file identity appears more than once in one atomic batch",
       "code": "ALMIRA_FILE_INVALID",
       "http_status": 400
+    },
+    {
+      "name": "stale_file_copy_source_revision_conflicts",
+      "condition": "the source entry changed after the exact copy request was prepared",
+      "code": "ALMIRA_FILE_REVISION_CONFLICT",
+      "http_status": 409
     },
     {
       "name": "expired_transfer_is_gone",

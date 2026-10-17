@@ -695,7 +695,7 @@ test("environment lifecycle commands preserve exact body and revision semantics"
   ]);
 });
 
-test("file lifecycle commands expose recycle, versions, rename, batch, and generation selection", async (context) => {
+test("file lifecycle commands expose recycle, versions, rename, copy, batch, and generation selection", async (context) => {
   const collectionId = "018f0000-0000-7000-8000-000000000012";
   const entryId = "018f0000-0000-7000-8000-000000000013";
   const generationId = "018f0000-0000-7000-8000-000000000014";
@@ -733,6 +733,7 @@ test("file lifecycle commands expose recycle, versions, rename, batch, and gener
   await invoke(["file", "select-version", ...file, "--generation", generationId, "--revision", "4", "--operation-id", operationId]);
   await invoke(["file", "restore", ...file, "--revision", "5", "--operation-id", operationId]);
   await invoke(["file", "batch", ...common, "--input", batchInput, "--operation-id", operationId]);
+  await invoke(["file", "copy", ...file, "--generation", generationId, "--path", "archive/file-copy.txt", "--revision", "6", "--operation-id", operationId]);
 
   const base = `https://almira.test/v1/projects/${projectId}/environments/${environmentId}/collections/${collectionId}/files`;
   assert.deepEqual(requests.map(({ input, init }) => ({
@@ -751,6 +752,17 @@ test("file lifecycle commands expose recycle, versions, rename, batch, and gener
       method: "POST",
       operationId,
       body: { actions: [{ action: "delete", entry_id: entryId, expected_revision: 6 }] },
+    },
+    {
+      input: `${base.replace(/\/files$/u, "")}/copies`,
+      method: "POST",
+      operationId,
+      body: {
+        source_entry_id: entryId,
+        source_generation_id: generationId,
+        destination_path: "archive/file-copy.txt",
+        expected_source_revision: 6,
+      },
     },
   ]);
 });

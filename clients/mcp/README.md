@@ -41,6 +41,9 @@ tools never turn recycle visibility into application-user access.
 `almira_file_batch` applies up to 100 independent lifecycle mutations atomically. Each entry may
 appear once, every action carries its optimistic revision, and returned entries preserve input
 order for deterministic agent follow-up.
+`almira_file_copy` binds one exact source generation, optimistic source revision and new
+collection-local path. It creates an independent FileService object without transferring bytes or
+provider credentials through MCP.
 
 The catalog also exposes collection extraction controls, bounded customer tags and typed metadata,
 authoritative structured list filters, lexical/semantic/hybrid `almira_file_search`, and safe

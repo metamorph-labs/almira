@@ -38,6 +38,8 @@ import type {
   FileEntry,
   FileBatchOutcome,
   FileBatchRequest,
+  CopyFileRequest,
+  FileCopyOutcome,
   FileEntryPage,
   FileGeneration,
   FileGenerationPage,
@@ -671,6 +673,26 @@ export class AlmiraClient {
       } else if (action.action !== "delete" && action.action !== "restore") invalidInput();
     }
     return this.#json(collectionPath(reference, "/file-batches"), {
+      method: "POST",
+      headers: mutationHeaders(options.operationId),
+      body: request,
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async copyFile(
+    reference: CollectionReference,
+    request: CopyFileRequest,
+    options: MutationOptions,
+  ): Promise<FileCopyOutcome> {
+    uuid(request.source_entry_id);
+    uuid(request.source_generation_id);
+    if (!LOGICAL_PATH.test(request.destination_path)
+      || !Number.isSafeInteger(request.expected_source_revision)
+      || request.expected_source_revision < 1) {
+      invalidInput();
+    }
+    return this.#json(collectionPath(reference, "/copies"), {
       method: "POST",
       headers: mutationHeaders(options.operationId),
       body: request,

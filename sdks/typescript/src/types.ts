@@ -794,6 +794,18 @@ export interface FileBatchOutcome {
   entries: FileEntry[];
 }
 
+export interface CopyFileRequest {
+  source_entry_id: UuidV7;
+  source_generation_id: UuidV7;
+  destination_path: string;
+  expected_source_revision: number;
+}
+
+export interface FileCopyOutcome {
+  disposition: "applied" | "exact_replay";
+  entry: FileEntry;
+}
+
 export interface DeleteFileOutcome {
   disposition: "applied" | "exact_replay";
   entry: FileEntry;

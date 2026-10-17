@@ -661,6 +661,16 @@ test("file lifecycle methods use stable entry paths and optimistic revisions", a
     ] },
     { operationId },
   );
+  await client.copyFile(
+    { tenantId, projectId, environmentId, collectionInstanceId },
+    {
+      source_entry_id: entryId,
+      source_generation_id: generationId,
+      destination_path: "archive/file-copy.txt",
+      expected_source_revision: 6,
+    },
+    { operationId },
+  );
 
   const base = `/v1/projects/${projectId}/environments/${environmentId}/collections/${collectionInstanceId}/files/${entryId}`;
   assert.deepEqual(calls.map(({ input, init }) => ({
@@ -689,6 +699,17 @@ test("file lifecycle methods use stable entry paths and optimistic revisions", a
       method: "POST",
       operationId,
       body: { actions: [{ action: "rename", entry_id: entryId, logical_path: "archive/final.txt", expected_revision: 6 }] },
+    },
+    {
+      input: `/v1/projects/${projectId}/environments/${environmentId}/collections/${collectionInstanceId}/copies`,
+      method: "POST",
+      operationId,
+      body: {
+        source_entry_id: entryId,
+        source_generation_id: generationId,
+        destination_path: "archive/file-copy.txt",
+        expected_source_revision: 6,
+      },
     },
   ]);
 

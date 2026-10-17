@@ -111,6 +111,10 @@ management callers can use `listFiles({ includeDeleted: true })` and `restoreFil
 Builder-subject listing never admits `includeDeleted`.
 Use `mutateFilesBatch` when up to 100 independent lifecycle changes must commit or roll back as one
 collection-local operation. Each entry may occur once and results preserve request order.
+Use `copyFile` with an exact source entry, immutable generation, optimistic source revision and new
+collection-local logical path. Almira asks FileService to create a distinct server-side object,
+copies the entry's customer metadata snapshot, and applies the collection's current malware policy;
+the SDK never downloads or re-uploads the bytes.
 
 Collection malware policy is managed with `getCollectionProtection` and
 `replaceCollectionProtection`. A policy replacement applies only to generations created after

@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Almira API",
-    "version": "0.1.0-dev.28",
+    "version": "0.1.0-dev.29",
     "description": "Provider-neutral application file storage management and data API."
   },
   "servers": [
@@ -1437,6 +1437,71 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FileBatchOutcome"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/copies": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "post": {
+        "operationId": "copyFile",
+        "description": "Copies one exact available retained generation into a new collection-local entry. FileService creates an independently owned object and applies the collection's current safety policy; the client never downloads and re-uploads bytes.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/OperationId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CopyFileRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Independent copy applied or exactly replayed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileCopyOutcome"
                 }
               }
             }
@@ -7775,6 +7840,51 @@
             "items": {
               "$ref": "#/components/schemas/FileEntry"
             }
+          }
+        }
+      },
+      "CopyFileRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_entry_id",
+          "source_generation_id",
+          "destination_path",
+          "expected_source_revision"
+        ],
+        "properties": {
+          "source_entry_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "source_generation_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "destination_path": {
+            "$ref": "#/components/schemas/LogicalPath"
+          },
+          "expected_source_revision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "FileCopyOutcome": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "disposition",
+          "entry"
+        ],
+        "properties": {
+          "disposition": {
+            "type": "string",
+            "enum": [
+              "applied",
+              "exact_replay"
+            ]
+          },
+          "entry": {
+            "$ref": "#/components/schemas/FileEntry"
           }
         }
       },

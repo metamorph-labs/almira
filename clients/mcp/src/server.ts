@@ -342,7 +342,7 @@ export function createAlmiraMcpServer(
   client: AlmiraClient,
   dependencies: AlmiraMcpDependencies = {},
 ): McpServer {
-  const server = new McpServer({ name: "almira", version: "0.1.0-dev.28" });
+  const server = new McpServer({ name: "almira", version: "0.1.0-dev.29" });
 
   server.registerTool(
     "almira_project_bootstrap",
@@ -1385,6 +1385,32 @@ export function createAlmiraMcpServer(
       return execute(() => client.mutateFilesBatch(
         { tenantId: tenant_id, projectId: project_id, environmentId: environment_id, collectionInstanceId: collection_instance_id },
         { actions },
+        { operationId: id },
+      ), id);
+    },
+  );
+
+  server.registerTool(
+    "almira_file_copy",
+    {
+      title: "Copy an Almira file generation",
+      description: "Create an independent server-side copy of one exact available retained generation at a new path. No file bytes or provider credentials pass through the agent.",
+      inputSchema: z.object({
+        ...collectionScope,
+        source_entry_id: uuid,
+        source_generation_id: uuid,
+        destination_path: logicalPath,
+        expected_source_revision: z.number().int().min(1),
+        operation_id: operationId,
+      }).strict(),
+      outputSchema,
+      annotations: mutationAnnotations,
+    },
+    async ({ tenant_id, project_id, environment_id, collection_instance_id, source_entry_id, source_generation_id, destination_path, expected_source_revision, operation_id }) => {
+      const id = operation_id ?? createOperationId();
+      return execute(() => client.copyFile(
+        { tenantId: tenant_id, projectId: project_id, environmentId: environment_id, collectionInstanceId: collection_instance_id },
+        { source_entry_id, source_generation_id, destination_path, expected_source_revision },
         { operationId: id },
       ), id);
     },
