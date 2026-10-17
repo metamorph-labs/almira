@@ -1,0 +1,110 @@
+{
+  "schema_id": "almira.public.event-conformance-vectors.v1",
+  "format_version": 1,
+  "vectors": [
+    {
+      "name": "file_available_is_safe_and_revision_bound",
+      "schema_path": "file-event.v1.schema.json",
+      "expected": "valid",
+      "instance": {
+        "schema_version": 1,
+        "event_type_id": "almira.file.available.v1",
+        "environment_id": "018f0000-0000-7000-8000-000000000001",
+        "collection_instance_id": "018f0000-0000-7000-8000-000000000002",
+        "entry_id": "018f0000-0000-7000-8000-000000000003",
+        "entry_revision": 3,
+        "generation_id": "018f0000-0000-7000-8000-000000000004",
+        "generation_revision": 2,
+        "generation_number": 1,
+        "lifecycle_state": "available"
+      }
+    },
+    {
+      "name": "processing_completion_is_generation_bound",
+      "schema_path": "file-event.v1.schema.json",
+      "expected": "valid",
+      "instance": {
+        "schema_version": 1,
+        "event_type_id": "almira.media.processing.completed.v1",
+        "environment_id": "018f0000-0000-7000-8000-000000000001",
+        "collection_instance_id": "018f0000-0000-7000-8000-000000000002",
+        "entry_id": "018f0000-0000-7000-8000-000000000003",
+        "entry_revision": 3,
+        "generation_id": "018f0000-0000-7000-8000-000000000004",
+        "generation_revision": 2,
+        "job_id": "018f0000-0000-7000-8000-000000000005",
+        "processing_kind": "video_package",
+        "processing_state": "succeeded",
+        "output_count": 4
+      }
+    },
+    {
+      "name": "delivery_change_exposes_no_provider_coordinates",
+      "schema_path": "delivery-event.v1.schema.json",
+      "expected": "valid",
+      "instance": {
+        "schema_version": 1,
+        "event_type_id": "almira.delivery.configuration.changed.v1",
+        "environment_id": "018f0000-0000-7000-8000-000000000001",
+        "collection_instance_id": "018f0000-0000-7000-8000-000000000002",
+        "configuration_revision": 7,
+        "delivery_mode": "public",
+        "cache_preset": "immutable_generation",
+        "domain_kind": "managed",
+        "domain_state": "active"
+      }
+    },
+    {
+      "name": "provider_coordinate_is_refused",
+      "schema_path": "delivery-event.v1.schema.json",
+      "expected": "invalid",
+      "instance": {
+        "schema_version": 1,
+        "event_type_id": "almira.delivery.configuration.changed.v1",
+        "environment_id": "018f0000-0000-7000-8000-000000000001",
+        "collection_instance_id": "018f0000-0000-7000-8000-000000000002",
+        "configuration_revision": 7,
+        "delivery_mode": "public",
+        "cache_preset": "immutable_generation",
+        "domain_kind": "managed",
+        "domain_state": "active",
+        "provider_bucket": "customer-files"
+      }
+    },
+    {
+      "name": "extracted_content_is_refused",
+      "schema_path": "file-event.v1.schema.json",
+      "expected": "invalid",
+      "instance": {
+        "schema_version": 1,
+        "event_type_id": "almira.file.extraction.completed.v1",
+        "environment_id": "018f0000-0000-7000-8000-000000000001",
+        "collection_instance_id": "018f0000-0000-7000-8000-000000000002",
+        "entry_id": "018f0000-0000-7000-8000-000000000003",
+        "entry_revision": 3,
+        "generation_id": "018f0000-0000-7000-8000-000000000004",
+        "generation_revision": 2,
+        "extraction_revision": 4,
+        "extraction_kind": "content",
+        "extraction_state": "completed",
+        "extracted_content": "must not enter an event"
+      }
+    },
+    {
+      "name": "generation_event_without_generation_revision_is_refused",
+      "schema_path": "file-event.v1.schema.json",
+      "expected": "invalid",
+      "instance": {
+        "schema_version": 1,
+        "event_type_id": "almira.file.available.v1",
+        "environment_id": "018f0000-0000-7000-8000-000000000001",
+        "collection_instance_id": "018f0000-0000-7000-8000-000000000002",
+        "entry_id": "018f0000-0000-7000-8000-000000000003",
+        "entry_revision": 3,
+        "generation_id": "018f0000-0000-7000-8000-000000000004",
+        "generation_number": 1,
+        "lifecycle_state": "available"
+      }
+    }
+  ]
+}

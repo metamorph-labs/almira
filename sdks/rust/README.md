@@ -52,4 +52,9 @@ end-user identifier with retained files and discover those bindings for privacy 
 workload evidence, not browser capabilities; the subject is lifecycle metadata and never becomes
 an Almira authorization identity. Opaque subject identifiers are redacted from `Debug` output.
 
+`verify_webhook_signature` verifies APP-01's common HMAC-SHA256 signature over the exact raw body
+before JSON parsing. Supply the five original `Metamorph-Webhook-*` header values and a bounded
+clock sample; persist the returned delivery ID and attempt to reject replays. A verified delivery
+authenticates APP-01 only and never grants file-read authority.
+
 Run `cargo test` in this directory, or `pnpm check` at the public repository root.

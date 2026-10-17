@@ -34,6 +34,7 @@ from .server import (
     SubjectReference,
 )
 from .transfer import AlmiraTransferError, DirectUploadResponse, upload_direct
+from .webhook import VerifiedWebhook, verify_webhook_signature
 
 __all__ = [
     "AlmiraApiError",
@@ -68,7 +69,9 @@ __all__ = [
     "AlmiraTransferError",
     "DirectUploadResponse",
     "upload_direct",
+    "VerifiedWebhook",
+    "verify_webhook_signature",
 ]
 
-__version__ = "0.1.0.dev34"
-__contract_version__ = "0.1.0-dev.34"
+__version__ = "0.1.0.dev36"
+__contract_version__ = "0.1.0-dev.36"

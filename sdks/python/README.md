@@ -52,6 +52,12 @@ lifecycle associations under workload evidence. They support the builder's priva
 subjects are lifecycle metadata, never Almira authorization identities, and opaque identifiers are
 redacted from SDK representations.
 
+Call `verify_webhook_signature` over the exact raw request body and the five
+`Metamorph-Webhook-*` headers before parsing an APP-01 webhook. It verifies the common
+HMAC-SHA256 transcript, identifiers, attempt bound and default five-minute clock window. Persist
+the returned `(delivery_id, attempt)` to reject replays. A verified delivery is not file-read
+authority and does not make its JSON payload safe without schema and application validation.
+
 Management and resource provisioning remain in the Almira CLI/MCP or the management client. The
 builder application's backend obtains bounded capability sessions under its short-lived Metamorph
 customer-workload identity; this data client does not create an authentication system for the

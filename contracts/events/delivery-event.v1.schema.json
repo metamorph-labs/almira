@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.almira.dev/events/delivery-event.v1.schema.json",
+  "title": "Almira safe delivery configuration event payload",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "event_type_id",
+    "environment_id",
+    "collection_instance_id",
+    "configuration_revision",
+    "delivery_mode",
+    "cache_preset",
+    "domain_kind",
+    "domain_state"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "event_type_id": {
+      "const": "almira.delivery.configuration.changed.v1"
+    },
+    "environment_id": {
+      "$ref": "#/$defs/uuid_v7"
+    },
+    "collection_instance_id": {
+      "$ref": "#/$defs/uuid_v7"
+    },
+    "configuration_revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "delivery_mode": {
+      "enum": [
+        "off",
+        "public",
+        "private"
+      ]
+    },
+    "cache_preset": {
+      "enum": [
+        "no_store",
+        "revalidate",
+        "immutable_generation",
+        "private_session"
+      ]
+    },
+    "domain_kind": {
+      "enum": [
+        "managed",
+        "custom"
+      ]
+    },
+    "domain_state": {
+      "enum": [
+        "active",
+        "pending_dns",
+        "provisioning_certificate",
+        "failed",
+        "removing"
+      ]
+    }
+  },
+  "$defs": {
+    "uuid_v7": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    }
+  }
+}

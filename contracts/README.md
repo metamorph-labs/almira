@@ -10,6 +10,7 @@ The API bundle contains:
 - `data-openapi.v1.json`: the browser/mobile capability, immutable delivery and bearer-share
   contract, deliberately isolated from management credentials;
 - `configuration/almira.v1.schema.json`: the closed additive `almira.yaml` v1 contract;
+- `events/catalog.v1.json` and its payload schemas: the safe, revision-bound file-event vocabulary;
 - `errors.v1.json`: stable, redacted public error/status mappings; and
 - `conformance/vectors.v1.json`: executable closed-schema and error vectors.
 
@@ -17,6 +18,11 @@ Direct-transfer descriptors, capability tokens and share URLs are bearer materia
 never log or forward them beyond their declared use. Capability tokens cannot be used on the
 management surface, and PATs, SAKs and product sessions cannot be used on the browser data surface.
 The APIs never accept a provider, bucket, endpoint or object key from ordinary callers.
+
+APP-01 owns subscription delivery, signing, retry and dead-letter behavior. Event payloads carry
+stable Almira identifiers and revisions only; they provide no implicit read authority and exclude
+provider coordinates, credentials and extracted content. Application endpoints must verify the
+signature over the raw body before parsing, then reject replayed delivery attempts durably.
 
 The management contract exposes collection-level future-generation malware policy,
 environment-wide safe protection cases, exact-generation rescans, and immutable administrative

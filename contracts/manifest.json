@@ -1,15 +1,15 @@
 {
   "formatVersion": 1,
   "product": "almira",
-  "contractVersion": "0.1.0-dev.34",
+  "contractVersion": "0.1.0-dev.36",
   "source": {
     "repository": "metamorph-labs/almira-core",
     "algorithm": "sha256",
-    "digest": "04e99f578a2e90a84446cf6af56ef5f0db246d33b70a2930022a602bca7b224b"
+    "digest": "f08f6d8695429f39aa6bcc607d63e255d96a0ee73867792cc9dbeb58886ac59a"
   },
   "bundle": {
     "algorithm": "sha256",
-    "digest": "04e99f578a2e90a84446cf6af56ef5f0db246d33b70a2930022a602bca7b224b"
+    "digest": "f08f6d8695429f39aa6bcc607d63e255d96a0ee73867792cc9dbeb58886ac59a"
   },
   "files": [
     {
@@ -30,12 +30,12 @@
     {
       "path": "conformance/vectors.v1.json",
       "size": 51292,
-      "digest": "35338798260cd8e0cf4e0131a0ca7a3536349994f0c67afef1cfbf03c1799215"
+      "digest": "5b98c45f2169bb151fc850607e17239f92b382daa911f0732d3af419b8e6b0ad"
     },
     {
       "path": "data-openapi.v1.json",
       "size": 23277,
-      "digest": "c0ef6e6232ea2ef0cf208e8c08834ca8030685004ce54d7fa3e9c0b66827d036"
+      "digest": "e619d0b839cc9d185e030074c6571160a3e9c7f274f5006b0972a6f72c3ee0bd"
     },
     {
       "path": "errors.v1.json",
@@ -43,19 +43,44 @@
       "digest": "926a32d41dc1884ee4d647e61163eee2f7593ad065ccd611380bef18a1e6a24b"
     },
     {
+      "path": "events/catalog.schema.json",
+      "size": 1766,
+      "digest": "327752d4df1277baa3a9919364abc04ed3ff9c20283e6f0ba1b62f51e2c8512d"
+    },
+    {
+      "path": "events/catalog.v1.json",
+      "size": 4684,
+      "digest": "37842b59647af6b9c6d97c7a82d15455181b8ad1c175d3c0e77e72b0cd621f38"
+    },
+    {
+      "path": "events/delivery-event.v1.schema.json",
+      "size": 1525,
+      "digest": "eea6f23e260a42869ff90184b1b3db6379ed7ac5ae7972ffc7f7e3f67ae38cec"
+    },
+    {
+      "path": "events/file-event.v1.schema.json",
+      "size": 5022,
+      "digest": "ed229b8203b11cb632e9be4793336de1174df1f0c5f5461a7bd396df2b7be1d2"
+    },
+    {
+      "path": "events/vectors.v1.json",
+      "size": 4181,
+      "digest": "7da1339e741b2ba4fb7335c2fdafe12a9490ae8da0c96685390ec881fd353e40"
+    },
+    {
       "path": "openapi.v1.json",
       "size": 262373,
-      "digest": "8f36ce02224da3f07ad00b6f6b341ee0e2c846129e809dcc9132476c4681bbe6"
+      "digest": "b6b9a2f5980db6937c0dc6160ff041065afa40a2984c1a99b9399e99d03f3dde"
     },
     {
       "path": "README.md",
-      "size": 2421,
-      "digest": "2ce1d36cb1e38d0255d95deaf4d73081896b7dd3a99a4efd90fee9e5df791188"
+      "size": 2904,
+      "digest": "0f9ebfcb8568d0706a9fc2e2aaaa018b73ea718cb7d7f503c8457e4cf2b79edd"
     },
     {
       "path": "release.json",
       "size": 70,
-      "digest": "f0182be71bcb7ef6cf1cf6a61255d17624cfb3cf0db1c02e124e59eb322e1028"
+      "digest": "5d034571f72a7ac01a2632ae083b60d23ece4bf360f144bce26173dc1ca37eef"
     }
   ]
 }

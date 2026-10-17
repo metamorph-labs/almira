@@ -47,4 +47,10 @@ lifecycle associations under workload evidence. They support the builder's priva
 subjects are lifecycle metadata, never Almira authorization identities, and opaque identifiers are
 redacted from SDK formatting.
 
+Use `VerifyWebhookSignature` with the exact raw request body, APP-01 signing secret and original
+HTTP headers before decoding a webhook. It verifies the common HMAC-SHA256 transcript, UUIDv7
+identifiers, attempt bound and five-minute clock window. Persist the returned delivery ID and
+attempt to reject replays. Signature verification authenticates APP-01 delivery; it grants no
+Almira file authority.
+
 Run `go test ./...` in this directory, or `pnpm check` at the public repository root.

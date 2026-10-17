@@ -1,0 +1,228 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.almira.dev/events/file-event.v1.schema.json",
+  "title": "Almira safe file event payload",
+  "allOf": [
+    {
+      "oneOf": [
+        {
+          "properties": {
+            "event_type_id": {
+              "enum": [
+                "almira.file.upload.started.v1",
+                "almira.file.upload.completed.v1",
+                "almira.file.available.v1",
+                "almira.file.generation.replaced.v1"
+              ]
+            }
+          },
+          "required": [
+            "generation_id",
+            "generation_revision",
+            "generation_number",
+            "lifecycle_state"
+          ]
+        },
+        {
+          "properties": {
+            "event_type_id": {
+              "enum": [
+                "almira.file.deleted.v1",
+                "almira.file.restored.v1"
+              ]
+            }
+          },
+          "required": [
+            "lifecycle_state"
+          ]
+        },
+        {
+          "properties": {
+            "event_type_id": {
+              "enum": [
+                "almira.file.protection.scan-completed.v1",
+                "almira.file.protection.scan-failed.v1",
+                "almira.file.protection.malware-detected.v1"
+              ]
+            }
+          },
+          "required": [
+            "generation_id",
+            "generation_revision",
+            "scan_state",
+            "safety_state",
+            "safe_result_code"
+          ]
+        },
+        {
+          "properties": {
+            "event_type_id": {
+              "const": "almira.file.metadata.updated.v1"
+            }
+          },
+          "required": [
+            "metadata_revision"
+          ]
+        },
+        {
+          "properties": {
+            "event_type_id": {
+              "enum": [
+                "almira.file.extraction.completed.v1",
+                "almira.file.extraction.failed.v1"
+              ]
+            }
+          },
+          "required": [
+            "generation_id",
+            "generation_revision",
+            "extraction_revision",
+            "extraction_kind",
+            "extraction_state"
+          ]
+        },
+        {
+          "properties": {
+            "event_type_id": {
+              "enum": [
+                "almira.media.processing.completed.v1",
+                "almira.media.processing.failed.v1"
+              ]
+            }
+          },
+          "required": [
+            "generation_id",
+            "generation_revision",
+            "job_id",
+            "processing_kind",
+            "processing_state",
+            "output_count"
+          ]
+        }
+      ]
+    }
+  ],
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "event_type_id",
+    "environment_id",
+    "collection_instance_id",
+    "entry_id",
+    "entry_revision"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "event_type_id": {
+      "type": "string",
+      "maxLength": 128
+    },
+    "environment_id": {
+      "$ref": "#/$defs/uuid_v7"
+    },
+    "collection_instance_id": {
+      "$ref": "#/$defs/uuid_v7"
+    },
+    "entry_id": {
+      "$ref": "#/$defs/uuid_v7"
+    },
+    "generation_id": {
+      "$ref": "#/$defs/uuid_v7"
+    },
+    "job_id": {
+      "$ref": "#/$defs/uuid_v7"
+    },
+    "entry_revision": {
+      "$ref": "#/$defs/revision"
+    },
+    "generation_revision": {
+      "$ref": "#/$defs/revision"
+    },
+    "generation_number": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "metadata_revision": {
+      "$ref": "#/$defs/revision"
+    },
+    "extraction_revision": {
+      "$ref": "#/$defs/revision"
+    },
+    "lifecycle_state": {
+      "enum": [
+        "pending_transfer",
+        "safety_pending",
+        "available",
+        "unavailable",
+        "deleted",
+        "restored"
+      ]
+    },
+    "scan_state": {
+      "enum": [
+        "completed",
+        "failed"
+      ]
+    },
+    "safety_state": {
+      "enum": [
+        "not_required",
+        "scan_pending",
+        "clean",
+        "blocked"
+      ]
+    },
+    "safe_result_code": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[a-z][a-z0-9_]{0,63}$"
+    },
+    "extraction_kind": {
+      "enum": [
+        "technical",
+        "content",
+        "ocr",
+        "transcription"
+      ]
+    },
+    "extraction_state": {
+      "enum": [
+        "succeeded",
+        "failed"
+      ]
+    },
+    "processing_kind": {
+      "enum": [
+        "image_variants",
+        "document_preview",
+        "video_package"
+      ]
+    },
+    "processing_state": {
+      "enum": [
+        "succeeded",
+        "failed"
+      ]
+    },
+    "output_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 64
+    }
+  },
+  "$defs": {
+    "uuid_v7": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    }
+  }
+}

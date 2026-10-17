@@ -1,0 +1,126 @@
+{
+  "schema_id": "almira.public.event-catalog.v1",
+  "format_version": 1,
+  "events": [
+    {
+      "event_type_id": "almira.file.upload.started.v1",
+      "payload_schema_id": "almira.file.event-payload.v1",
+      "payload_schema_path": "events/file-event.v1.schema.json",
+      "resource_kind": "generation",
+      "data_classification": "confidential",
+      "lifecycle": "active"
+    },
+    {
+      "event_type_id": "almira.file.upload.completed.v1",
+      "payload_schema_id": "almira.file.event-payload.v1",
+      "payload_schema_path": "events/file-event.v1.schema.json",
+      "resource_kind": "generation",
+      "data_classification": "confidential",
+      "lifecycle": "active"
+    },
+    {
+      "event_type_id": "almira.file.available.v1",
+      "payload_schema_id": "almira.file.event-payload.v1",
+      "payload_schema_path": "events/file-event.v1.schema.json",
+      "resource_kind": "generation",
+      "data_classification": "confidential",
+      "lifecycle": "active"
+    },
+    {
+      "event_type_id": "almira.file.generation.replaced.v1",
+      "payload_schema_id": "almira.file.event-payload.v1",
+      "payload_schema_path": "events/file-event.v1.schema.json",
+      "resource_kind": "file",
+      "data_classification": "confidential",
+      "lifecycle": "active"
+    },
+    {
+      "event_type_id": "almira.file.deleted.v1",
+      "payload_schema_id": "almira.file.event-payload.v1",
+      "payload_schema_path": "events/file-event.v1.schema.json",
+      "resource_kind": "file",
+      "data_classification": "confidential",
+      "lifecycle": "active"
+    },
+    {
+      "event_type_id": "almira.file.restored.v1",
+      "payload_schema_id": "almira.file.event-payload.v1",
+      "payload_schema_path": "events/file-event.v1.schema.json",
+      "resource_kind": "file",
+      "data_classification": "confidential",
+      "lifecycle": "active"
+    },
+    {
+      "event_type_id": "almira.file.protection.scan-completed.v1",
+      "payload_schema_id": "almira.file.event-payload.v1",
+      "payload_schema_path": "events/file-event.v1.schema.json",
+      "resource_kind": "generation",
+      "data_classification": "confidential",
+      "lifecycle": "active"
+    },
+    {
+      "event_type_id": "almira.file.protection.scan-failed.v1",
+      "payload_schema_id": "almira.file.event-payload.v1",
+      "payload_schema_path": "events/file-event.v1.schema.json",
+      "resource_kind": "generation",
+      "data_classification": "confidential",
+      "lifecycle": "active"
+    },
+    {
+      "event_type_id": "almira.file.protection.malware-detected.v1",
+      "payload_schema_id": "almira.file.event-payload.v1",
+      "payload_schema_path": "events/file-event.v1.schema.json",
+      "resource_kind": "generation",
+      "data_classification": "confidential",
+      "lifecycle": "active"
+    },
+    {
+      "event_type_id": "almira.file.metadata.updated.v1",
+      "payload_schema_id": "almira.file.event-payload.v1",
+      "payload_schema_path": "events/file-event.v1.schema.json",
+      "resource_kind": "file",
+      "data_classification": "confidential",
+      "lifecycle": "active"
+    },
+    {
+      "event_type_id": "almira.file.extraction.completed.v1",
+      "payload_schema_id": "almira.file.event-payload.v1",
+      "payload_schema_path": "events/file-event.v1.schema.json",
+      "resource_kind": "generation",
+      "data_classification": "confidential",
+      "lifecycle": "active"
+    },
+    {
+      "event_type_id": "almira.file.extraction.failed.v1",
+      "payload_schema_id": "almira.file.event-payload.v1",
+      "payload_schema_path": "events/file-event.v1.schema.json",
+      "resource_kind": "generation",
+      "data_classification": "confidential",
+      "lifecycle": "active"
+    },
+    {
+      "event_type_id": "almira.media.processing.completed.v1",
+      "payload_schema_id": "almira.file.event-payload.v1",
+      "payload_schema_path": "events/file-event.v1.schema.json",
+      "resource_kind": "processing_job",
+      "data_classification": "confidential",
+      "lifecycle": "active"
+    },
+    {
+      "event_type_id": "almira.media.processing.failed.v1",
+      "payload_schema_id": "almira.file.event-payload.v1",
+      "payload_schema_path": "events/file-event.v1.schema.json",
+      "resource_kind": "processing_job",
+      "data_classification": "confidential",
+      "lifecycle": "active"
+    },
+    {
+      "event_type_id": "almira.delivery.configuration.changed.v1",
+      "payload_schema_id": "almira.delivery.event-payload.v1",
+      "payload_schema_path": "events/delivery-event.v1.schema.json",
+      "resource_kind": "collection",
+      "data_classification": "confidential",
+      "lifecycle": "active"
+    }
+  ]
+}

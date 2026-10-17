@@ -156,6 +156,13 @@ PostgreSQL state. `getGenerationExtraction` returns safe status only. Protected 
 only through `getExtractedContent`, which maps to the distinct `extracted_content.read`
 authorization operation.
 
+Use `verifyWebhookSignature` at an application webhook endpoint before parsing JSON. Pass the exact
+raw request bytes, the APP-01 signing secret and the five `Metamorph-Webhook-*` headers. The helper
+checks the common HMAC-SHA256 transcript, UUIDv7 identifiers, attempt bound and five-minute clock
+window and returns verified delivery metadata. Store `(deliveryId, attempt)` durably to reject
+replays. Verification authenticates APP-01 delivery; it does not authorize file access or make the
+payload trusted application input.
+
 Use `searchFiles` for lexical, semantic, or hybrid retrieval. Semantic and hybrid modes require the
 collection's explicit vector opt-in. Lodestone supplies candidates, but every returned entry and
 facet is revision-checked against current PostgreSQL lifecycle, safety, generation, metadata, and

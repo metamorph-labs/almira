@@ -26,3 +26,9 @@ export type { DirectUploadBody, DirectUploadOptions, PortableExportStream } from
 export type * from "./types.js";
 export { verifyReceiptWithClient, verifyVerificationReceipt } from "./verification.js";
 export type { VerificationReceiptExpectation } from "./verification.js";
+export { verifyWebhookSignature } from "./webhook.js";
+export type {
+  VerifiedWebhook,
+  WebhookHeaders,
+  WebhookVerificationOptions,
+} from "./webhook.js";
