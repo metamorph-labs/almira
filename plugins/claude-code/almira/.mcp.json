@@ -4,7 +4,7 @@
       "command": "npx",
       "args": [
         "--yes",
-        "@metamorph-labs/almira-mcp@0.1.0-dev.40"
+        "@metamorph-labs/almira-mcp@0.1.0-dev.41"
       ],
       "env": {
         "ALMIRA_BASE_URL": "${ALMIRA_BASE_URL}",

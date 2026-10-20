@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Almira API",
-    "version": "0.1.0-dev.40",
+    "version": "0.1.0-dev.41",
     "description": "Provider-neutral application file storage management and data API."
   },
   "servers": [
@@ -4860,76 +4860,54 @@
         "type": "string",
         "enum": [
           "aws_s3",
-          "google_cloud_storage",
+          "gcs",
           "azure_blob"
         ]
       },
-      "StorageCapabilityHealth": {
+      "StorageTransferCapability": {
         "type": "string",
         "enum": [
-          "ready",
-          "degraded",
-          "unavailable"
+          "direct_upload",
+          "multipart_upload",
+          "resumable_upload",
+          "exact_generation_delete",
+          "class_migration"
         ]
-      },
-      "StorageProviderMatrix": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "hosted",
-          "connected_site"
-        ],
-        "properties": {
-          "hosted": {
-            "type": "array",
-            "const": [
-              "aws_s3",
-              "google_cloud_storage",
-              "azure_blob"
-            ],
-            "items": {
-              "$ref": "#/components/schemas/StorageProviderFamily"
-            }
-          },
-          "connected_site": {
-            "type": "array",
-            "const": [
-              "aws_s3",
-              "google_cloud_storage",
-              "azure_blob"
-            ],
-            "items": {
-              "$ref": "#/components/schemas/StorageProviderFamily"
-            }
-          }
-        }
       },
       "StorageRealizationCapability": {
         "type": "object",
         "additionalProperties": false,
         "required": [
-          "realization_id",
-          "display_name",
-          "provider_family",
+          "realization_generation",
+          "storage_class",
           "operating_model",
-          "location_id",
-          "storage_classes",
-          "health",
-          "capability_generation",
-          "evidence_digest"
+          "provider_family",
+          "binding_label",
+          "maximum_object_bytes",
+          "supported_capabilities",
+          "unavailable_capabilities"
         ],
         "properties": {
-          "realization_id": {
-            "$ref": "#/components/schemas/UuidV7"
+          "realization_generation": {
+            "type": "integer",
+            "minimum": 1
           },
-          "display_name": {
+          "storage_class": {
             "type": "string",
-            "minLength": 1,
-            "maxLength": 80,
-            "pattern": "^\\S(?:.*\\S)?$"
+            "enum": [
+              "normal",
+              "express"
+            ]
           },
           "provider_family": {
-            "$ref": "#/components/schemas/StorageProviderFamily"
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/StorageProviderFamily"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "operating_model": {
             "type": "string",
@@ -4939,52 +4917,40 @@
               "connected_site"
             ]
           },
-          "location_id": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 128,
-            "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-          },
-          "storage_classes": {
+          "binding_label": {
             "oneOf": [
               {
-                "type": "array",
-                "const": [
-                  "normal"
-                ],
-                "items": {
-                  "type": "string",
-                  "enum": [
-                    "normal",
-                    "express"
-                  ]
-                }
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "pattern": "^[A-Za-z0-9._/-]+$"
               },
               {
-                "type": "array",
-                "const": [
-                  "normal",
-                  "express"
-                ],
-                "items": {
-                  "type": "string",
-                  "enum": [
-                    "normal",
-                    "express"
-                  ]
-                }
+                "type": "null"
               }
             ]
           },
-          "health": {
-            "$ref": "#/components/schemas/StorageCapabilityHealth"
-          },
-          "capability_generation": {
+          "maximum_object_bytes": {
             "type": "integer",
-            "minimum": 1
+            "minimum": 1,
+            "maximum": 10737418240
           },
-          "evidence_digest": {
-            "$ref": "#/components/schemas/ContentSha256"
+          "supported_capabilities": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 5,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/components/schemas/StorageTransferCapability"
+            }
+          },
+          "unavailable_capabilities": {
+            "type": "array",
+            "maxItems": 5,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/components/schemas/StorageTransferCapability"
+            }
           }
         }
       },
@@ -4993,40 +4959,68 @@
         "additionalProperties": false,
         "required": [
           "environment_id",
-          "deployment_profile",
-          "catalog_revision",
-          "catalog_digest",
-          "expires_at",
-          "provider_matrix",
+          "operating_model",
+          "route_epoch",
+          "placement_epoch",
+          "authorization_decision_id",
+          "authorization_fact_set_digest",
+          "catalog_epoch",
+          "catalog_release_id",
+          "catalog_bundle_digest",
+          "realization_catalog_digest",
           "realizations"
         ],
         "properties": {
           "environment_id": {
             "$ref": "#/components/schemas/UuidV7"
           },
-          "deployment_profile": {
+          "operating_model": {
             "type": "string",
             "enum": [
-              "hosted",
+              "managed",
+              "hosted_customer_owned",
               "connected_site"
             ]
           },
-          "catalog_revision": {
+          "route_epoch": {
             "type": "integer",
             "minimum": 1
           },
-          "catalog_digest": {
+          "placement_epoch": {
+            "oneOf": [
+              {
+                "type": "integer",
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "authorization_decision_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "authorization_fact_set_digest": {
             "$ref": "#/components/schemas/ContentSha256"
           },
-          "expires_at": {
-            "$ref": "#/components/schemas/Timestamp"
+          "catalog_epoch": {
+            "type": "integer",
+            "minimum": 1
           },
-          "provider_matrix": {
-            "$ref": "#/components/schemas/StorageProviderMatrix"
+          "catalog_release_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "catalog_bundle_digest": {
+            "$ref": "#/components/schemas/ContentSha256"
+          },
+          "realization_catalog_digest": {
+            "$ref": "#/components/schemas/ContentSha256"
           },
           "realizations": {
             "type": "array",
-            "maxItems": 64,
+            "maxItems": 32,
             "items": {
               "$ref": "#/components/schemas/StorageRealizationCapability"
             }
@@ -5039,7 +5033,8 @@
         "required": [
           "collection_key",
           "display_name",
-          "malware_scan_required"
+          "malware_scan_required",
+          "storage_realization_generation"
         ],
         "properties": {
           "collection_key": {
@@ -5063,6 +5058,10 @@
               "express"
             ],
             "default": "normal"
+          },
+          "storage_realization_generation": {
+            "type": "integer",
+            "minimum": 1
           }
         }
       },
@@ -6573,6 +6572,7 @@
         "additionalProperties": false,
         "required": [
           "target_storage_class",
+          "target_realization_generation",
           "expected_collection_revision"
         ],
         "properties": {
@@ -6582,6 +6582,10 @@
               "normal",
               "express"
             ]
+          },
+          "target_realization_generation": {
+            "type": "integer",
+            "minimum": 1
           },
           "expected_collection_revision": {
             "type": "integer",
@@ -6593,14 +6597,14 @@
         "type": "object",
         "additionalProperties": false,
         "required": [
-          "realization_id",
-          "capability_generation"
+          "realization_binding_digest",
+          "realization_generation"
         ],
         "properties": {
-          "realization_id": {
-            "$ref": "#/components/schemas/UuidV7"
+          "realization_binding_digest": {
+            "$ref": "#/components/schemas/ContentSha256"
           },
-          "capability_generation": {
+          "realization_generation": {
             "type": "integer",
             "minimum": 1
           }
@@ -7643,7 +7647,7 @@
             "const": "almira.verification.v1"
           },
           "contract_version": {
-            "const": "0.1.0-dev.40"
+            "const": "0.1.0-dev.41"
           },
           "verification_id": {
             "$ref": "#/components/schemas/UuidV7"

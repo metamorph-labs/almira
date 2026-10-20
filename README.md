@@ -16,11 +16,11 @@ Released public contracts are installed under [`contracts/`](contracts/) from a 
 digest-bound bundle produced by `almira-core`. Run `pnpm contracts:verify` to verify the installed
 bundle independently; see [`AGENTS.md`](AGENTS.md) before proposing a contract change.
 
-[`contracts/apps`](contracts/apps/) contains Almira's reviewed `APP-01` product-surface
-contribution: exact operation/event schemas, stable-ID ceilings, separately disclosed byte and
-external-processing permissions, and refusal vectors. It is an authoring contract, not a claim
-that app-authenticated routes are live; admission, installation authentication, suspension and
-uninstall remain owned by the common Metamorph Apps capability.
+[`contracts/apps`](contracts/apps/) contains Almira's reviewed and admitted `APP-01`
+product-surface contribution: exact operation/event schemas, stable-ID ceilings, separately
+disclosed byte and external-processing permissions, and refusal vectors. Almira exposes all 15
+operations as one complete app-authenticated plane; admission, installation authentication,
+suspension, uninstall and webhook delivery remain owned by the common Metamorph Apps capability.
 
 Declarative setup uses the closed [`almira.yaml`](examples/almira.yaml) v1 format. Preview is
 read-only and additive; apply preserves unlisted resources and executes the same scoped operations

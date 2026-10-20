@@ -634,7 +634,7 @@ export interface VerificationCheck {
 
 export interface VerificationReceipt {
   receipt_version: "almira.verification.v1";
-  contract_version: "0.1.0-dev.40";
+  contract_version: "0.1.0-dev.41";
   verification_id: UuidV7;
   realm_id: UuidV7;
   tenant_id: UuidV7;

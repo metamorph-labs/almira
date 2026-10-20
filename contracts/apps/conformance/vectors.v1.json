@@ -184,6 +184,127 @@
           "deadline": "2026-10-17T12:05:00.000000Z"
         }
       }
+    },
+    {
+      "name": "multipart-upload-descriptor-is-explicit",
+      "schema_id": "almira.app.transfer-create.output.v1",
+      "expected": "valid",
+      "instance": {
+        "schema_version": 1,
+        "request_id": "018f0000-0000-7000-8000-000000000130",
+        "operation_id": "018f0000-0000-7000-8000-000000000131",
+        "disposition": "succeeded",
+        "result": {
+          "transfer_id": "018f0000-0000-7000-8000-000000000132",
+          "transfer": {
+            "descriptor_id": "018f0000-0000-7000-8000-000000000133",
+            "protocol": "multipart",
+            "requests": [
+              {
+                "part_number": 1,
+                "offset_bytes": 0,
+                "length_bytes": 5242880,
+                "method": "PUT",
+                "url": "https://transfer.invalid/part/1",
+                "headers": {}
+              },
+              {
+                "part_number": 2,
+                "offset_bytes": 5242880,
+                "length_bytes": 1,
+                "method": "PUT",
+                "url": "https://transfer.invalid/part/2",
+                "headers": {}
+              }
+            ],
+            "expires_at": "2026-10-20T12:05:00.000000Z",
+            "maximum_bytes": 5242881
+          }
+        }
+      }
+    },
+    {
+      "name": "upload-descriptor-refuses-opaque-request-list",
+      "schema_id": "almira.app.transfer-create.output.v1",
+      "expected": "invalid",
+      "instance": {
+        "schema_version": 1,
+        "request_id": "018f0000-0000-7000-8000-000000000134",
+        "operation_id": "018f0000-0000-7000-8000-000000000135",
+        "disposition": "succeeded",
+        "result": {
+          "transfer_id": "018f0000-0000-7000-8000-000000000136",
+          "transfer": {
+            "descriptor_id": "018f0000-0000-7000-8000-000000000137",
+            "protocol": "multipart",
+            "requests": [
+              {
+                "method": "PUT",
+                "url": "https://transfer.invalid/part/1",
+                "headers": {}
+              }
+            ],
+            "expires_at": "2026-10-20T12:05:00.000000Z",
+            "maximum_bytes": 5242881
+          }
+        }
+      }
+    },
+    {
+      "name": "external-job-completion-carries-owner-evidence",
+      "schema_id": "almira.app.external-job-complete.input.v1",
+      "expected": "valid",
+      "instance": {
+        "schema_version": 1,
+        "request_id": "018f0000-0000-7000-8000-000000000138",
+        "operation_id": "018f0000-0000-7000-8000-000000000139",
+        "target": {
+          "environment_id": "018f0000-0000-7000-8000-000000000140",
+          "collection_id": "018f0000-0000-7000-8000-000000000141",
+          "file_id": "018f0000-0000-7000-8000-000000000142",
+          "generation_id": "018f0000-0000-7000-8000-000000000143"
+        },
+        "arguments": {
+          "job_id": "018f0000-0000-7000-8000-000000000144",
+          "expected_job_revision": "3",
+          "staged_output_id": "018f0000-0000-7000-8000-000000000145",
+          "completion_evidence": {
+            "descriptor_id": "018f0000-0000-7000-8000-000000000145",
+            "protocol": "single_put",
+            "etag": "etag-one",
+            "provider_version": null,
+            "parts": [
+              {
+                "part_number": 1,
+                "etag": "etag-one"
+              }
+            ],
+            "size_bytes": 128,
+            "content_sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      }
+    },
+    {
+      "name": "external-job-completion-refuses-evidence-free-success",
+      "schema_id": "almira.app.external-job-complete.input.v1",
+      "expected": "invalid",
+      "instance": {
+        "schema_version": 1,
+        "request_id": "018f0000-0000-7000-8000-000000000146",
+        "operation_id": "018f0000-0000-7000-8000-000000000147",
+        "target": {
+          "environment_id": "018f0000-0000-7000-8000-000000000148",
+          "collection_id": "018f0000-0000-7000-8000-000000000149",
+          "file_id": "018f0000-0000-7000-8000-000000000150",
+          "generation_id": "018f0000-0000-7000-8000-000000000151"
+        },
+        "arguments": {
+          "job_id": "018f0000-0000-7000-8000-000000000152",
+          "expected_job_revision": "3",
+          "staged_output_id": "018f0000-0000-7000-8000-000000000153"
+        }
+      }
     }
   ]
 }

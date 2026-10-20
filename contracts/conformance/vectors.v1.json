@@ -1,7 +1,7 @@
 {
   "schema_id": "almira.public.api-conformance-vectors.v1",
   "format_version": 1,
-  "openapi": "0.1.0-dev.40",
+  "openapi": "0.1.0-dev.41",
   "schema_vectors": [
     {
       "name": "additional_environment_is_managed_by_default",
@@ -66,58 +66,59 @@
       "expected": "invalid"
     },
     {
-      "name": "storage_catalog_uses_exact_portable_provider_matrix",
+      "name": "storage_catalog_uses_exact_fileservice_realization_projection",
       "schema": "StorageRealizationCatalog",
       "instance": {
         "environment_id": "018f0000-0000-7000-8000-000000000010",
-        "deployment_profile": "hosted",
-        "catalog_revision": 1,
-        "catalog_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "expires_at": "2099-10-17T00:00:00Z",
-        "provider_matrix": {
-          "hosted": [
-            "aws_s3",
-            "google_cloud_storage",
-            "azure_blob"
-          ],
-          "connected_site": [
-            "aws_s3",
-            "google_cloud_storage",
-            "azure_blob"
-          ]
-        },
+        "operating_model": "managed",
+        "route_epoch": 7,
+        "placement_epoch": null,
+        "authorization_decision_id": "018f0000-0000-7000-8000-000000000011",
+        "authorization_fact_set_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "catalog_epoch": 1,
+        "catalog_release_id": "release.one",
+        "catalog_bundle_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "realization_catalog_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
         "realizations": [
           {
-            "realization_id": "018f0000-0000-7000-8000-000000000011",
-            "display_name": "Managed storage",
-            "provider_family": "aws_s3",
+            "realization_generation": 1,
+            "storage_class": "normal",
             "operating_model": "managed",
-            "location_id": "region.one",
-            "storage_classes": [
-              "normal",
-              "express"
+            "provider_family": null,
+            "binding_label": null,
+            "maximum_object_bytes": 10737418240,
+            "supported_capabilities": [
+              "direct_upload",
+              "exact_generation_delete"
             ],
-            "health": "ready",
-            "capability_generation": 1,
-            "evidence_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            "unavailable_capabilities": [
+              "multipart_upload",
+              "resumable_upload",
+              "class_migration"
+            ]
           }
         ]
       },
       "expected": "valid"
     },
     {
-      "name": "storage_catalog_provider_matrix_drift_refused",
-      "schema": "StorageProviderMatrix",
+      "name": "storage_realization_unapproved_provider_family_refused",
+      "schema": "StorageRealizationCapability",
       "instance": {
-        "hosted": [
-          "aws_s3",
-          "google_cloud_storage",
-          "azure_blob"
+        "realization_generation": 1,
+        "storage_class": "normal",
+        "operating_model": "connected_site",
+        "provider_family": "ceph",
+        "binding_label": null,
+        "maximum_object_bytes": 10737418240,
+        "supported_capabilities": [
+          "direct_upload",
+          "exact_generation_delete"
         ],
-        "connected_site": [
-          "aws_s3",
-          "ceph",
-          "azure_blob"
+        "unavailable_capabilities": [
+          "multipart_upload",
+          "resumable_upload",
+          "class_migration"
         ]
       },
       "expected": "invalid"
@@ -126,17 +127,21 @@
       "name": "storage_realization_provider_coordinate_refused",
       "schema": "StorageRealizationCapability",
       "instance": {
-        "realization_id": "018f0000-0000-7000-8000-000000000011",
-        "display_name": "Managed storage",
-        "provider_family": "aws_s3",
+        "realization_generation": 1,
+        "storage_class": "normal",
         "operating_model": "managed",
-        "location_id": "region.one",
-        "storage_classes": [
-          "normal"
+        "provider_family": null,
+        "binding_label": null,
+        "maximum_object_bytes": 10737418240,
+        "supported_capabilities": [
+          "direct_upload",
+          "exact_generation_delete"
         ],
-        "health": "ready",
-        "capability_generation": 1,
-        "evidence_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "unavailable_capabilities": [
+          "multipart_upload",
+          "resumable_upload",
+          "class_migration"
+        ],
         "bucket": "customer-data"
       },
       "expected": "invalid"
@@ -147,7 +152,8 @@
       "instance": {
         "collection_key": "user-uploads",
         "display_name": "User uploads",
-        "malware_scan_required": true
+        "malware_scan_required": true,
+        "storage_realization_generation": 1
       },
       "expected": "valid"
     },
@@ -158,6 +164,7 @@
         "collection_key": "user-uploads",
         "display_name": "User uploads",
         "malware_scan_required": true,
+        "storage_realization_generation": 1,
         "provider": "s3"
       },
       "expected": "invalid"
@@ -169,7 +176,8 @@
         "collection_key": "sessions",
         "display_name": "Sessions",
         "malware_scan_required": false,
-        "storage_class": "express"
+        "storage_class": "express",
+        "storage_realization_generation": 2
       },
       "expected": "valid"
     },
@@ -180,7 +188,8 @@
         "collection_key": "archives",
         "display_name": "Archives",
         "malware_scan_required": false,
-        "storage_class": "cold"
+        "storage_class": "cold",
+        "storage_realization_generation": 1
       },
       "expected": "invalid"
     },
@@ -189,6 +198,7 @@
       "schema": "StartStorageMigrationRequest",
       "instance": {
         "target_storage_class": "express",
+        "target_realization_generation": 2,
         "expected_collection_revision": 1
       },
       "expected": "valid"
@@ -198,6 +208,7 @@
       "schema": "StartStorageMigrationRequest",
       "instance": {
         "target_storage_class": "express",
+        "target_realization_generation": 2,
         "expected_collection_revision": 1,
         "bucket": "customer-data"
       },
@@ -213,12 +224,12 @@
         "source_storage_class": "normal",
         "target_storage_class": "express",
         "source_binding": {
-          "realization_id": "018f0000-0000-7000-8000-000000000011",
-          "capability_generation": 1
+          "realization_binding_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "realization_generation": 1
         },
         "target_binding": {
-          "realization_id": "018f0000-0000-7000-8000-000000000013",
-          "capability_generation": 2
+          "realization_binding_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "realization_generation": 2
         },
         "inventory_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
         "phase": "copying",

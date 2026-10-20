@@ -55,10 +55,7 @@
             "additionalProperties": false,
             "properties": {
               "delivery_kind": {
-                "enum": [
-                  "private_session",
-                  "public_share"
-                ]
+                "const": "public_share"
               },
               "expires_at": {
                 "type": "string",
@@ -367,12 +364,96 @@
               "staged_output_id": {
                 "type": "string",
                 "format": "uuid"
+              },
+              "completion_evidence": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "descriptor_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "protocol": {
+                    "enum": [
+                      "single_put",
+                      "multipart"
+                    ]
+                  },
+                  "etag": {
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 1024
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "provider_version": {
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 1024
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "parts": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 256,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "part_number": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 65535
+                        },
+                        "etag": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 1024
+                        }
+                      },
+                      "required": [
+                        "part_number",
+                        "etag"
+                      ]
+                    }
+                  },
+                  "size_bytes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10737418240
+                  },
+                  "content_sha256": {
+                    "type": "string",
+                    "pattern": "^sha256:[0-9a-f]{64}$"
+                  }
+                },
+                "required": [
+                  "descriptor_id",
+                  "protocol",
+                  "etag",
+                  "provider_version",
+                  "parts",
+                  "size_bytes",
+                  "content_sha256"
+                ]
               }
             },
             "required": [
               "job_id",
               "expected_job_revision",
-              "staged_output_id"
+              "staged_output_id",
+              "completion_evidence"
             ]
           },
           "operation_id": {
@@ -835,7 +916,7 @@
                   "maximum_bytes": {
                     "type": "integer",
                     "minimum": 1,
-                    "maximum": 5497558138880
+                    "maximum": 10737418240
                   }
                 },
                 "required": [
@@ -940,7 +1021,8 @@
               },
               "size_bytes": {
                 "type": "integer",
-                "minimum": 1
+                "minimum": 1,
+                "maximum": 10737418240
               },
               "content_sha256": {
                 "type": "string",
@@ -1004,23 +1086,67 @@
                 "type": "object",
                 "additionalProperties": false,
                 "properties": {
-                  "method": {
+                  "descriptor_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "protocol": {
                     "enum": [
-                      "PUT",
-                      "POST"
+                      "single_put",
+                      "multipart"
                     ]
                   },
-                  "url": {
-                    "type": "string",
-                    "format": "uri",
-                    "maxLength": 8192
-                  },
-                  "headers": {
-                    "type": "object",
-                    "maxProperties": 32,
-                    "additionalProperties": {
-                      "type": "string",
-                      "maxLength": 8192
+                  "requests": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 256,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "part_number": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 65535
+                        },
+                        "offset_bytes": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 10737418239
+                        },
+                        "length_bytes": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 10737418240
+                        },
+                        "method": {
+                          "enum": [
+                            "PUT",
+                            "POST"
+                          ]
+                        },
+                        "url": {
+                          "type": "string",
+                          "format": "uri",
+                          "maxLength": 8192
+                        },
+                        "headers": {
+                          "type": "object",
+                          "maxProperties": 32,
+                          "additionalProperties": {
+                            "type": "string",
+                            "maxLength": 8192
+                          }
+                        }
+                      },
+                      "required": [
+                        "part_number",
+                        "offset_bytes",
+                        "length_bytes",
+                        "method",
+                        "url",
+                        "headers"
+                      ]
                     }
                   },
                   "expires_at": {
@@ -1030,13 +1156,13 @@
                   "maximum_bytes": {
                     "type": "integer",
                     "minimum": 1,
-                    "maximum": 5497558138880
+                    "maximum": 10737418240
                   }
                 },
                 "required": [
-                  "method",
-                  "url",
-                  "headers",
+                  "descriptor_id",
+                  "protocol",
+                  "requests",
                   "expires_at",
                   "maximum_bytes"
                 ]
@@ -2387,7 +2513,8 @@
               },
               "size_bytes": {
                 "type": "integer",
-                "minimum": 1
+                "minimum": 1,
+                "maximum": 10737418240
               },
               "content_sha256": {
                 "type": "string",
@@ -2446,23 +2573,67 @@
                 "type": "object",
                 "additionalProperties": false,
                 "properties": {
-                  "method": {
+                  "descriptor_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "protocol": {
                     "enum": [
-                      "PUT",
-                      "POST"
+                      "single_put",
+                      "multipart"
                     ]
                   },
-                  "url": {
-                    "type": "string",
-                    "format": "uri",
-                    "maxLength": 8192
-                  },
-                  "headers": {
-                    "type": "object",
-                    "maxProperties": 32,
-                    "additionalProperties": {
-                      "type": "string",
-                      "maxLength": 8192
+                  "requests": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 256,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "part_number": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 65535
+                        },
+                        "offset_bytes": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 10737418239
+                        },
+                        "length_bytes": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 10737418240
+                        },
+                        "method": {
+                          "enum": [
+                            "PUT",
+                            "POST"
+                          ]
+                        },
+                        "url": {
+                          "type": "string",
+                          "format": "uri",
+                          "maxLength": 8192
+                        },
+                        "headers": {
+                          "type": "object",
+                          "maxProperties": 32,
+                          "additionalProperties": {
+                            "type": "string",
+                            "maxLength": 8192
+                          }
+                        }
+                      },
+                      "required": [
+                        "part_number",
+                        "offset_bytes",
+                        "length_bytes",
+                        "method",
+                        "url",
+                        "headers"
+                      ]
                     }
                   },
                   "expires_at": {
@@ -2472,13 +2643,13 @@
                   "maximum_bytes": {
                     "type": "integer",
                     "minimum": 1,
-                    "maximum": 5497558138880
+                    "maximum": 10737418240
                   }
                 },
                 "required": [
-                  "method",
-                  "url",
-                  "headers",
+                  "descriptor_id",
+                  "protocol",
+                  "requests",
                   "expires_at",
                   "maximum_bytes"
                 ]
@@ -2581,8 +2752,86 @@
               },
               "completion_evidence": {
                 "type": "object",
-                "minProperties": 1,
-                "maxProperties": 16
+                "additionalProperties": false,
+                "properties": {
+                  "descriptor_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "protocol": {
+                    "enum": [
+                      "single_put",
+                      "multipart"
+                    ]
+                  },
+                  "etag": {
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 1024
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "provider_version": {
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 1024
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "parts": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 256,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "part_number": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 65535
+                        },
+                        "etag": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 1024
+                        }
+                      },
+                      "required": [
+                        "part_number",
+                        "etag"
+                      ]
+                    }
+                  },
+                  "size_bytes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10737418240
+                  },
+                  "content_sha256": {
+                    "type": "string",
+                    "pattern": "^sha256:[0-9a-f]{64}$"
+                  }
+                },
+                "required": [
+                  "descriptor_id",
+                  "protocol",
+                  "etag",
+                  "provider_version",
+                  "parts",
+                  "size_bytes",
+                  "content_sha256"
+                ]
               }
             },
             "required": [
@@ -2815,7 +3064,7 @@
                   "maximum_bytes": {
                     "type": "integer",
                     "minimum": 1,
-                    "maximum": 5497558138880
+                    "maximum": 10737418240
                   }
                 },
                 "required": [
