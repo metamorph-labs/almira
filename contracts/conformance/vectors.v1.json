@@ -1,7 +1,7 @@
 {
   "schema_id": "almira.public.api-conformance-vectors.v1",
   "format_version": 1,
-  "openapi": "0.1.0-dev.41",
+  "openapi": "0.1.0-dev.43",
   "schema_vectors": [
     {
       "name": "additional_environment_is_managed_by_default",
@@ -1011,8 +1011,7 @@
           "evidence": {
             "engine_version": "engine-1.2.3",
             "signature_version": "definitions-42",
-            "signature_published_at": "2026-10-17T00:00:00Z",
-            "safe_result_code": "FIL_SCAN_BLOCKED"
+            "safe_result_code": "malware"
           },
           "revision": 2,
           "created_at": "2026-10-17T00:00:00Z",
@@ -1065,8 +1064,7 @@
       "instance": {
         "engine_version": "engine-\"raw-threat",
         "signature_version": "definitions-42",
-        "signature_published_at": "2026-10-17T00:00:00Z",
-        "safe_result_code": "FIL_SCAN_BLOCKED"
+        "safe_result_code": "malware"
       },
       "expected": "invalid"
     },

@@ -28,6 +28,8 @@ available individually through the SDK, CLI, MCP server, and console. A class-on
 change starts the same governed, resumable storage migration exposed by those surfaces.
 Collection malware policy is equally declarative: changing it affects new generations only, while
 an exact-generation rescan immediately gates delivery until FileService returns a clean verdict.
+The same operation is replayed with current authority to refresh queued, retrying, cleanup or
+terminal FileService state; no Almira client or worker stores caller credentials for polling.
 
 The dependency-light TypeScript client is in [`sdks/typescript`](sdks/typescript). It covers every
 operation in the promoted contract and supports same-origin browser sessions, PATs, SAKs and

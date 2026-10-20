@@ -264,7 +264,6 @@ export interface ProtectionReview {
 export interface ProtectionScanEvidence {
   engine_version: string;
   signature_version: string;
-  signature_published_at: Timestamp;
   safe_result_code: string;
 }
 
@@ -634,7 +633,7 @@ export interface VerificationCheck {
 
 export interface VerificationReceipt {
   receipt_version: "almira.verification.v1";
-  contract_version: "0.1.0-dev.41";
+  contract_version: "0.1.0-dev.43";
   verification_id: UuidV7;
   realm_id: UuidV7;
   tenant_id: UuidV7;

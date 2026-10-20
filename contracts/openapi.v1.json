@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Almira API",
-    "version": "0.1.0-dev.41",
+    "version": "0.1.0-dev.43",
     "description": "Provider-neutral application file storage management and data API."
   },
   "servers": [
@@ -5875,28 +5875,26 @@
         "required": [
           "engine_version",
           "signature_version",
-          "signature_published_at",
           "safe_result_code"
         ],
         "properties": {
           "engine_version": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 96,
+            "maxLength": 128,
             "pattern": "^(?!.*[\"\\\\])[\\x21-\\x7E]+$"
           },
           "signature_version": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 96,
+            "maxLength": 128,
             "pattern": "^(?!.*[\"\\\\])[\\x21-\\x7E]+$"
-          },
-          "signature_published_at": {
-            "$ref": "#/components/schemas/Timestamp"
           },
           "safe_result_code": {
             "type": "string",
-            "pattern": "^FIL_SCAN_[A-Z0-9_]{1,87}$"
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^(?!.*[\"\\\\])[\\x21-\\x7E]+$"
           }
         }
       },
@@ -7647,7 +7645,7 @@
             "const": "almira.verification.v1"
           },
           "contract_version": {
-            "const": "0.1.0-dev.41"
+            "const": "0.1.0-dev.43"
           },
           "verification_id": {
             "$ref": "#/components/schemas/UuidV7"

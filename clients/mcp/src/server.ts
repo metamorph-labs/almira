@@ -371,7 +371,7 @@ export function createAlmiraMcpServer(
   client: AlmiraClient,
   dependencies: AlmiraMcpDependencies = {},
 ): McpServer {
-  const server = new McpServer({ name: "almira", version: "0.1.0-dev.41" });
+  const server = new McpServer({ name: "almira", version: "0.1.0-dev.43" });
 
   server.registerTool(
     "almira_project_bootstrap",
