@@ -39,6 +39,8 @@ enrollment to a non-development environment; development always stays managed. A
 environment adopts immediately, while a non-empty environment first migrates each collection to
 the exact enrolled realization and adopts only after every binding is ready. Project-scoped list
 and status operations expose durable safe receipts while keeping provider coordinates private.
+The reverse transition is equally explicit: every collection first migrates to a current managed
+realization, then one revision-bound operation atomically restores the environment's managed model.
 
 The dependency-light TypeScript client is in [`sdks/typescript`](sdks/typescript). It covers every
 operation in the promoted contract and supports same-origin browser sessions, PATs, SAKs and

@@ -93,6 +93,7 @@ import type {
   ReplaceCollectionProtectionRequest,
   ReplaceEntryMetadataRequest,
   RenameFileRequest,
+  RestoreManagedStorageRequest,
   RestoreFileGenerationRequest,
   RestoreFileRequest,
   RotateLocalIssuerKeyRequest,
@@ -309,6 +310,19 @@ export class AlmiraClient {
     options: MutationOptions,
   ): Promise<EnvironmentMutationOutcome> {
     return this.#json(environmentPath(reference, "/storage-binding"), {
+      method: "PUT",
+      headers: mutationHeaders(options.operationId),
+      body: request,
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async restoreManagedStorage(
+    reference: EnvironmentReference,
+    request: RestoreManagedStorageRequest,
+    options: MutationOptions,
+  ): Promise<EnvironmentMutationOutcome> {
+    return this.#json(environmentPath(reference, "/managed-storage-binding"), {
       method: "PUT",
       headers: mutationHeaders(options.operationId),
       body: request,

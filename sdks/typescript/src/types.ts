@@ -29,6 +29,10 @@ export interface AdoptCustomerStorageRequest {
   expected_revision: number;
 }
 
+export interface RestoreManagedStorageRequest {
+  expected_revision: number;
+}
+
 export interface EnvironmentMutationOutcome {
   disposition: "applied" | "exact_replay";
   environment: Environment;
@@ -723,7 +727,7 @@ export interface VerificationCheck {
 
 export interface VerificationReceipt {
   receipt_version: "almira.verification.v1";
-  contract_version: "0.1.0-dev.51";
+  contract_version: "0.1.0-dev.52";
   verification_id: UuidV7;
   realm_id: UuidV7;
   tenant_id: UuidV7;

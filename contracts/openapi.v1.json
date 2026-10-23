@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Almira API",
-    "version": "0.1.0-dev.51",
+    "version": "0.1.0-dev.52",
     "description": "Provider-neutral application file storage management and data API."
   },
   "servers": [
@@ -873,11 +873,72 @@
         ],
         "responses": {
           "200": {
-            "description": "Fresh provider-neutral storage realizations available to the active environment.",
+            "description": "Fresh provider-neutral project realizations for the environment's current model and governed migration targets.",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/StorageRealizationCatalog"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/environments/{environment_id}/managed-storage-binding": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "put": {
+        "operationId": "restoreManagedStorage",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/OperationId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RestoreManagedStorageRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Managed storage restored after every existing collection is bound to a current managed realization, or exactly replayed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnvironmentMutationOutcome"
                 }
               }
             }
@@ -4872,6 +4933,19 @@
           }
         }
       },
+      "RestoreManagedStorageRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "expected_revision"
+        ],
+        "properties": {
+          "expected_revision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
       "EnvironmentMutationOutcome": {
         "type": "object",
         "additionalProperties": false,
@@ -8511,7 +8585,7 @@
             "const": "almira.verification.v1"
           },
           "contract_version": {
-            "const": "0.1.0-dev.51"
+            "const": "0.1.0-dev.52"
           },
           "verification_id": {
             "$ref": "#/components/schemas/UuidV7"

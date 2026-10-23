@@ -46,6 +46,9 @@ coding agent can resume after a restart without receiving provider coordinates.
 non-development environment. It binds the exact environment revision and replay identity;
 development stays managed, an empty environment adopts immediately, and a non-empty environment
 must first migrate every collection to the enrollment's exact realization.
+`almira_storage_restore_managed` performs the reverse transition only after every collection has
+migrated to a current managed realization advertised by fresh capabilities. It binds the exact
+environment revision and replay identity, and a partial transition is refused atomically.
 
 Portability tools start credential-free FileService-bound imports, start safe retained-generation
 exports, and inspect durable job progress. Imports accept no provider credential or storage target.

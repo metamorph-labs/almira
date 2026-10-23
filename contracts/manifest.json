@@ -1,15 +1,15 @@
 {
   "formatVersion": 1,
   "product": "almira",
-  "contractVersion": "0.1.0-dev.51",
+  "contractVersion": "0.1.0-dev.52",
   "source": {
     "repository": "metamorph-labs/almira-core",
     "algorithm": "sha256",
-    "digest": "361fc26285b85226f9f2eb2b4e1ced2399d48c5d2b4caa818d20ac0c5a8e4057"
+    "digest": "84fcd5a5479bb1e4592aca100f15a4a2083274f5490e3c40b5a25040075dc9e9"
   },
   "bundle": {
     "algorithm": "sha256",
-    "digest": "361fc26285b85226f9f2eb2b4e1ced2399d48c5d2b4caa818d20ac0c5a8e4057"
+    "digest": "84fcd5a5479bb1e4592aca100f15a4a2083274f5490e3c40b5a25040075dc9e9"
   },
   "files": [
     {
@@ -44,13 +44,13 @@
     },
     {
       "path": "conformance/vectors.v1.json",
-      "size": 65765,
-      "digest": "cdcd1a025770a406d30f8287aab19a4daeb792491935b0b8cd8678a43f279841"
+      "size": 66295,
+      "digest": "df9a0ce9ef35474b083b4860f1ecd65cf5a6ac8e77d0c3639b90c33409c71f9e"
     },
     {
       "path": "data-openapi.v1.json",
       "size": 23277,
-      "digest": "d17b86ed9598b3320ca15761b3a6605fc51137aaf7beae8b01f4923b68206e0e"
+      "digest": "7f2f1c8a1356538316e861c48874702ccee4016d7040b1b9729df7735c5d4322"
     },
     {
       "path": "errors.v1.json",
@@ -84,8 +84,8 @@
     },
     {
       "path": "openapi.v1.json",
-      "size": 302654,
-      "digest": "bf428b1055cb63f2512951e188d00752431bfbf8c240752f1bed039def622dd5"
+      "size": 304773,
+      "digest": "7fdf70c3a230a87873d0f51d6720aa6d9aadda73c4cc2c71f36cb3fd3a8bf0f5"
     },
     {
       "path": "README.md",
@@ -95,7 +95,7 @@
     {
       "path": "release.json",
       "size": 70,
-      "digest": "c4c884820be160475e6e726e156b0a9d1db828968f5ad43d279ac643825f8357"
+      "digest": "c9d236ad4a0023ab8cf988644e3ee29a3ba669ea776a97b2b5983fa2f4e7238a"
     }
   ]
 }

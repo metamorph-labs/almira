@@ -36,6 +36,11 @@ almira storage adopt \
   --environment 018f0000-0000-7000-8000-000000000005 \
   --enrollment 018f0000-0000-7000-8000-000000000020 \
   --revision 1
+almira storage restore-managed \
+  --tenant 018f0000-0000-7000-8000-000000000002 \
+  --project 018f0000-0000-7000-8000-000000000003 \
+  --environment 018f0000-0000-7000-8000-000000000005 \
+  --revision 4
 almira enrollment get \
   --tenant 018f0000-0000-7000-8000-000000000002 \
   --project 018f0000-0000-7000-8000-000000000003 \
@@ -151,6 +156,13 @@ non-empty environment, run `collection migrate` for every collection using the e
 realization generation, reconcile every receipt to `succeeded`, then adopt. A partial or stale
 binding is refused without changing the environment. Retain `operation_id` for an exact retry; a
 completed retry returns the durable outcome without requiring another FileService catalog read.
+
+`storage restore-managed` performs the reverse environment transition. First read fresh storage
+capabilities and migrate every collection to one of the advertised managed realizations, including
+same-class migrations where necessary. The final command binds the environment's current revision
+and atomically clears its customer enrollment only after every collection is ready on an exact
+current managed target. A partial migration is refused without changing the environment; retain
+the operation ID for exact retry.
 
 `collection create` defaults `--class` to `normal`. Select `express` only when the environment's
 fresh storage-capability result advertises it.

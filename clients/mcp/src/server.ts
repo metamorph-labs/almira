@@ -409,7 +409,7 @@ export function createAlmiraMcpServer(
   client: AlmiraClient,
   dependencies: AlmiraMcpDependencies = {},
 ): McpServer {
-  const server = new McpServer({ name: "almira", version: "0.1.0-dev.51" });
+  const server = new McpServer({ name: "almira", version: "0.1.0-dev.52" });
 
   server.registerTool(
     "almira_project_bootstrap",
@@ -662,6 +662,33 @@ export function createAlmiraMcpServer(
         () => client.adoptCustomerStorage(
           { tenantId: tenant_id, projectId: project_id, environmentId: environment_id },
           { enrollment_operation_id, expected_revision },
+          { operationId: id },
+        ),
+        id,
+      );
+    },
+  );
+
+  server.registerTool(
+    "almira_storage_restore_managed",
+    {
+      title: "Restore managed storage",
+      description: "Return a customer-owned environment to managed storage after every collection has migrated to a current managed realization.",
+      inputSchema: z.object({
+        ...scope,
+        environment_id: uuid,
+        expected_revision: z.number().int().min(1),
+        operation_id: operationId,
+      }).strict(),
+      outputSchema,
+      annotations: mutationAnnotations,
+    },
+    async ({ tenant_id, project_id, environment_id, expected_revision, operation_id }) => {
+      const id = operation_id ?? createOperationId();
+      return execute(
+        () => client.restoreManagedStorage(
+          { tenantId: tenant_id, projectId: project_id, environmentId: environment_id },
+          { expected_revision },
           { operationId: id },
         ),
         id,

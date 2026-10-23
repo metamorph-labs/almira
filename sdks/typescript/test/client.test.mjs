@@ -323,6 +323,47 @@ test("customer storage adoption binds one environment, enrollment, revision, and
   }]);
 });
 
+test("managed storage restoration binds one environment, revision, and replay identity", async () => {
+  const calls = [];
+  const environment = {
+    environment_id: environmentId,
+    environment_key: "production",
+    display_name: "Production",
+    system_key: "production",
+    operating_model: "managed",
+    lifecycle: "active",
+    revision: 3,
+    created_at: "2026-10-17T00:00:00Z",
+    updated_at: "2026-10-17T00:02:00Z",
+  };
+  const client = new AlmiraClient({
+    credential: "mm_pat_v1.test",
+    fetch: async (input, init) => {
+      calls.push({ input, init });
+      return json({ disposition: "applied", environment });
+    },
+  });
+  const request = { expected_revision: 2 };
+
+  await client.restoreManagedStorage(
+    { tenantId, projectId, environmentId },
+    request,
+    { operationId },
+  );
+
+  assert.deepEqual(calls.map(({ input, init }) => ({
+    input,
+    method: init.method,
+    operation: init.headers.get("idempotency-key"),
+    body: JSON.parse(init.body),
+  })), [{
+    input: `/v1/projects/${projectId}/environments/${environmentId}/managed-storage-binding`,
+    method: "PUT",
+    operation: operationId,
+    body: request,
+  }]);
+});
+
 test("storage migration start and status use the collection-scoped contract", async () => {
   const calls = [];
   const migration = {

@@ -116,6 +116,7 @@ test("tool catalog is closed and marks destructive behavior accurately", async (
       "almira_storage_enrollment_list",
       "almira_storage_migration_get",
       "almira_storage_migration_start",
+      "almira_storage_restore_managed",
       "almira_verification_receipt_create",
     ],
   );
@@ -937,6 +938,58 @@ test("customer storage adoption tool binds the exact environment and replay iden
     method: "PUT",
     operationId: adoptionOperationId,
     body: { enrollment_operation_id: enrollmentOperationId, expected_revision: 1 },
+  }]);
+});
+
+test("managed storage restoration tool binds the exact environment and replay identity", async (context) => {
+  const requests = [];
+  const environmentId = "018f0000-0000-7000-8000-000000000004";
+  const restorationOperationId = "018f0000-0000-7000-8000-000000000020";
+  const connection = await connected(async (input, init) => {
+    requests.push({ input, init });
+    return json({
+      disposition: "applied",
+      environment: {
+        environment_id: environmentId,
+        environment_key: "production",
+        display_name: "Production",
+        system_key: "production",
+        operating_model: "managed",
+        lifecycle: "active",
+        revision: 3,
+        created_at: "2026-10-17T00:00:00Z",
+        updated_at: "2026-10-17T00:02:00Z",
+      },
+    });
+  });
+  context.after(async () => {
+    await connection.client.close();
+    await connection.server.close();
+  });
+
+  const result = await connection.client.callTool({
+    name: "almira_storage_restore_managed",
+    arguments: {
+      tenant_id: tenantId,
+      project_id: projectId,
+      environment_id: environmentId,
+      expected_revision: 2,
+      operation_id: restorationOperationId,
+    },
+  });
+
+  assert.equal(result.isError, undefined);
+  assert.equal(result.structuredContent.operation_id, restorationOperationId);
+  assert.deepEqual(requests.map(({ input, init }) => ({
+    input,
+    method: init.method,
+    operationId: init.headers.get("idempotency-key"),
+    body: JSON.parse(init.body),
+  })), [{
+    input: `https://almira.test/v1/projects/${projectId}/environments/${environmentId}/managed-storage-binding`,
+    method: "PUT",
+    operationId: restorationOperationId,
+    body: { expected_revision: 2 },
   }]);
 });
 

@@ -54,6 +54,14 @@ const adopted = await almira.adoptCustomerStorage(
   { operationId: adoptionOperationId },
 );
 
+// After every collection has migrated to a current managed realization, restore the environment
+// atomically. Use the revision returned by the latest environment read or migration workflow.
+const restored = await almira.restoreManagedStorage(
+  { tenantId, projectId, environmentId: adopted.environment.environment_id },
+  { expected_revision: adopted.environment.revision },
+  { operationId: restorationOperationId },
+);
+
 const collection = await almira.createCollection(
   { tenantId, projectId, environmentId: environments[0].environment_id },
   {
@@ -135,6 +143,12 @@ catalog. The protected development environment stays managed. An empty environme
 immediately; an environment with collections adopts only after each collection has completed a
 same-class or cross-class migration to that exact enrollment realization. Reusing the operation ID
 after a completed request returns the durable receipt without another owner read.
+
+`restoreManagedStorage` performs the reverse transition after every collection has completed a
+same-class or cross-class migration to an exact current managed realization from a fresh
+capability catalog. The revision-bound operation changes the environment atomically; if any
+collection still points at customer-owned storage, it refuses without clearing the enrollment.
+Reusing the operation ID returns the durable receipt.
 
 `startStorageMigration` changes the logical `normal`/`express` class or moves to a distinct
 same-class realization, binding the exact opaque generation selected from the fresh capability
