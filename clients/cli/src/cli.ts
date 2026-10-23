@@ -81,7 +81,7 @@ Commands:
   storage capabilities    Discover storage realizations available to an environment
   storage enroll          Enroll a credential-free customer storage target from --input JSON
   storage enrollments     List durable customer storage enrollment receipts
-  storage adopt           Use an active normal enrollment in an empty environment
+  storage adopt           Adopt an active normal enrollment after required migrations
   enrollment get         Reconcile one customer storage enrollment by operation ID
   config preview          Preview additive almira.yaml changes
   config apply            Apply an almira.yaml configuration
@@ -89,7 +89,7 @@ Commands:
   collection create       Create a private normal or express collection
   collection get          Read one collection
   lifecycle set           Replace a collection's recycle-retention window
-  collection migrate      Migrate a collection to another storage class
+  collection migrate      Migrate a collection to another storage realization
   migration get           Read durable storage-migration progress
   import start            Start an import from a FileService-issued source manifest
   export start            Build a retained-generation portable export

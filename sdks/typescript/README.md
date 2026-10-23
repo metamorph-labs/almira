@@ -129,14 +129,16 @@ reload and `getStorageEnrollment` with the original operation ID to reconcile pr
 opaque realization state. Provider coordinates are used only for the owner call and are not
 returned or persisted in Almira's enrollment ledger.
 
-`adoptCustomerStorage` switches one empty managed environment to hosted customer-owned storage
-only after the selected `normal` enrollment is active and matches a fresh authenticated
-FileService catalog. The protected development environment stays managed, and an environment with
-collections is refused until the separate governed migration is available. Reusing the operation
-ID after a completed request returns the durable receipt without another owner read.
+`adoptCustomerStorage` switches one managed environment to hosted customer-owned storage only
+after the selected `normal` enrollment is active and matches a fresh authenticated FileService
+catalog. The protected development environment stays managed. An empty environment adopts
+immediately; an environment with collections adopts only after each collection has completed a
+same-class or cross-class migration to that exact enrollment realization. Reusing the operation ID
+after a completed request returns the durable receipt without another owner read.
 
-`startStorageMigration` changes the logical `normal`/`express` class and binds the exact opaque
-realization generation selected from the fresh capability catalog or an active enrollment receipt.
+`startStorageMigration` changes the logical `normal`/`express` class or moves to a distinct
+same-class realization, binding the exact opaque generation selected from the fresh capability
+catalog or an active enrollment receipt.
 FileService owns inventory, copy, verification, cutover and cleanup.
 Uploads to that collection pause while the receipt is non-terminal; reads remain bound to their
 stored generations. Poll `getStorageMigration` to `succeeded` or `failed` and reuse the original

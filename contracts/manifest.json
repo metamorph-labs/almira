@@ -1,15 +1,15 @@
 {
   "formatVersion": 1,
   "product": "almira",
-  "contractVersion": "0.1.0-dev.50",
+  "contractVersion": "0.1.0-dev.51",
   "source": {
     "repository": "metamorph-labs/almira-core",
     "algorithm": "sha256",
-    "digest": "2f1af0988e17e5639e918c44cd4aff616d4dc1f3b6010e40ac8392eeb5f07b1c"
+    "digest": "361fc26285b85226f9f2eb2b4e1ced2399d48c5d2b4caa818d20ac0c5a8e4057"
   },
   "bundle": {
     "algorithm": "sha256",
-    "digest": "2f1af0988e17e5639e918c44cd4aff616d4dc1f3b6010e40ac8392eeb5f07b1c"
+    "digest": "361fc26285b85226f9f2eb2b4e1ced2399d48c5d2b4caa818d20ac0c5a8e4057"
   },
   "files": [
     {
@@ -44,18 +44,18 @@
     },
     {
       "path": "conformance/vectors.v1.json",
-      "size": 65422,
-      "digest": "54542b36f840c2986209fc5f8fbf1cc0b50e2b047ba42e42634f21f8f7425793"
+      "size": 65765,
+      "digest": "cdcd1a025770a406d30f8287aab19a4daeb792491935b0b8cd8678a43f279841"
     },
     {
       "path": "data-openapi.v1.json",
       "size": 23277,
-      "digest": "a8ae097180cd4917bc8818631ae9178317fad30debb7a0fb22071f05d50b3f16"
+      "digest": "d17b86ed9598b3320ca15761b3a6605fc51137aaf7beae8b01f4923b68206e0e"
     },
     {
       "path": "errors.v1.json",
-      "size": 23428,
-      "digest": "f7a120247ad8a8b42ad1ae2b109e15986dcf0c79b8eff7d28855a2bc8d4f4454"
+      "size": 23451,
+      "digest": "2027d534cc1f441d7d551c4abbb73cdc826a2d9b451e36b40e657fc90c9d72b7"
     },
     {
       "path": "events/catalog.schema.json",
@@ -84,8 +84,8 @@
     },
     {
       "path": "openapi.v1.json",
-      "size": 302603,
-      "digest": "e88388a12d5251b7fe2027c682ce19016657e43553ff736a43e454d5c7140b47"
+      "size": 302654,
+      "digest": "bf428b1055cb63f2512951e188d00752431bfbf8c240752f1bed039def622dd5"
     },
     {
       "path": "README.md",
@@ -95,7 +95,7 @@
     {
       "path": "release.json",
       "size": 70,
-      "digest": "0eeee62eb72e5f89ccc855719953910462108ad2f530694f9ae97257207a7cac"
+      "digest": "c4c884820be160475e6e726e156b0a9d1db828968f5ad43d279ac643825f8357"
     }
   ]
 }

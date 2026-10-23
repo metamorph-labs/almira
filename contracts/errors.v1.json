@@ -224,11 +224,6 @@
       "retryable": false
     },
     {
-      "code": "ALMIRA_ENVIRONMENT_NOT_EMPTY",
-      "http_status": 409,
-      "retryable": false
-    },
-    {
       "code": "ALMIRA_ENVIRONMENT_NOT_FOUND",
       "http_status": 404,
       "retryable": false
@@ -260,6 +255,11 @@
     },
     {
       "code": "ALMIRA_ENVIRONMENT_STORAGE_ENROLLMENT_NOT_ACTIVE",
+      "http_status": 409,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_ENVIRONMENT_STORAGE_MIGRATION_REQUIRED",
       "http_status": 409,
       "retryable": false
     },
@@ -879,11 +879,6 @@
       "retryable": false
     },
     {
-      "code": "ALMIRA_STORAGE_MIGRATION_CLASS_UNCHANGED",
-      "http_status": 409,
-      "retryable": false
-    },
-    {
       "code": "ALMIRA_STORAGE_MIGRATION_COLLECTION_NOT_FOUND",
       "http_status": 404,
       "retryable": false
@@ -917,6 +912,11 @@
       "code": "ALMIRA_STORAGE_MIGRATION_OUTCOME_UNKNOWN",
       "http_status": 503,
       "retryable": true
+    },
+    {
+      "code": "ALMIRA_STORAGE_MIGRATION_REALIZATION_UNCHANGED",
+      "http_status": 409,
+      "retryable": false
     },
     {
       "code": "ALMIRA_STORAGE_MIGRATION_REVISION_CONFLICT",

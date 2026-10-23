@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Almira API",
-    "version": "0.1.0-dev.50",
+    "version": "0.1.0-dev.51",
     "description": "Provider-neutral application file storage management and data API."
   },
   "servers": [
@@ -825,7 +825,7 @@
         },
         "responses": {
           "200": {
-            "description": "Proved normal-class customer-owned storage adopted by an empty environment, or exactly replayed.",
+            "description": "Proved normal-class customer-owned storage adopted after every existing collection is bound to the exact enrolled realization, or exactly replayed.",
             "content": {
               "application/json": {
                 "schema": {
@@ -8511,7 +8511,7 @@
             "const": "almira.verification.v1"
           },
           "contract_version": {
-            "const": "0.1.0-dev.50"
+            "const": "0.1.0-dev.51"
           },
           "verification_id": {
             "$ref": "#/components/schemas/UuidV7"

@@ -42,9 +42,10 @@ console and CLI. Creation accepts S3, GCS, or Azure Blob coordinates plus a work
 identity and provider-native encryption configuration; it never accepts static cloud credentials.
 List and get return only durable safe proof, health, and opaque realization state, so an external
 coding agent can resume after a restart without receiving provider coordinates.
-`almira_storage_adopt` explicitly uses one active `normal` enrollment in an empty managed
+`almira_storage_adopt` explicitly uses one active `normal` enrollment in a managed
 non-development environment. It binds the exact environment revision and replay identity;
-development stays managed, and non-empty migration is deliberately refused rather than implied.
+development stays managed, an empty environment adopts immediately, and a non-empty environment
+must first migrate every collection to the enrollment's exact realization.
 
 Portability tools start credential-free FileService-bound imports, start safe retained-generation
 exports, and inspect durable job progress. Imports accept no provider credential or storage target.

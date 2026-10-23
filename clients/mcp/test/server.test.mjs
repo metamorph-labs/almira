@@ -886,7 +886,7 @@ test("customer storage enrollment tools are credential-free and project scoped",
   ]);
 });
 
-test("customer storage adoption tool binds the exact empty environment and replay identity", async (context) => {
+test("customer storage adoption tool binds the exact environment and replay identity", async (context) => {
   const requests = [];
   const environmentId = "018f0000-0000-7000-8000-000000000004";
   const enrollmentOperationId = "018f0000-0000-7000-8000-000000000017";

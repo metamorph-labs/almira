@@ -409,7 +409,7 @@ export function createAlmiraMcpServer(
   client: AlmiraClient,
   dependencies: AlmiraMcpDependencies = {},
 ): McpServer {
-  const server = new McpServer({ name: "almira", version: "0.1.0-dev.50" });
+  const server = new McpServer({ name: "almira", version: "0.1.0-dev.51" });
 
   server.registerTool(
     "almira_project_bootstrap",
@@ -645,7 +645,7 @@ export function createAlmiraMcpServer(
     "almira_storage_adopt",
     {
       title: "Adopt customer-owned storage",
-      description: "Use one active normal-class enrollment in an empty managed environment. Development remains managed.",
+      description: "Use one active normal-class enrollment after every existing collection has migrated to its exact realization. Empty environments adopt immediately; development remains managed.",
       inputSchema: z.object({
         ...scope,
         environment_id: uuid,

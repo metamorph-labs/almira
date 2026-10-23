@@ -144,11 +144,13 @@ not accepted. `storage enrollments` restores the project's safe receipts after a
 `enrollment get` reconciles one receipt using its original operation ID. Neither command returns
 the submitted provider coordinates.
 
-`storage adopt` explicitly switches one empty managed environment to hosted customer-owned
-storage using an active `normal` enrollment and the environment's current revision. The protected
-`development` environment always remains managed. A non-empty environment is refused until the
-separate governed migration exists. Retain `operation_id` for an exact retry; a completed retry
-returns the durable outcome without requiring another FileService catalog read.
+`storage adopt` explicitly switches one managed environment to hosted customer-owned storage
+using an active `normal` enrollment and the environment's current revision. The protected
+`development` environment always remains managed. An empty environment adopts immediately. For a
+non-empty environment, run `collection migrate` for every collection using the enrollment's exact
+realization generation, reconcile every receipt to `succeeded`, then adopt. A partial or stale
+binding is refused without changing the environment. Retain `operation_id` for an exact retry; a
+completed retry returns the durable outcome without requiring another FileService catalog read.
 
 `collection create` defaults `--class` to `normal`. Select `express` only when the environment's
 fresh storage-capability result advertises it.
