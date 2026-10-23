@@ -139,6 +139,16 @@
       "retryable": true
     },
     {
+      "code": "ALMIRA_COMMERCIAL_ADMISSION_REFUSED",
+      "http_status": 403,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_COMMERCIAL_ADMISSION_UNAVAILABLE",
+      "http_status": 503,
+      "retryable": true
+    },
+    {
       "code": "ALMIRA_DELIVERY_ACCESS_REFUSED",
       "http_status": 403,
       "retryable": false

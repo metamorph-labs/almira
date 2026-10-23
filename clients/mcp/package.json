@@ -1,6 +1,6 @@
 {
   "name": "@metamorph-labs/almira-mcp",
-  "version": "0.1.0-dev.52",
+  "version": "0.1.0-dev.53",
   "description": "MCP management server for Almira",
   "type": "module",
   "license": "Apache-2.0",

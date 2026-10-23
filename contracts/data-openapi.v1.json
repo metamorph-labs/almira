@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Almira Data and Delivery API",
-    "version": "0.1.0-dev.52",
+    "version": "0.1.0-dev.53",
     "description": "Browser/mobile capability reads and immutable governed delivery. This surface never accepts PATs, SAKs, product sessions, provider credentials, or management routing headers."
   },
   "servers": [

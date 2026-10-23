@@ -85,4 +85,4 @@ __all__ = [
 ]
 
 __version__ = "0.1.0.dev44"
-__contract_version__ = "0.1.0-dev.52"
+__contract_version__ = "0.1.0-dev.53"
