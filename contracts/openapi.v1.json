@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Almira API",
-    "version": "0.1.0-dev.46",
+    "version": "0.1.0-dev.47",
     "description": "Provider-neutral application file storage management and data API."
   },
   "servers": [
@@ -8510,7 +8510,7 @@
             "const": "almira.verification.v1"
           },
           "contract_version": {
-            "const": "0.1.0-dev.46"
+            "const": "0.1.0-dev.47"
           },
           "verification_id": {
             "$ref": "#/components/schemas/UuidV7"
@@ -9899,6 +9899,7 @@
           "kind",
           "hostname",
           "state",
+          "routing_target",
           "verification_name",
           "verification_value",
           "certificate_expires_at"
@@ -9926,6 +9927,14 @@
               "failed",
               "removing"
             ]
+          },
+          "routing_target": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 253,
+            "pattern": "^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$"
           },
           "verification_name": {
             "type": [
@@ -9962,7 +9971,8 @@
               "mode",
               "cache_preset",
               "logical_aliases",
-              "direct_provider_private_downloads"
+              "direct_provider_private_downloads",
+              "custom_hostname"
             ],
             "properties": {
               "mode": {
@@ -9976,6 +9986,15 @@
               },
               "direct_provider_private_downloads": {
                 "const": false
+              },
+              "custom_hostname": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "minLength": 1,
+                "maxLength": 253,
+                "pattern": "^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$"
               }
             }
           },
@@ -9986,7 +10005,8 @@
               "mode",
               "cache_preset",
               "logical_aliases",
-              "direct_provider_private_downloads"
+              "direct_provider_private_downloads",
+              "custom_hostname"
             ],
             "properties": {
               "mode": {
@@ -10000,6 +10020,15 @@
               },
               "direct_provider_private_downloads": {
                 "const": false
+              },
+              "custom_hostname": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "minLength": 1,
+                "maxLength": 253,
+                "pattern": "^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$"
               }
             }
           },
@@ -10010,7 +10039,8 @@
               "mode",
               "cache_preset",
               "logical_aliases",
-              "direct_provider_private_downloads"
+              "direct_provider_private_downloads",
+              "custom_hostname"
             ],
             "properties": {
               "mode": {
@@ -10028,6 +10058,15 @@
               },
               "direct_provider_private_downloads": {
                 "const": false
+              },
+              "custom_hostname": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "minLength": 1,
+                "maxLength": 253,
+                "pattern": "^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$"
               }
             }
           }
@@ -10063,6 +10102,7 @@
             "enum": [
               "no_store",
               "revalidate",
+              "immutable_generation",
               "private_session"
             ]
           },

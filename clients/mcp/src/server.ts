@@ -278,14 +278,17 @@ const deliveryConfig = z.discriminatedUnion("mode", [
   z.object({
     mode: z.literal("off"), cache_preset: z.literal("no_store"),
     logical_aliases: z.literal(false), direct_provider_private_downloads: z.literal(false),
+    custom_hostname: z.string().min(1).max(253).regex(/^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/u).nullable(),
   }).strict(),
   z.object({
     mode: z.literal("public"), cache_preset: z.literal("revalidate"),
     logical_aliases: z.literal(false), direct_provider_private_downloads: z.literal(false),
+    custom_hostname: z.string().min(1).max(253).regex(/^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/u).nullable(),
   }).strict(),
   z.object({
     mode: z.literal("private"), cache_preset: z.enum(["no_store", "private_session"]),
     logical_aliases: z.literal(false), direct_provider_private_downloads: z.literal(false),
+    custom_hostname: z.string().min(1).max(253).regex(/^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/u).nullable(),
   }).strict(),
 ]);
 const localIssuerCeiling = z.object({
@@ -406,7 +409,7 @@ export function createAlmiraMcpServer(
   client: AlmiraClient,
   dependencies: AlmiraMcpDependencies = {},
 ): McpServer {
-  const server = new McpServer({ name: "almira", version: "0.1.0-dev.46" });
+  const server = new McpServer({ name: "almira", version: "0.1.0-dev.47" });
 
   server.registerTool(
     "almira_project_bootstrap",

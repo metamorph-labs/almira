@@ -723,7 +723,7 @@ export interface VerificationCheck {
 
 export interface VerificationReceipt {
   receipt_version: "almira.verification.v1";
-  contract_version: "0.1.0-dev.46";
+  contract_version: "0.1.0-dev.47";
   verification_id: UuidV7;
   realm_id: UuidV7;
   tenant_id: UuidV7;
@@ -1242,14 +1242,15 @@ export interface CapabilitySessionReference extends CollectionReference {
 }
 
 export type DeliveryConfigInput =
-  | { mode: "off"; cache_preset: "no_store"; logical_aliases: false; direct_provider_private_downloads: false }
-  | { mode: "public"; cache_preset: "revalidate"; logical_aliases: false; direct_provider_private_downloads: false }
-  | { mode: "private"; cache_preset: "no_store" | "private_session"; logical_aliases: false; direct_provider_private_downloads: false };
+  | { mode: "off"; cache_preset: "no_store"; logical_aliases: false; direct_provider_private_downloads: false; custom_hostname: string | null }
+  | { mode: "public"; cache_preset: "revalidate"; logical_aliases: false; direct_provider_private_downloads: false; custom_hostname: string | null }
+  | { mode: "private"; cache_preset: "no_store" | "private_session"; logical_aliases: false; direct_provider_private_downloads: false; custom_hostname: string | null };
 
 export interface DeliveryDomain {
   kind: "managed" | "custom";
   hostname: string;
   state: "active" | "pending_dns" | "provisioning_certificate" | "failed" | "removing";
+  routing_target: string | null;
   verification_name: string | null;
   verification_value: string | null;
   certificate_expires_at: Timestamp | null;
@@ -1258,7 +1259,7 @@ export interface DeliveryDomain {
 export interface DeliveryConfig {
   collection_instance_id: UuidV7;
   mode: "off" | "public" | "private";
-  cache_preset: "no_store" | "revalidate" | "private_session";
+  cache_preset: "no_store" | "revalidate" | "immutable_generation" | "private_session";
   logical_aliases: false;
   direct_provider_private_downloads: false;
   domain: DeliveryDomain;

@@ -57,7 +57,13 @@ test("policy, delivery, share, and issuer methods use exact collection-scoped ro
   await client.getDeliveryConfig(collection);
   await client.replaceDeliveryConfig(collection, {
     expected_revision: 1,
-    config: { mode: "public", cache_preset: "revalidate", logical_aliases: false, direct_provider_private_downloads: false },
+    config: {
+      mode: "public",
+      cache_preset: "revalidate",
+      logical_aliases: false,
+      direct_provider_private_downloads: false,
+      custom_hostname: "files.example.test",
+    },
   }, mutation);
   await client.createShare(collection, { entry_id: entryId, generation_id: generationId, lifetime_seconds: 600 }, mutation);
   await client.revokeShare({ ...collection, shareId }, mutation);

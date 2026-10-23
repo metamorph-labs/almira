@@ -717,6 +717,7 @@ test("policy and CDN tools preserve exact collection scope and revision", async 
         cache_preset: "revalidate",
         logical_aliases: false,
         direct_provider_private_downloads: false,
+        custom_hostname: "files.example.test",
       },
     },
   });
@@ -738,6 +739,7 @@ test("policy and CDN tools preserve exact collection scope and revision", async 
         config: {
           mode: "public", cache_preset: "revalidate", logical_aliases: false,
           direct_provider_private_downloads: false,
+          custom_hostname: "files.example.test",
         },
       },
     },

@@ -44,6 +44,7 @@ Use `listGenerationDerivatives` for management metadata and the capability-only 
 Keep the Almira product origin in `ALMIRA_BASE_URL` (without a `/platform/almira` prefix) and an `mm_pat_v1.` PAT or `mm_sak_v1.` SAK in `METAMORPH_TOKEN`. Never write a PAT, SAK, workload credential, one-use upload URL, or upload header into source, logs, prompts, or generated documentation. Deployed applications must use short-lived customer-workload evidence from Metamorph Identity, not a developer PAT or SAK.
 
 Do not provision S3, GCS, or Azure credentials in application code. Almira owns provider placement, delivery, safety processing, metadata extraction, and CDN behavior behind its API.
+Configure an optional collection custom hostname only through Almira's delivery operation. Use the returned provider-neutral CNAME target and ownership challenge; never configure CDN credentials or call a CDN provider directly. Send `custom_hostname: null` to keep the managed hostname.
 
 ## Verify The Journey
 

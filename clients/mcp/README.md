@@ -90,6 +90,11 @@ local issuer private key. Capability sessions and end-user data reads remain app
 operations because PAT/SAK-backed coding agents are management principals, not builder workloads
 or application users.
 
+`almira_delivery_replace` accepts the collection's desired nullable `custom_hostname`. Read the
+returned `routing_target`, ownership challenge and lifecycle state with `almira_delivery_get`;
+agents must not configure Cloudflare or another CDN directly. A deployment without that capability
+refuses the custom hostname through the ordinary Almira operation.
+
 `almira_storage_migration_start` changes an existing collection between advertised classes using
 its current revision and the exact opaque realization generation selected from fresh capabilities
 or an active enrollment receipt; it never accepts provider coordinates. Uploads to that collection

@@ -255,6 +255,11 @@ local issuer registration are all available through typed management methods. Lo
 remain in the builder's KMS or hardware-backed signer; `getLocalIssuerSigningConfiguration`
 returns only the revision-bound, non-secret inputs needed by a signer.
 
+`replaceDeliveryConfig` accepts a nullable collection-scoped `custom_hostname`. When the active
+deployment supports it, `getDeliveryConfig` returns the effective hostname, lifecycle state,
+provider-neutral CNAME `routing_target`, and any TXT ownership challenge. Keep using the managed
+hostname by sending `custom_hostname: null`; do not call or configure a CDN provider directly.
+
 The SDK also exports `normalizeConfiguration`, `previewConfiguration`, and `applyConfiguration`
 for the public `almira.yaml` v1 model. Preview performs reads only. Apply refuses conflicts before
 mutation, preserves unlisted resources, checks advertised storage classes, starts governed

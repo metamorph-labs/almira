@@ -227,6 +227,11 @@ shape: `policy get|set|simulate`, `delivery get|set`, `share create|revoke`, and
 Mutations retain the same `--operation-id` replay contract; issuer revocation also requires the
 current `--revision`.
 
+For `delivery set`, the exact JSON includes nullable `custom_hostname`. Use `null` for Almira's
+managed hostname or a lowercase DNS hostname for a deployment-supported custom domain, then read
+the returned `routing_target`, ownership challenge and lifecycle state with `delivery get`. The CLI
+never accepts CDN credentials or provider coordinates.
+
 Exit codes are stable: `0` success, `2` usage, `3` authentication/authorization, `4` not found,
 `5` conflict, `6` retryable service response, `7` other API response, `8` local/network failure,
 and `9` unexpected internal failure.
