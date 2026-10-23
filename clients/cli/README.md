@@ -230,7 +230,9 @@ current `--revision`.
 For `delivery set`, the exact JSON includes nullable `custom_hostname`. Use `null` for Almira's
 managed hostname or a lowercase DNS hostname for a deployment-supported custom domain, then read
 the returned `routing_target`, ownership challenge and lifecycle state with `delivery get`. The CLI
-never accepts CDN credentials or provider coordinates.
+never accepts CDN credentials or provider coordinates. `delivery get` also returns at most the 20
+newest cache invalidations with their trigger, state, attempts, safe error and timestamps; it never
+returns a provider resource ID or raw provider receipt.
 
 Exit codes are stable: `0` success, `2` usage, `3` authentication/authorization, `4` not found,
 `5` conflict, `6` retryable service response, `7` other API response, `8` local/network failure,

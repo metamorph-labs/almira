@@ -409,7 +409,7 @@ export function createAlmiraMcpServer(
   client: AlmiraClient,
   dependencies: AlmiraMcpDependencies = {},
 ): McpServer {
-  const server = new McpServer({ name: "almira", version: "0.1.0-dev.47" });
+  const server = new McpServer({ name: "almira", version: "0.1.0-dev.49" });
 
   server.registerTool(
     "almira_project_bootstrap",
@@ -1826,7 +1826,7 @@ export function createAlmiraMcpServer(
     "almira_delivery_get",
     {
       title: "Get CDN delivery configuration",
-      description: "Read the collection's effective CDN delivery, cache, and domain configuration.",
+      description: "Read the collection's effective CDN delivery, cache, domain, and recent provider-neutral invalidation diagnostics.",
       inputSchema: z.object(collectionScope).strict(),
       outputSchema,
       annotations: readAnnotations,

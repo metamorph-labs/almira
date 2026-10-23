@@ -723,7 +723,7 @@ export interface VerificationCheck {
 
 export interface VerificationReceipt {
   receipt_version: "almira.verification.v1";
-  contract_version: "0.1.0-dev.47";
+  contract_version: "0.1.0-dev.49";
   verification_id: UuidV7;
   realm_id: UuidV7;
   tenant_id: UuidV7;
@@ -1265,6 +1265,28 @@ export interface DeliveryConfig {
   domain: DeliveryDomain;
   revision: number;
   updated_at: Timestamp;
+}
+
+export interface DeliveryPurgeDiagnostic {
+  purge_id: UuidV7;
+  source: "entry_deleted";
+  entry_id: UuidV7;
+  state: "pending" | "completed" | "failed";
+  attempt_count: number;
+  last_error_code: "provider_refused" | "provider_response_invalid" | "provider_unavailable" | null;
+  requested_at: Timestamp;
+  updated_at: Timestamp;
+  completed_at: Timestamp | null;
+}
+
+export interface DeliveryDiagnostics {
+  recent_purges: DeliveryPurgeDiagnostic[];
+  purge_history_truncated: boolean;
+}
+
+export interface DeliveryConfigDetails {
+  config: DeliveryConfig;
+  diagnostics: DeliveryDiagnostics;
 }
 
 export interface ReplaceDeliveryConfigRequest {

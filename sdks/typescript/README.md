@@ -234,6 +234,11 @@ the application-facing `AlmiraDataClient.listDerivativesWithCapability` and `rea
 methods keep every derivative behind the same capability, safety and CDN gates as its source.
 Variant keys are opaque Almira names, not provider paths or URLs.
 
+`getDeliveryConfig` returns the effective collection delivery configuration together with at most
+the 20 newest provider-neutral cache-invalidation diagnostics. Each diagnostic exposes only its
+trigger, public state, attempt count, safe closed error and timestamps; provider resource IDs,
+credentials and raw provider receipts are never part of the management SDK.
+
 Application backends can pass a normalized `subject` with `listFiles`, `getFileMetadata`, and
 `readPrivateFile`; the SDK puts its canonical context on that same workload-authenticated call.
 Use `bindSubject` to persist a namespaced opaque builder-user-to-file lifecycle association and

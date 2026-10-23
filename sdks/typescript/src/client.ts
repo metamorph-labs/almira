@@ -31,7 +31,7 @@ import type {
   CreateShareRequest,
   DeleteFileOutcome,
   DirectUploadPart,
-  DeliveryConfig,
+  DeliveryConfigDetails,
   DeliveryConfigOutcome,
   EnvironmentList,
   EnvironmentMutationOutcome,
@@ -1094,7 +1094,7 @@ export class AlmiraClient {
   async getDeliveryConfig(
     reference: CollectionReference,
     options: { signal?: AbortSignal } = {},
-  ): Promise<DeliveryConfig> {
+  ): Promise<DeliveryConfigDetails> {
     return this.#json(collectionPath(reference, "/delivery"), {
       method: "GET",
       signal: options.signal,

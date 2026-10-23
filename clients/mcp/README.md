@@ -93,7 +93,9 @@ or application users.
 `almira_delivery_replace` accepts the collection's desired nullable `custom_hostname`. Read the
 returned `routing_target`, ownership challenge and lifecycle state with `almira_delivery_get`;
 agents must not configure Cloudflare or another CDN directly. A deployment without that capability
-refuses the custom hostname through the ordinary Almira operation.
+refuses the custom hostname through the ordinary Almira operation. The same read returns at most
+the 20 newest provider-neutral invalidation diagnostics, so an agent can distinguish pending,
+completed and terminally failed purge work without provider credentials or a privileged endpoint.
 
 `almira_storage_migration_start` changes an existing collection between advertised classes using
 its current revision and the exact opaque realization generation selected from fresh capabilities

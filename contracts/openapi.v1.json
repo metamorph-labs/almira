@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Almira API",
-    "version": "0.1.0-dev.47",
+    "version": "0.1.0-dev.49",
     "description": "Provider-neutral application file storage management and data API."
   },
   "servers": [
@@ -3812,7 +3812,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DeliveryConfig"
+                  "$ref": "#/components/schemas/DeliveryConfigDetails"
                 }
               }
             }
@@ -5597,7 +5597,8 @@
           },
           "attempt_count": {
             "type": "integer",
-            "minimum": 0
+            "minimum": 0,
+            "maximum": 2147483647
           },
           "revision": {
             "type": "integer",
@@ -8510,7 +8511,7 @@
             "const": "almira.verification.v1"
           },
           "contract_version": {
-            "const": "0.1.0-dev.47"
+            "const": "0.1.0-dev.49"
           },
           "verification_id": {
             "$ref": "#/components/schemas/UuidV7"
@@ -10121,6 +10122,178 @@
           },
           "updated_at": {
             "$ref": "#/components/schemas/Timestamp"
+          }
+        }
+      },
+      "DeliveryPurgeDiagnostic": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "purge_id",
+          "source",
+          "entry_id",
+          "state",
+          "attempt_count",
+          "last_error_code",
+          "requested_at",
+          "updated_at",
+          "completed_at"
+        ],
+        "properties": {
+          "purge_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "source": {
+            "const": "entry_deleted"
+          },
+          "entry_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "completed",
+              "failed"
+            ]
+          },
+          "attempt_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "last_error_code": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "provider_refused",
+              "provider_response_invalid",
+              "provider_unavailable",
+              null
+            ]
+          },
+          "requested_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "updated_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "completed_at": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Timestamp"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "state": {
+                  "const": "pending"
+                }
+              },
+              "required": [
+                "state"
+              ]
+            },
+            "then": {
+              "properties": {
+                "completed_at": {
+                  "type": "null"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "state": {
+                  "const": "completed"
+                }
+              },
+              "required": [
+                "state"
+              ]
+            },
+            "then": {
+              "properties": {
+                "last_error_code": {
+                  "type": "null"
+                },
+                "completed_at": {
+                  "$ref": "#/components/schemas/Timestamp"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "state": {
+                  "const": "failed"
+                }
+              },
+              "required": [
+                "state"
+              ]
+            },
+            "then": {
+              "properties": {
+                "last_error_code": {
+                  "type": "string",
+                  "enum": [
+                    "provider_refused",
+                    "provider_response_invalid",
+                    "provider_unavailable"
+                  ]
+                },
+                "completed_at": {
+                  "$ref": "#/components/schemas/Timestamp"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "DeliveryDiagnostics": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "recent_purges",
+          "purge_history_truncated"
+        ],
+        "properties": {
+          "recent_purges": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "$ref": "#/components/schemas/DeliveryPurgeDiagnostic"
+            }
+          },
+          "purge_history_truncated": {
+            "type": "boolean"
+          }
+        }
+      },
+      "DeliveryConfigDetails": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "config",
+          "diagnostics"
+        ],
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/DeliveryConfig"
+          },
+          "diagnostics": {
+            "$ref": "#/components/schemas/DeliveryDiagnostics"
           }
         }
       },

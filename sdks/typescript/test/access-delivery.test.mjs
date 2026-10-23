@@ -86,6 +86,50 @@ test("policy, delivery, share, and issuer methods use exact collection-scoped ro
     .every(({ init }) => init.headers.get("idempotency-key") === operationId));
 });
 
+test("delivery read returns bounded provider-neutral purge diagnostics", async () => {
+  const details = {
+    config: {
+      collection_instance_id: collectionInstanceId,
+      mode: "public",
+      cache_preset: "revalidate",
+      logical_aliases: false,
+      direct_provider_private_downloads: false,
+      domain: {
+        kind: "managed",
+        hostname: "delivery.example.test",
+        state: "active",
+        routing_target: null,
+        verification_name: null,
+        verification_value: null,
+        certificate_expires_at: null,
+      },
+      revision: 2,
+      updated_at: "2026-10-17T00:02:01Z",
+    },
+    diagnostics: {
+      recent_purges: [{
+        purge_id: "018f0000-0000-7000-8000-000000000011",
+        source: "entry_deleted",
+        entry_id: entryId,
+        state: "completed",
+        attempt_count: 1,
+        last_error_code: null,
+        requested_at: "2026-10-17T00:02:00Z",
+        updated_at: "2026-10-17T00:02:01Z",
+        completed_at: "2026-10-17T00:02:01Z",
+      }],
+      purge_history_truncated: false,
+    },
+  };
+  const client = new AlmiraClient({
+    credential: "mm_sak_v1.test",
+    fetch: async () => json(details),
+  });
+
+  assert.deepEqual(await client.getDeliveryConfig(collection), details);
+  assert.equal("provider_receipt_id" in details.diagnostics.recent_purges[0], false);
+});
+
 test("builder subject context is canonical and travels on the same application call", async () => {
   let request;
   const client = new AlmiraClient({
