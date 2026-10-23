@@ -723,7 +723,7 @@ export interface VerificationCheck {
 
 export interface VerificationReceipt {
   receipt_version: "almira.verification.v1";
-  contract_version: "0.1.0-dev.49";
+  contract_version: "0.1.0-dev.50";
   verification_id: UuidV7;
   realm_id: UuidV7;
   tenant_id: UuidV7;
@@ -1267,10 +1267,8 @@ export interface DeliveryConfig {
   updated_at: Timestamp;
 }
 
-export interface DeliveryPurgeDiagnostic {
+interface DeliveryPurgeDiagnosticStatus {
   purge_id: UuidV7;
-  source: "entry_deleted";
-  entry_id: UuidV7;
   state: "pending" | "completed" | "failed";
   attempt_count: number;
   last_error_code: "provider_refused" | "provider_response_invalid" | "provider_unavailable" | null;
@@ -1278,6 +1276,29 @@ export interface DeliveryPurgeDiagnostic {
   updated_at: Timestamp;
   completed_at: Timestamp | null;
 }
+
+export type DeliveryPurgeDiagnostic = DeliveryPurgeDiagnosticStatus & (
+  | { source: "project_lifecycle_changed"; target_kind: "project"; target_id: UuidV7 }
+  | { source: "environment_lifecycle_changed"; target_kind: "environment"; target_id: UuidV7 }
+  | {
+      source:
+        | "collection_lifecycle_changed"
+        | "collection_policy_changed"
+        | "delivery_configuration_changed";
+      target_kind: "collection";
+      target_id: UuidV7;
+    }
+  | {
+      source: "entry_deleted" | "entry_restricted" | "entry_restored" | "generation_replaced";
+      target_kind: "entry";
+      target_id: UuidV7;
+    }
+  | {
+      source: "generation_availability_changed" | "derivative_changed";
+      target_kind: "generation";
+      target_id: UuidV7;
+    }
+);
 
 export interface DeliveryDiagnostics {
   recent_purges: DeliveryPurgeDiagnostic[];

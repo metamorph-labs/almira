@@ -1,6 +1,6 @@
 [package]
 name = "metamorph-almira"
-version = "0.1.0-dev.49"
+version = "0.1.0-dev.50"
 edition = "2024"
 rust-version = "1.88"
 description = "Official Rust application SDK for Almira file storage"

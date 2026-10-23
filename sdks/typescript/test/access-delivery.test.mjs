@@ -110,7 +110,8 @@ test("delivery read returns bounded provider-neutral purge diagnostics", async (
       recent_purges: [{
         purge_id: "018f0000-0000-7000-8000-000000000011",
         source: "entry_deleted",
-        entry_id: entryId,
+        target_kind: "entry",
+        target_id: entryId,
         state: "completed",
         attempt_count: 1,
         last_error_code: null,

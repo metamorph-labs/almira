@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Almira API",
-    "version": "0.1.0-dev.49",
+    "version": "0.1.0-dev.50",
     "description": "Provider-neutral application file storage management and data API."
   },
   "servers": [
@@ -8511,7 +8511,7 @@
             "const": "almira.verification.v1"
           },
           "contract_version": {
-            "const": "0.1.0-dev.49"
+            "const": "0.1.0-dev.50"
           },
           "verification_id": {
             "$ref": "#/components/schemas/UuidV7"
@@ -10131,7 +10131,8 @@
         "required": [
           "purge_id",
           "source",
-          "entry_id",
+          "target_kind",
+          "target_id",
           "state",
           "attempt_count",
           "last_error_code",
@@ -10144,9 +10145,32 @@
             "$ref": "#/components/schemas/UuidV7"
           },
           "source": {
-            "const": "entry_deleted"
+            "type": "string",
+            "enum": [
+              "entry_deleted",
+              "entry_restricted",
+              "entry_restored",
+              "generation_replaced",
+              "generation_availability_changed",
+              "derivative_changed",
+              "collection_lifecycle_changed",
+              "collection_policy_changed",
+              "delivery_configuration_changed",
+              "environment_lifecycle_changed",
+              "project_lifecycle_changed"
+            ]
           },
-          "entry_id": {
+          "target_kind": {
+            "type": "string",
+            "enum": [
+              "project",
+              "environment",
+              "collection",
+              "entry",
+              "generation"
+            ]
+          },
+          "target_id": {
             "$ref": "#/components/schemas/UuidV7"
           },
           "state": {
@@ -10258,6 +10282,72 @@
                 }
               }
             }
+          },
+          {
+            "oneOf": [
+              {
+                "properties": {
+                  "source": {
+                    "const": "project_lifecycle_changed"
+                  },
+                  "target_kind": {
+                    "const": "project"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "source": {
+                    "const": "environment_lifecycle_changed"
+                  },
+                  "target_kind": {
+                    "const": "environment"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "source": {
+                    "enum": [
+                      "collection_lifecycle_changed",
+                      "collection_policy_changed",
+                      "delivery_configuration_changed"
+                    ]
+                  },
+                  "target_kind": {
+                    "const": "collection"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "source": {
+                    "enum": [
+                      "entry_deleted",
+                      "entry_restricted",
+                      "entry_restored",
+                      "generation_replaced"
+                    ]
+                  },
+                  "target_kind": {
+                    "const": "entry"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "source": {
+                    "enum": [
+                      "generation_availability_changed",
+                      "derivative_changed"
+                    ]
+                  },
+                  "target_kind": {
+                    "const": "generation"
+                  }
+                }
+              }
+            ]
           }
         ]
       },
