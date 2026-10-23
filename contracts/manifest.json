@@ -1,15 +1,15 @@
 {
   "formatVersion": 1,
   "product": "almira",
-  "contractVersion": "0.1.0-dev.45",
+  "contractVersion": "0.1.0-dev.46",
   "source": {
     "repository": "metamorph-labs/almira-core",
     "algorithm": "sha256",
-    "digest": "5abeef1793f3304a63706c3bcf4ffe6d0be456740522e262bf2ea0adb609d122"
+    "digest": "60215513b36305e227aa4aee979120040785bfd2b6d026d5231fe3d46cee1218"
   },
   "bundle": {
     "algorithm": "sha256",
-    "digest": "5abeef1793f3304a63706c3bcf4ffe6d0be456740522e262bf2ea0adb609d122"
+    "digest": "60215513b36305e227aa4aee979120040785bfd2b6d026d5231fe3d46cee1218"
   },
   "files": [
     {
@@ -44,18 +44,18 @@
     },
     {
       "path": "conformance/vectors.v1.json",
-      "size": 61520,
-      "digest": "06664178a7188f738d6846c5e2c2a8f04b1cd9dc9371242cb4df94e1c744b868"
+      "size": 63260,
+      "digest": "82412c798abdf283ad63527f43f83b51cadf5884df34cbc433b0641a2e6fc2a7"
     },
     {
       "path": "data-openapi.v1.json",
       "size": 23277,
-      "digest": "344f4641bdc83a198cefe57b4878405dbb7514a872bc8463f5f1403bd939478f"
+      "digest": "8defaa4ea832354c02b12b542f25159a1f42558862499ea3d8d5bd95b6ffd942"
     },
     {
       "path": "errors.v1.json",
-      "size": 22931,
-      "digest": "a527c3cdaf20e6b71015937f387568ad651ee6ea656a1b1186edeb4d117f9ff9"
+      "size": 23428,
+      "digest": "f7a120247ad8a8b42ad1ae2b109e15986dcf0c79b8eff7d28855a2bc8d4f4454"
     },
     {
       "path": "events/catalog.schema.json",
@@ -84,8 +84,8 @@
     },
     {
       "path": "openapi.v1.json",
-      "size": 292232,
-      "digest": "c1c0a06e84ebb3ff1ee2eb677d0a9e44ab30a1b3e83a186b274b9889d5d4f6b2"
+      "size": 294424,
+      "digest": "900167aed9577b62542d0d1a6f7b097793175e41b21c5947bfb6c4f13540f3ab"
     },
     {
       "path": "README.md",
@@ -95,7 +95,7 @@
     {
       "path": "release.json",
       "size": 70,
-      "digest": "bf12c4f9bc8140ef2471f946f68496d25314ea1b16b14d67024f9b5443ea8ae5"
+      "digest": "ccab64e9d7315a00d7223b6e5cb0ea0bc76fe21ab56da7243e54145095f39bde"
     }
   ]
 }

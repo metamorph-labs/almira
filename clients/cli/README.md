@@ -30,6 +30,12 @@ almira storage enroll \
 almira storage enrollments \
   --tenant 018f0000-0000-7000-8000-000000000002 \
   --project 018f0000-0000-7000-8000-000000000003
+almira storage adopt \
+  --tenant 018f0000-0000-7000-8000-000000000002 \
+  --project 018f0000-0000-7000-8000-000000000003 \
+  --environment 018f0000-0000-7000-8000-000000000005 \
+  --enrollment 018f0000-0000-7000-8000-000000000020 \
+  --revision 1
 almira enrollment get \
   --tenant 018f0000-0000-7000-8000-000000000002 \
   --project 018f0000-0000-7000-8000-000000000003 \
@@ -137,6 +143,12 @@ workload-federation identity and provider-native encryption choice; static cloud
 not accepted. `storage enrollments` restores the project's safe receipts after a reload and
 `enrollment get` reconciles one receipt using its original operation ID. Neither command returns
 the submitted provider coordinates.
+
+`storage adopt` explicitly switches one empty managed environment to hosted customer-owned
+storage using an active `normal` enrollment and the environment's current revision. The protected
+`development` environment always remains managed. A non-empty environment is refused until the
+separate governed migration exists. Retain `operation_id` for an exact retry; a completed retry
+returns the durable outcome without requiring another FileService catalog read.
 
 `collection create` defaults `--class` to `normal`. Select `express` only when the environment's
 fresh storage-capability result advertises it.

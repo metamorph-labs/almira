@@ -1,6 +1,7 @@
 import { AlmiraApiError, AlmiraClientError } from "./errors.js";
 import type {
   AccessDecision,
+  AdoptCustomerStorageRequest,
   AccessPolicy,
   AccessPolicyMutationOutcome,
   AccessSimulation,
@@ -298,6 +299,19 @@ export class AlmiraClient {
   ): Promise<StorageRealizationCatalog> {
     return this.#json(environmentPath(reference, "/storage-capabilities"), {
       method: "GET",
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async adoptCustomerStorage(
+    reference: EnvironmentReference,
+    request: AdoptCustomerStorageRequest,
+    options: MutationOptions,
+  ): Promise<EnvironmentMutationOutcome> {
+    return this.#json(environmentPath(reference, "/storage-binding"), {
+      method: "PUT",
+      headers: mutationHeaders(options.operationId),
+      body: request,
       signal: options.signal,
     }, reference.tenantId);
   }

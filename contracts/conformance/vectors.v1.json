@@ -1,7 +1,7 @@
 {
   "schema_id": "almira.public.api-conformance-vectors.v1",
   "format_version": 1,
-  "openapi": "0.1.0-dev.45",
+  "openapi": "0.1.0-dev.46",
   "schema_vectors": [
     {
       "name": "additional_environment_is_managed_by_default",
@@ -18,6 +18,25 @@
       "instance": {
         "environment_key": "production",
         "display_name": "Another production"
+      },
+      "expected": "invalid"
+    },
+    {
+      "name": "empty_environment_adopts_exact_customer_storage_enrollment",
+      "schema": "AdoptCustomerStorageRequest",
+      "instance": {
+        "enrollment_operation_id": "018f0000-0000-7000-8000-000000000015",
+        "expected_revision": 1
+      },
+      "expected": "valid"
+    },
+    {
+      "name": "environment_adoption_cannot_submit_provider_coordinates",
+      "schema": "AdoptCustomerStorageRequest",
+      "instance": {
+        "enrollment_operation_id": "018f0000-0000-7000-8000-000000000015",
+        "expected_revision": 1,
+        "bucket": "customer-data"
       },
       "expected": "invalid"
     },
@@ -1663,6 +1682,30 @@
       "name": "system_environment_deletion_is_refused",
       "condition": "deletion targets the managed development or production environment",
       "code": "ALMIRA_ENVIRONMENT_SYSTEM_PROTECTED",
+      "http_status": 409
+    },
+    {
+      "name": "development_environment_storage_adoption_is_refused",
+      "condition": "customer-owned storage adoption targets the default managed development environment",
+      "code": "ALMIRA_ENVIRONMENT_SYSTEM_PROTECTED",
+      "http_status": 409
+    },
+    {
+      "name": "nonempty_environment_requires_governed_migration",
+      "condition": "customer-owned storage adoption targets an environment that already contains a collection",
+      "code": "ALMIRA_ENVIRONMENT_NOT_EMPTY",
+      "http_status": 409
+    },
+    {
+      "name": "environment_adoption_requires_active_normal_enrollment",
+      "condition": "the selected enrollment is absent, not active, or does not provide the normal storage class",
+      "code": "ALMIRA_ENVIRONMENT_STORAGE_ENROLLMENT_NOT_ACTIVE",
+      "http_status": 409
+    },
+    {
+      "name": "environment_adoption_requires_exact_fresh_realization",
+      "condition": "the enrollment's opaque realization is absent from the fresh authenticated FileService catalog",
+      "code": "ALMIRA_ENVIRONMENT_STORAGE_REALIZATION_UNAVAILABLE",
       "http_status": 409
     },
     {

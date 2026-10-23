@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Almira API",
-    "version": "0.1.0-dev.45",
+    "version": "0.1.0-dev.46",
     "description": "Provider-neutral application file storage management and data API."
   },
   "servers": [
@@ -787,6 +787,67 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/environments/{environment_id}/storage-binding": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "put": {
+        "operationId": "adoptCustomerStorage",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/OperationId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdoptCustomerStorageRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Proved normal-class customer-owned storage adopted by an empty environment, or exactly replayed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnvironmentMutationOutcome"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
           },
           "503": {
             "$ref": "#/components/responses/Unavailable"
@@ -4794,6 +4855,23 @@
           }
         }
       },
+      "AdoptCustomerStorageRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "enrollment_operation_id",
+          "expected_revision"
+        ],
+        "properties": {
+          "enrollment_operation_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "expected_revision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
       "EnvironmentMutationOutcome": {
         "type": "object",
         "additionalProperties": false,
@@ -8432,7 +8510,7 @@
             "const": "almira.verification.v1"
           },
           "contract_version": {
-            "const": "0.1.0-dev.45"
+            "const": "0.1.0-dev.46"
           },
           "verification_id": {
             "$ref": "#/components/schemas/UuidV7"

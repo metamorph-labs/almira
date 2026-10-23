@@ -385,6 +385,55 @@ test("customer storage enrollment commands preserve project scope and exact repl
   ]);
 });
 
+test("storage adopt binds the exact environment, enrollment, revision, and replay identity", async () => {
+  const enrollmentOperationId = "018f0000-0000-7000-8000-000000000017";
+  const adoptionOperationId = "018f0000-0000-7000-8000-000000000019";
+  const requests = [];
+  const stream = io();
+  const exitCode = await runCli([
+    "storage", "adopt",
+    "--tenant", tenantId,
+    "--project", projectId,
+    "--environment", environmentId,
+    "--enrollment", enrollmentOperationId,
+    "--revision", "3",
+    "--operation-id", adoptionOperationId,
+  ], {
+    environment,
+    io: stream.value,
+    fetch: async (input, init) => {
+      requests.push({ input, init });
+      return json({
+        disposition: "applied",
+        environment: {
+          environment_id: environmentId,
+          environment_key: "production",
+          display_name: "Production",
+          system_key: "production",
+          operating_model: "hosted_customer_owned",
+          lifecycle: "active",
+          revision: 4,
+          created_at: "2026-10-17T00:00:00Z",
+          updated_at: "2026-10-17T00:01:00Z",
+        },
+      });
+    },
+  });
+
+  assert.equal(exitCode, 0);
+  assert.deepEqual(requests.map(({ input, init }) => ({
+    input,
+    method: init.method,
+    operationId: init.headers.get("idempotency-key"),
+    body: JSON.parse(init.body),
+  })), [{
+    input: `https://almira.test/v1/projects/${projectId}/environments/${environmentId}/storage-binding`,
+    method: "PUT",
+    operationId: adoptionOperationId,
+    body: { enrollment_operation_id: enrollmentOperationId, expected_revision: 3 },
+  }]);
+});
+
 test("portability commands preserve credential-free manifests, scope, and replay identity", async (context) => {
   const directory = await mkdtemp(join(tmpdir(), "almira-portability-"));
   context.after(() => rm(directory, { recursive: true, force: true }));

@@ -281,6 +281,48 @@ test("customer storage enrollment uses project scope and credential-free provide
   ]);
 });
 
+test("customer storage adoption binds one environment, enrollment, revision, and replay identity", async () => {
+  const calls = [];
+  const environment = {
+    environment_id: environmentId,
+    environment_key: "production",
+    display_name: "Production",
+    system_key: "production",
+    operating_model: "hosted_customer_owned",
+    lifecycle: "active",
+    revision: 2,
+    created_at: "2026-10-17T00:00:00Z",
+    updated_at: "2026-10-17T00:01:00Z",
+  };
+  const client = new AlmiraClient({
+    credential: "mm_pat_v1.test",
+    fetch: async (input, init) => {
+      calls.push({ input, init });
+      return json({ disposition: "applied", environment });
+    },
+  });
+  const enrollmentOperationId = "018f0000-0000-7000-8000-000000000015";
+  const request = { enrollment_operation_id: enrollmentOperationId, expected_revision: 1 };
+
+  await client.adoptCustomerStorage(
+    { tenantId, projectId, environmentId },
+    request,
+    { operationId },
+  );
+
+  assert.deepEqual(calls.map(({ input, init }) => ({
+    input,
+    method: init.method,
+    operation: init.headers.get("idempotency-key"),
+    body: JSON.parse(init.body),
+  })), [{
+    input: `/v1/projects/${projectId}/environments/${environmentId}/storage-binding`,
+    method: "PUT",
+    operation: operationId,
+    body: request,
+  }]);
+});
+
 test("storage migration start and status use the collection-scoped contract", async () => {
   const calls = [];
   const migration = {

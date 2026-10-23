@@ -63,7 +63,7 @@ export function validatePublicWiring(inputs) {
   const externalAgentOperations = new Set(
     management.filter((name) => !sdkOnlyManagementOperations.has(name)),
   );
-  if (externalAgentOperations.size !== 62) {
+  if (externalAgentOperations.size !== 63) {
     throw new Error(`external-agent operation classification drifted: ${externalAgentOperations.size}`);
   }
   assertSetEqual(clientCalls(inputs.cli), externalAgentOperations, "CLI operations");

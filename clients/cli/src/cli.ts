@@ -81,6 +81,7 @@ Commands:
   storage capabilities    Discover storage realizations available to an environment
   storage enroll          Enroll a credential-free customer storage target from --input JSON
   storage enrollments     List durable customer storage enrollment receipts
+  storage adopt           Use an active normal enrollment in an empty environment
   enrollment get         Reconcile one customer storage enrollment by operation ID
   config preview          Preview additive almira.yaml changes
   config apply            Apply an almira.yaml configuration
@@ -353,6 +354,17 @@ export async function runCli(arguments_: string[], dependencies: CliDependencies
       );
     } else if (noun === "storage" && verb === "enrollments") {
       result = await client.listStorageEnrollments(reference);
+    } else if (noun === "storage" && verb === "adopt") {
+      operationId = mutationId(values);
+      mutation = true;
+      result = await client.adoptCustomerStorage(
+        { ...reference, environmentId: required(values, "environment") },
+        {
+          enrollment_operation_id: required(values, "enrollment"),
+          expected_revision: positiveInteger(values, "revision"),
+        },
+        { operationId },
+      );
     } else if (noun === "enrollment" && verb === "get") {
       result = await client.getStorageEnrollment({
         ...reference,
@@ -942,6 +954,7 @@ const commandOptions = new Map<string, ReadonlySet<string>>([
   ["storage:capabilities", new Set(["base-url", "environment", "project", "tenant"])],
   ["storage:enroll", new Set(["base-url", "input", "operation-id", "project", "tenant"])],
   ["storage:enrollments", new Set(["base-url", "project", "tenant"])],
+  ["storage:adopt", new Set(["base-url", "enrollment", "environment", "operation-id", "project", "revision", "tenant"])],
   ["enrollment:get", new Set(["base-url", "enrollment", "project", "tenant"])],
   ["config:preview", new Set(["base-url", "file", "project", "tenant"])],
   ["config:apply", new Set(["base-url", "file", "operation-id", "project", "tenant"])],
@@ -1008,7 +1021,7 @@ const commandOptions = new Map<string, ReadonlySet<string>>([
 
 const mutationCommands = new Set([
   "project:bootstrap", "environment:create", "environment:update", "environment:delete", "origin:set",
-  "storage:enroll", "config:apply", "collection:create", "lifecycle:set", "collection:migrate", "import:start", "export:start",
+  "storage:enroll", "storage:adopt", "config:apply", "collection:create", "lifecycle:set", "collection:migrate", "import:start", "export:start",
   "export:download", "extraction:set", "media:set", "protection:set", "scan:rescan", "scan:review",
   "job:retry", "job:cancel", "file:batch", "file:copy", "metadata:set", "file:rename",
   "file:select-version", "file:delete", "file:restore", "policy:set", "policy:simulate", "delivery:set",

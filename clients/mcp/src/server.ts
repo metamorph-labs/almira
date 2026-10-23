@@ -406,7 +406,7 @@ export function createAlmiraMcpServer(
   client: AlmiraClient,
   dependencies: AlmiraMcpDependencies = {},
 ): McpServer {
-  const server = new McpServer({ name: "almira", version: "0.1.0-dev.45" });
+  const server = new McpServer({ name: "almira", version: "0.1.0-dev.46" });
 
   server.registerTool(
     "almira_project_bootstrap",
@@ -636,6 +636,34 @@ export function createAlmiraMcpServer(
     },
     async ({ tenant_id, project_id }) =>
       execute(() => client.listStorageEnrollments({ tenantId: tenant_id, projectId: project_id })),
+  );
+
+  server.registerTool(
+    "almira_storage_adopt",
+    {
+      title: "Adopt customer-owned storage",
+      description: "Use one active normal-class enrollment in an empty managed environment. Development remains managed.",
+      inputSchema: z.object({
+        ...scope,
+        environment_id: uuid,
+        enrollment_operation_id: uuid,
+        expected_revision: z.number().int().min(1),
+        operation_id: operationId,
+      }).strict(),
+      outputSchema,
+      annotations: mutationAnnotations,
+    },
+    async ({ tenant_id, project_id, environment_id, enrollment_operation_id, expected_revision, operation_id }) => {
+      const id = operation_id ?? createOperationId();
+      return execute(
+        () => client.adoptCustomerStorage(
+          { tenantId: tenant_id, projectId: project_id, environmentId: environment_id },
+          { enrollment_operation_id, expected_revision },
+          { operationId: id },
+        ),
+        id,
+      );
+    },
   );
 
   server.registerTool(

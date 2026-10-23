@@ -1,6 +1,6 @@
 {
   "name": "@metamorph-labs/almira-sdk",
-  "version": "0.1.0-dev.45",
+  "version": "0.1.0-dev.46",
   "description": "TypeScript client for the Almira application file-storage API",
   "type": "module",
   "license": "Apache-2.0",

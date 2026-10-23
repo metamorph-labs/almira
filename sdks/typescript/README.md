@@ -17,12 +17,16 @@ const capabilities = await almira.getStorageCapabilities({
   projectId,
   environmentId: environments[0].environment_id,
 });
+const expressRealization = capabilities.realizations.find(
+  ({ storage_class }) => storage_class === "express",
+);
+if (expressRealization === undefined) throw new Error("express storage is unavailable");
 
 const enrolled = await almira.createStorageEnrollment(
   { tenantId, projectId },
   {
     binding_label: "customer-media",
-    storage_class: "express",
+    storage_class: "normal",
     provider_configuration: {
       provider: "aws_s3",
       partition: "aws",
@@ -36,6 +40,18 @@ const enrolled = await almira.createStorageEnrollment(
     },
   },
   { operationId: enrollmentOperationId },
+);
+
+// After getStorageEnrollment reports this normal enrollment as active, an empty production or
+// additional environment can adopt it explicitly. Development always remains managed.
+const production = environments.find(({ environment_key }) => environment_key === "production")!;
+const adopted = await almira.adoptCustomerStorage(
+  { tenantId, projectId, environmentId: production.environment_id },
+  {
+    enrollment_operation_id: enrolled.enrollment.operation_id,
+    expected_revision: production.revision,
+  },
+  { operationId: adoptionOperationId },
 );
 
 const collection = await almira.createCollection(
@@ -58,7 +74,7 @@ const migration = await almira.startStorageMigration(
   },
   {
     target_storage_class: "express",
-    target_realization_generation: enrolled.enrollment.realization!.realization_generation,
+    target_realization_generation: expressRealization.realization_generation,
     expected_collection_revision: collection.collection.revision,
   },
   { operationId: migrationOperationId },
@@ -112,6 +128,12 @@ keys and secrets are outside the contract and are rejected. Use `listStorageEnro
 reload and `getStorageEnrollment` with the original operation ID to reconcile proof, health, and
 opaque realization state. Provider coordinates are used only for the owner call and are not
 returned or persisted in Almira's enrollment ledger.
+
+`adoptCustomerStorage` switches one empty managed environment to hosted customer-owned storage
+only after the selected `normal` enrollment is active and matches a fresh authenticated
+FileService catalog. The protected development environment stays managed, and an environment with
+collections is refused until the separate governed migration is available. Reusing the operation
+ID after a completed request returns the durable receipt without another owner read.
 
 `startStorageMigration` changes the logical `normal`/`express` class and binds the exact opaque
 realization generation selected from the fresh capability catalog or an active enrollment receipt.

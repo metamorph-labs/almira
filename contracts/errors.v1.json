@@ -224,8 +224,18 @@
       "retryable": false
     },
     {
+      "code": "ALMIRA_ENVIRONMENT_NOT_EMPTY",
+      "http_status": 409,
+      "retryable": false
+    },
+    {
       "code": "ALMIRA_ENVIRONMENT_NOT_FOUND",
       "http_status": 404,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_ENVIRONMENT_OPERATING_MODEL_CONFLICT",
+      "http_status": 409,
       "retryable": false
     },
     {
@@ -246,6 +256,16 @@
     {
       "code": "ALMIRA_ENVIRONMENT_SCOPE_MISMATCH",
       "http_status": 403,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_ENVIRONMENT_STORAGE_ENROLLMENT_NOT_ACTIVE",
+      "http_status": 409,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_ENVIRONMENT_STORAGE_REALIZATION_UNAVAILABLE",
+      "http_status": 409,
       "retryable": false
     },
     {

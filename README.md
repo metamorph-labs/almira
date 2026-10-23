@@ -34,9 +34,10 @@ terminal FileService state; no Almira client or worker stores caller credentials
 Projects may also enroll customer-owned AWS S3, Google Cloud Storage, or Azure Blob targets. The
 enrollment request contains provider coordinates and a workload-federation identity, never a cloud
 access key, client secret, or service-account key. FileService owns proof and health checks and
-returns an opaque realization generation that collections can select through the ordinary governed
-storage-migration path. Project-scoped list and status operations expose durable safe receipts while
-keeping provider coordinates private.
+returns an opaque realization generation. An administrator can explicitly bind an active `normal`
+enrollment to an empty non-development environment; development always stays managed, and a
+non-empty environment waits for the separate governed migration. Project-scoped list and status
+operations expose durable safe receipts while keeping provider coordinates private.
 
 The dependency-light TypeScript client is in [`sdks/typescript`](sdks/typescript). It covers every
 operation in the promoted contract and supports same-origin browser sessions, PATs, SAKs and

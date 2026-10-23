@@ -36,12 +36,15 @@ server does not invent a success assertion or expose key material beyond public 
 current revision. The default is 30 days, the value applies to future deletions, and existing
 recycle deadlines are unchanged.
 
-`almira_storage_enrollment_create`, `almira_storage_enrollment_list`, and
+`almira_storage_enrollment_create`, `almira_storage_enrollment_list`,
 `almira_storage_enrollment_get` expose the same project-scoped customer-storage workflow as the
 console and CLI. Creation accepts S3, GCS, or Azure Blob coordinates plus a workload-federation
 identity and provider-native encryption configuration; it never accepts static cloud credentials.
 List and get return only durable safe proof, health, and opaque realization state, so an external
 coding agent can resume after a restart without receiving provider coordinates.
+`almira_storage_adopt` explicitly uses one active `normal` enrollment in an empty managed
+non-development environment. It binds the exact environment revision and replay identity;
+development stays managed, and non-empty migration is deliberately refused rather than implied.
 
 Portability tools start credential-free FileService-bound imports, start safe retained-generation
 exports, and inspect durable job progress. Imports accept no provider credential or storage target.

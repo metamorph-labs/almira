@@ -109,6 +109,7 @@ test("tool catalog is closed and marks destructive behavior accurately", async (
       "almira_protection_review_create",
       "almira_share_create",
       "almira_share_revoke",
+      "almira_storage_adopt",
       "almira_storage_capabilities_get",
       "almira_storage_enrollment_create",
       "almira_storage_enrollment_get",
@@ -881,6 +882,60 @@ test("customer storage enrollment tools are credential-free and project scoped",
     },
     { input: `${path}/${enrollmentOperationId}`, method: "GET", operationId: null, body: undefined },
   ]);
+});
+
+test("customer storage adoption tool binds the exact empty environment and replay identity", async (context) => {
+  const requests = [];
+  const environmentId = "018f0000-0000-7000-8000-000000000004";
+  const enrollmentOperationId = "018f0000-0000-7000-8000-000000000017";
+  const adoptionOperationId = "018f0000-0000-7000-8000-000000000019";
+  const connection = await connected(async (input, init) => {
+    requests.push({ input, init });
+    return json({
+      disposition: "applied",
+      environment: {
+        environment_id: environmentId,
+        environment_key: "production",
+        display_name: "Production",
+        system_key: "production",
+        operating_model: "hosted_customer_owned",
+        lifecycle: "active",
+        revision: 2,
+        created_at: "2026-10-17T00:00:00Z",
+        updated_at: "2026-10-17T00:01:00Z",
+      },
+    });
+  });
+  context.after(async () => {
+    await connection.client.close();
+    await connection.server.close();
+  });
+
+  const result = await connection.client.callTool({
+    name: "almira_storage_adopt",
+    arguments: {
+      tenant_id: tenantId,
+      project_id: projectId,
+      environment_id: environmentId,
+      enrollment_operation_id: enrollmentOperationId,
+      expected_revision: 1,
+      operation_id: adoptionOperationId,
+    },
+  });
+
+  assert.equal(result.isError, undefined);
+  assert.equal(result.structuredContent.operation_id, adoptionOperationId);
+  assert.deepEqual(requests.map(({ input, init }) => ({
+    input,
+    method: init.method,
+    operationId: init.headers.get("idempotency-key"),
+    body: JSON.parse(init.body),
+  })), [{
+    input: `https://almira.test/v1/projects/${projectId}/environments/${environmentId}/storage-binding`,
+    method: "PUT",
+    operationId: adoptionOperationId,
+    body: { enrollment_operation_id: enrollmentOperationId, expected_revision: 1 },
+  }]);
 });
 
 test("portability tools keep source credentials out and verify downloads before local admission", async (context) => {
