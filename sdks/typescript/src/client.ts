@@ -100,10 +100,15 @@ import type {
   ShareGrant,
   ShareReference,
   StorageRealizationCatalog,
+  StartStorageEnrollmentOutcome,
+  StartStorageEnrollmentRequest,
   StartStorageMigrationOutcome,
   StartStorageMigrationRequest,
   StartCollectionExportRequest,
   StartCollectionImportRequest,
+  StorageEnrollment,
+  StorageEnrollmentList,
+  StorageEnrollmentReference,
   StorageMigration,
   StorageMigrationReference,
   SignedVerificationReceipt,
@@ -509,6 +514,40 @@ export class AlmiraClient {
       body: request,
       signal: options.signal,
     }, reference.tenantId);
+  }
+
+  async listStorageEnrollments(
+    reference: ProjectReference,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<StorageEnrollmentList> {
+    return this.#json(projectPath(reference, "/storage-enrollments"), {
+      method: "GET",
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async createStorageEnrollment(
+    reference: ProjectReference,
+    request: StartStorageEnrollmentRequest,
+    options: MutationOptions,
+  ): Promise<StartStorageEnrollmentOutcome> {
+    return this.#json(projectPath(reference, "/storage-enrollments"), {
+      method: "POST",
+      headers: mutationHeaders(options.operationId),
+      body: request,
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async getStorageEnrollment(
+    reference: StorageEnrollmentReference,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<StorageEnrollment> {
+    return this.#json(
+      projectPath(reference, `/storage-enrollments/${uuid(reference.operationId)}`),
+      { method: "GET", signal: options.signal },
+      reference.tenantId,
+    );
   }
 
   async getStorageMigration(

@@ -84,33 +84,36 @@ export interface ReplaceBrowserOriginsOutcome {
   policy: BrowserOriginPolicy;
 }
 
-export type StorageProviderFamily = "aws_s3" | "google_cloud_storage" | "azure_blob";
-export type StorageCapabilityHealth = "ready" | "degraded" | "unavailable";
-
-export interface StorageProviderMatrix {
-  hosted: ["aws_s3", "google_cloud_storage", "azure_blob"];
-  connected_site: ["aws_s3", "google_cloud_storage", "azure_blob"];
-}
+export type StorageProviderFamily = "aws_s3" | "gcs" | "azure_blob";
+export type StorageTransferCapability =
+  | "direct_upload"
+  | "multipart_upload"
+  | "resumable_upload"
+  | "exact_generation_delete"
+  | "class_migration";
 
 export interface StorageRealizationCapability {
-  realization_id: UuidV7;
-  display_name: string;
-  provider_family: StorageProviderFamily;
+  realization_generation: number;
+  storage_class: "normal" | "express";
   operating_model: Environment["operating_model"];
-  location_id: string;
-  storage_classes: ["normal"] | ["normal", "express"];
-  health: StorageCapabilityHealth;
-  capability_generation: number;
-  evidence_digest: ContentSha256;
+  provider_family: StorageProviderFamily | null;
+  binding_label: string | null;
+  maximum_object_bytes: number;
+  supported_capabilities: StorageTransferCapability[];
+  unavailable_capabilities: StorageTransferCapability[];
 }
 
 export interface StorageRealizationCatalog {
   environment_id: UuidV7;
-  deployment_profile: "hosted" | "connected_site";
-  catalog_revision: number;
-  catalog_digest: ContentSha256;
-  expires_at: Timestamp;
-  provider_matrix: StorageProviderMatrix;
+  operating_model: Environment["operating_model"];
+  route_epoch: number;
+  placement_epoch: number | null;
+  authorization_decision_id: UuidV7;
+  authorization_fact_set_digest: ContentSha256;
+  catalog_epoch: number;
+  catalog_release_id: string;
+  catalog_bundle_digest: ContentSha256;
+  realization_catalog_digest: ContentSha256;
   realizations: StorageRealizationCapability[];
 }
 
@@ -407,14 +410,85 @@ export interface MediaDerivative {
   created_at: Timestamp;
 }
 
+export type CustomerStorageProviderConfiguration =
+  | {
+      provider: "aws_s3";
+      partition: "aws" | "aws_cn" | "aws_us_gov";
+      account_id: string;
+      region: string;
+      bucket: string;
+      expected_bucket_owner: string;
+      role_arn: string;
+      encryption: "aws_sse_s3" | "aws_sse_kms";
+      encryption_key: string | null;
+    }
+  | {
+      provider: "gcs";
+      project_id: string;
+      project_number: string;
+      bucket: string;
+      location: string;
+      service_account: string;
+      encryption: "gcp_managed" | "gcp_cmek";
+      encryption_key: string | null;
+    }
+  | {
+      provider: "azure_blob";
+      tenant_id: string;
+      subscription_id: string;
+      account: string;
+      container: string;
+      location: string;
+      client_id: string;
+      encryption: "azure_managed" | "azure_encryption_scope";
+      encryption_scope: string | null;
+    };
+
+export interface StartStorageEnrollmentRequest {
+  binding_label: string;
+  storage_class: "normal" | "express";
+  provider_configuration: CustomerStorageProviderConfiguration;
+}
+
+export interface StorageEnrollmentRealization {
+  realization_generation: number;
+  storage_class: "normal" | "express";
+}
+
+export interface StorageEnrollment {
+  operation_id: UuidV7;
+  enrollment_id: UuidV7 | null;
+  binding_label: string;
+  provider_family: "aws_s3" | "gcs" | "azure_blob";
+  storage_class: "normal" | "express";
+  state: "starting" | "proof_pending" | "active" | "blocked" | "retired";
+  realization: StorageEnrollmentRealization | null;
+  capability_proof_digest: ContentSha256 | null;
+  health_evidence_digest: ContentSha256 | null;
+  failure_code: string | null;
+  owner_revision: number;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+}
+
+export interface StartStorageEnrollmentOutcome {
+  disposition: "applied" | "exact_replay";
+  enrollment: StorageEnrollment;
+}
+
+export interface StorageEnrollmentList {
+  enrollments: StorageEnrollment[];
+}
+
 export interface StartStorageMigrationRequest {
   target_storage_class: "normal" | "express";
+  target_realization_generation: number;
   expected_collection_revision: number;
 }
 
 export interface StorageMigrationBinding {
-  realization_id: UuidV7;
-  capability_generation: number;
+  realization_binding_digest: ContentSha256;
+  realization_generation: number;
 }
 
 export interface StorageMigrationProgress {
@@ -644,7 +718,7 @@ export interface VerificationCheck {
 
 export interface VerificationReceipt {
   receipt_version: "almira.verification.v1";
-  contract_version: "0.1.0-dev.44";
+  contract_version: "0.1.0-dev.45";
   verification_id: UuidV7;
   realm_id: UuidV7;
   tenant_id: UuidV7;
@@ -906,6 +980,10 @@ export interface CollectionReference extends EnvironmentReference {
 
 export interface StorageMigrationReference extends CollectionReference {
   migrationId: UuidV7;
+}
+
+export interface StorageEnrollmentReference extends ProjectReference {
+  operationId: UuidV7;
 }
 
 export interface PortabilityJobReference extends CollectionReference {

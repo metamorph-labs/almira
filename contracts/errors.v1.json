@@ -769,6 +769,56 @@
       "retryable": false
     },
     {
+      "code": "ALMIRA_STORAGE_ENROLLMENT_AUTHORIZATION_EXPIRED",
+      "http_status": 403,
+      "retryable": true
+    },
+    {
+      "code": "ALMIRA_STORAGE_ENROLLMENT_AUTHORIZATION_MISMATCH",
+      "http_status": 403,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_STORAGE_ENROLLMENT_INTEGRITY_FAILURE",
+      "http_status": 503,
+      "retryable": true
+    },
+    {
+      "code": "ALMIRA_STORAGE_ENROLLMENT_INVALID",
+      "http_status": 400,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_STORAGE_ENROLLMENT_LABEL_CONFLICT",
+      "http_status": 409,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_STORAGE_ENROLLMENT_NOT_FOUND",
+      "http_status": 404,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_STORAGE_ENROLLMENT_OPERATION_CONFLICT",
+      "http_status": 409,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_STORAGE_ENROLLMENT_OUTCOME_UNKNOWN",
+      "http_status": 503,
+      "retryable": true
+    },
+    {
+      "code": "ALMIRA_STORAGE_ENROLLMENT_SCOPE_MISMATCH",
+      "http_status": 403,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_STORAGE_ENROLLMENT_UNAVAILABLE",
+      "http_status": 503,
+      "retryable": true
+    },
+    {
       "code": "ALMIRA_STORAGE_ENVIRONMENT_NOT_ACTIVE",
       "http_status": 409,
       "retryable": false

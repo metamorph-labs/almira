@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Almira API",
-    "version": "0.1.0-dev.44",
+    "version": "0.1.0-dev.45",
     "description": "Provider-neutral application file storage management and data API."
   },
   "servers": [
@@ -91,6 +91,141 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/storage-enrollments": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "get": {
+        "operationId": "listStorageEnrollments",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Durable provider-opaque enrollment receipts for this project.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageEnrollmentList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createStorageEnrollment",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/OperationId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartStorageEnrollmentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Credential-free customer storage enrollment accepted by FileService or exactly replayed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartStorageEnrollmentOutcome"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/storage-enrollments/{operation_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "get": {
+        "operationId": "getStorageEnrollment",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnrollmentOperationId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current opaque FileService proof, health and realization status for an enrollment.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageEnrollment"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
           },
           "503": {
             "$ref": "#/components/responses/Unavailable"
@@ -4333,6 +4468,14 @@
           "$ref": "#/components/schemas/UuidV7"
         }
       },
+      "EnrollmentOperationId": {
+        "name": "operation_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/UuidV7"
+        }
+      },
       "PortabilityJobId": {
         "name": "job_id",
         "in": "path",
@@ -6635,6 +6778,482 @@
           }
         }
       },
+      "CloudUuid": {
+        "type": "string",
+        "format": "uuid",
+        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+      },
+      "AwsS3StorageProviderConfiguration": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "provider",
+          "partition",
+          "account_id",
+          "region",
+          "bucket",
+          "expected_bucket_owner",
+          "role_arn",
+          "encryption",
+          "encryption_key"
+        ],
+        "properties": {
+          "provider": {
+            "const": "aws_s3"
+          },
+          "partition": {
+            "type": "string",
+            "enum": [
+              "aws",
+              "aws_cn",
+              "aws_us_gov"
+            ]
+          },
+          "account_id": {
+            "type": "string",
+            "pattern": "^[0-9]{12}$"
+          },
+          "region": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "x-almira-trimmed": true
+          },
+          "bucket": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255,
+            "x-almira-trimmed": true
+          },
+          "expected_bucket_owner": {
+            "type": "string",
+            "pattern": "^[0-9]{12}$"
+          },
+          "role_arn": {
+            "type": "string",
+            "minLength": 20,
+            "maxLength": 512,
+            "x-almira-trimmed": true
+          },
+          "encryption": {
+            "type": "string",
+            "enum": [
+              "aws_sse_s3",
+              "aws_sse_kms"
+            ]
+          },
+          "encryption_key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 512,
+            "x-almira-trimmed": true
+          }
+        },
+        "if": {
+          "properties": {
+            "encryption": {
+              "const": "aws_sse_s3"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "encryption_key": {
+              "type": "null"
+            }
+          }
+        },
+        "else": {
+          "properties": {
+            "encryption_key": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "GcsStorageProviderConfiguration": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "provider",
+          "project_id",
+          "project_number",
+          "bucket",
+          "location",
+          "service_account",
+          "encryption",
+          "encryption_key"
+        ],
+        "properties": {
+          "provider": {
+            "const": "gcs"
+          },
+          "project_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "x-almira-trimmed": true
+          },
+          "project_number": {
+            "type": "string",
+            "pattern": "^[0-9]{1,32}$"
+          },
+          "bucket": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255,
+            "x-almira-trimmed": true
+          },
+          "location": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "x-almira-trimmed": true
+          },
+          "service_account": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 320,
+            "x-almira-trimmed": true
+          },
+          "encryption": {
+            "type": "string",
+            "enum": [
+              "gcp_managed",
+              "gcp_cmek"
+            ]
+          },
+          "encryption_key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 1024,
+            "x-almira-trimmed": true
+          }
+        },
+        "if": {
+          "properties": {
+            "encryption": {
+              "const": "gcp_managed"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "encryption_key": {
+              "type": "null"
+            }
+          }
+        },
+        "else": {
+          "properties": {
+            "encryption_key": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "AzureBlobStorageProviderConfiguration": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "provider",
+          "tenant_id",
+          "subscription_id",
+          "account",
+          "container",
+          "location",
+          "client_id",
+          "encryption",
+          "encryption_scope"
+        ],
+        "properties": {
+          "provider": {
+            "const": "azure_blob"
+          },
+          "tenant_id": {
+            "$ref": "#/components/schemas/CloudUuid"
+          },
+          "subscription_id": {
+            "$ref": "#/components/schemas/CloudUuid"
+          },
+          "account": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "x-almira-trimmed": true
+          },
+          "container": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "x-almira-trimmed": true
+          },
+          "location": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "x-almira-trimmed": true
+          },
+          "client_id": {
+            "$ref": "#/components/schemas/CloudUuid"
+          },
+          "encryption": {
+            "type": "string",
+            "enum": [
+              "azure_managed",
+              "azure_encryption_scope"
+            ]
+          },
+          "encryption_scope": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 256,
+            "x-almira-trimmed": true
+          }
+        },
+        "if": {
+          "properties": {
+            "encryption": {
+              "const": "azure_managed"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "encryption_scope": {
+              "type": "null"
+            }
+          }
+        },
+        "else": {
+          "properties": {
+            "encryption_scope": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "CustomerStorageProviderConfiguration": {
+        "description": "Credential-free cloud storage coordinates forwarded to FileService for proof and federation. Passwords, access keys and service-account private keys are never accepted.",
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/AwsS3StorageProviderConfiguration"
+          },
+          {
+            "$ref": "#/components/schemas/GcsStorageProviderConfiguration"
+          },
+          {
+            "$ref": "#/components/schemas/AzureBlobStorageProviderConfiguration"
+          }
+        ]
+      },
+      "StartStorageEnrollmentRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "binding_label",
+          "storage_class",
+          "provider_configuration"
+        ],
+        "properties": {
+          "binding_label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9._/-]+$"
+          },
+          "storage_class": {
+            "type": "string",
+            "enum": [
+              "normal",
+              "express"
+            ]
+          },
+          "provider_configuration": {
+            "$ref": "#/components/schemas/CustomerStorageProviderConfiguration"
+          }
+        }
+      },
+      "StorageEnrollmentRealization": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "realization_generation",
+          "storage_class"
+        ],
+        "properties": {
+          "realization_generation": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "storage_class": {
+            "type": "string",
+            "enum": [
+              "normal",
+              "express"
+            ]
+          }
+        }
+      },
+      "StorageEnrollment": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operation_id",
+          "enrollment_id",
+          "binding_label",
+          "provider_family",
+          "storage_class",
+          "state",
+          "realization",
+          "capability_proof_digest",
+          "health_evidence_digest",
+          "failure_code",
+          "owner_revision",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "operation_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "enrollment_id": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/UuidV7"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "binding_label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9._/-]+$"
+          },
+          "provider_family": {
+            "type": "string",
+            "enum": [
+              "aws_s3",
+              "gcs",
+              "azure_blob"
+            ]
+          },
+          "storage_class": {
+            "type": "string",
+            "enum": [
+              "normal",
+              "express"
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "starting",
+              "proof_pending",
+              "active",
+              "blocked",
+              "retired"
+            ]
+          },
+          "realization": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/StorageEnrollmentRealization"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "capability_proof_digest": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ContentSha256"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "health_evidence_digest": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ContentSha256"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "failure_code": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 3,
+            "maxLength": 96,
+            "pattern": "^[A-Z][A-Z0-9_]+$"
+          },
+          "owner_revision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "updated_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        }
+      },
+      "StartStorageEnrollmentOutcome": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "disposition",
+          "enrollment"
+        ],
+        "properties": {
+          "disposition": {
+            "type": "string",
+            "enum": [
+              "applied",
+              "exact_replay"
+            ]
+          },
+          "enrollment": {
+            "$ref": "#/components/schemas/StorageEnrollment"
+          }
+        }
+      },
+      "StorageEnrollmentList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "enrollments"
+        ],
+        "properties": {
+          "enrollments": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/StorageEnrollment"
+            }
+          }
+        }
+      },
       "StartStorageMigrationRequest": {
         "type": "object",
         "additionalProperties": false,
@@ -7813,7 +8432,7 @@
             "const": "almira.verification.v1"
           },
           "contract_version": {
-            "const": "0.1.0-dev.44"
+            "const": "0.1.0-dev.45"
           },
           "verification_id": {
             "$ref": "#/components/schemas/UuidV7"

@@ -1,15 +1,15 @@
 {
   "formatVersion": 1,
   "product": "almira",
-  "contractVersion": "0.1.0-dev.44",
+  "contractVersion": "0.1.0-dev.45",
   "source": {
     "repository": "metamorph-labs/almira-core",
     "algorithm": "sha256",
-    "digest": "1c0c80d0525c6e1eeadbe37a9927532ece7587911bdd5c96ff3eec4dd2c65001"
+    "digest": "5abeef1793f3304a63706c3bcf4ffe6d0be456740522e262bf2ea0adb609d122"
   },
   "bundle": {
     "algorithm": "sha256",
-    "digest": "1c0c80d0525c6e1eeadbe37a9927532ece7587911bdd5c96ff3eec4dd2c65001"
+    "digest": "5abeef1793f3304a63706c3bcf4ffe6d0be456740522e262bf2ea0adb609d122"
   },
   "files": [
     {
@@ -44,18 +44,18 @@
     },
     {
       "path": "conformance/vectors.v1.json",
-      "size": 57099,
-      "digest": "7c1c9caf42c60fab2c0d1d58514376ad53342ddab7d9d4a6cbbd16e4ce4c9592"
+      "size": 61520,
+      "digest": "06664178a7188f738d6846c5e2c2a8f04b1cd9dc9371242cb4df94e1c744b868"
     },
     {
       "path": "data-openapi.v1.json",
       "size": 23277,
-      "digest": "47b5d5df31922745f47377def12d3025b0ea450e5eff43ab211fe5afef7d409e"
+      "digest": "344f4641bdc83a198cefe57b4878405dbb7514a872bc8463f5f1403bd939478f"
     },
     {
       "path": "errors.v1.json",
-      "size": 21707,
-      "digest": "926a32d41dc1884ee4d647e61163eee2f7593ad065ccd611380bef18a1e6a24b"
+      "size": 22931,
+      "digest": "a527c3cdaf20e6b71015937f387568ad651ee6ea656a1b1186edeb4d117f9ff9"
     },
     {
       "path": "events/catalog.schema.json",
@@ -84,8 +84,8 @@
     },
     {
       "path": "openapi.v1.json",
-      "size": 276252,
-      "digest": "09c667568396856ce7db844b347f7256835f45f09a41cdeadbd1ca3145420423"
+      "size": 292232,
+      "digest": "c1c0a06e84ebb3ff1ee2eb677d0a9e44ab30a1b3e83a186b274b9889d5d4f6b2"
     },
     {
       "path": "README.md",
@@ -95,7 +95,7 @@
     {
       "path": "release.json",
       "size": 70,
-      "digest": "e9a1707936587bed976ed5e0aac6e1625f6717cb1ca7721c20e0be2a5bceaec9"
+      "digest": "bf12c4f9bc8140ef2471f946f68496d25314ea1b16b14d67024f9b5443ea8ae5"
     }
   ]
 }

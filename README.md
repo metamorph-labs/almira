@@ -31,6 +31,13 @@ an exact-generation rescan immediately gates delivery until FileService returns 
 The same operation is replayed with current authority to refresh queued, retrying, cleanup or
 terminal FileService state; no Almira client or worker stores caller credentials for polling.
 
+Projects may also enroll customer-owned AWS S3, Google Cloud Storage, or Azure Blob targets. The
+enrollment request contains provider coordinates and a workload-federation identity, never a cloud
+access key, client secret, or service-account key. FileService owns proof and health checks and
+returns an opaque realization generation that collections can select through the ordinary governed
+storage-migration path. Project-scoped list and status operations expose durable safe receipts while
+keeping provider coordinates private.
+
 The dependency-light TypeScript client is in [`sdks/typescript`](sdks/typescript). It covers every
 operation in the promoted contract and supports same-origin browser sessions, PATs, SAKs and
 short-lived workload evidence through the standard Fetch API. Its separate `AlmiraDataClient`

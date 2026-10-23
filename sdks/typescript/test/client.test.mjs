@@ -148,14 +148,15 @@ test("storage capability discovery is one exact environment-scoped read", async 
   let call;
   const catalog = {
     environment_id: environmentId,
-    deployment_profile: "hosted",
-    catalog_revision: 1,
-    catalog_digest: `sha256:${"a".repeat(64)}`,
-    expires_at: "2099-10-17T00:00:00Z",
-    provider_matrix: {
-      hosted: ["aws_s3", "google_cloud_storage", "azure_blob"],
-      connected_site: ["aws_s3", "google_cloud_storage", "azure_blob"],
-    },
+    operating_model: "managed",
+    route_epoch: 1,
+    placement_epoch: null,
+    authorization_decision_id: "018f0000-0000-7000-8000-000000000040",
+    authorization_fact_set_digest: `sha256:${"a".repeat(64)}`,
+    catalog_epoch: 1,
+    catalog_release_id: "release.one",
+    catalog_bundle_digest: `sha256:${"b".repeat(64)}`,
+    realization_catalog_digest: `sha256:${"c".repeat(64)}`,
     realizations: [],
   };
   const client = new AlmiraClient({
@@ -220,6 +221,66 @@ test("verification receipt and public key discovery use their distinct credentia
   assert.deepEqual(calls[1].init.headers, { accept: "application/json" });
 });
 
+test("customer storage enrollment uses project scope and credential-free provider coordinates", async () => {
+  const calls = [];
+  const enrollment = {
+    operation_id: operationId,
+    enrollment_id: "018f0000-0000-7000-8000-000000000041",
+    binding_label: "production-primary",
+    provider_family: "aws_s3",
+    storage_class: "normal",
+    state: "active",
+    realization: { realization_generation: 3, storage_class: "normal" },
+    capability_proof_digest: `sha256:${"a".repeat(64)}`,
+    health_evidence_digest: `sha256:${"b".repeat(64)}`,
+    failure_code: null,
+    owner_revision: 2,
+    created_at: "2026-10-17T00:00:00Z",
+    updated_at: "2026-10-17T00:01:00Z",
+  };
+  const client = new AlmiraClient({
+    credential: "mm_pat_v1.test",
+    fetch: async (input, init) => {
+      calls.push({ input, init });
+      if (init.method === "POST") return json({ disposition: "applied", enrollment }, 201);
+      if (input.endsWith(operationId)) return json(enrollment);
+      return json({ enrollments: [enrollment] });
+    },
+  });
+  const reference = { tenantId, projectId };
+  const request = {
+    binding_label: "production-primary",
+    storage_class: "normal",
+    provider_configuration: {
+      provider: "aws_s3",
+      partition: "aws",
+      account_id: "123456789012",
+      region: "us-east-1",
+      bucket: "customer-files",
+      expected_bucket_owner: "123456789012",
+      role_arn: "arn:aws:iam::123456789012:role/almira",
+      encryption: "aws_sse_s3",
+      encryption_key: null,
+    },
+  };
+
+  await client.listStorageEnrollments(reference);
+  await client.createStorageEnrollment(reference, request, { operationId });
+  await client.getStorageEnrollment({ ...reference, operationId });
+
+  const base = `/v1/projects/${projectId}/storage-enrollments`;
+  assert.deepEqual(calls.map(({ input, init }) => ({
+    input,
+    method: init.method,
+    operationId: init.headers.get("idempotency-key"),
+    body: init.body === undefined ? undefined : JSON.parse(init.body),
+  })), [
+    { input: base, method: "GET", operationId: null, body: undefined },
+    { input: base, method: "POST", operationId, body: request },
+    { input: `${base}/${operationId}`, method: "GET", operationId: null, body: undefined },
+  ]);
+});
+
 test("storage migration start and status use the collection-scoped contract", async () => {
   const calls = [];
   const migration = {
@@ -240,7 +301,7 @@ test("storage migration start and status use the collection-scoped contract", as
   const reference = { tenantId, projectId, environmentId, collectionInstanceId };
   await client.startStorageMigration(
     reference,
-    { target_storage_class: "express", expected_collection_revision: 3 },
+    { target_storage_class: "express", target_realization_generation: 2, expected_collection_revision: 3 },
     { operationId },
   );
   await client.getStorageMigration({ ...reference, migrationId: operationId });
@@ -255,7 +316,7 @@ test("storage migration start and status use the collection-scoped contract", as
       input: base,
       method: "POST",
       operation: operationId,
-      body: { target_storage_class: "express", expected_collection_revision: 3 },
+      body: { target_storage_class: "express", target_realization_generation: 2, expected_collection_revision: 3 },
     },
     {
       input: `${base}/${operationId}`,

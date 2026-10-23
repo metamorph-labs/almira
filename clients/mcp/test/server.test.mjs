@@ -110,6 +110,9 @@ test("tool catalog is closed and marks destructive behavior accurately", async (
       "almira_share_create",
       "almira_share_revoke",
       "almira_storage_capabilities_get",
+      "almira_storage_enrollment_create",
+      "almira_storage_enrollment_get",
+      "almira_storage_enrollment_list",
       "almira_storage_migration_get",
       "almira_storage_migration_start",
       "almira_verification_receipt_create",
@@ -768,6 +771,7 @@ test("storage migration tools preserve exact scope, revision, and replay identit
     arguments: {
       ...common,
       target_storage_class: "express",
+      target_realization_generation: 2,
       expected_collection_revision: 4,
       operation_id: operationId,
     },
@@ -791,7 +795,7 @@ test("storage migration tools preserve exact scope, revision, and replay identit
       input: path,
       method: "POST",
       operationId,
-      body: { target_storage_class: "express", expected_collection_revision: 4 },
+      body: { target_storage_class: "express", target_realization_generation: 2, expected_collection_revision: 4 },
     },
     {
       input: `${path}/${migrationId}`,
@@ -799,6 +803,83 @@ test("storage migration tools preserve exact scope, revision, and replay identit
       operationId: null,
       body: undefined,
     },
+  ]);
+});
+
+test("customer storage enrollment tools are credential-free and project scoped", async (context) => {
+  const requests = [];
+  const enrollmentOperationId = "018f0000-0000-7000-8000-000000000017";
+  const enrollment = {
+    operation_id: enrollmentOperationId,
+    enrollment_id: "018f0000-0000-7000-8000-000000000018",
+    binding_label: "production-primary",
+    provider_family: "aws_s3",
+    storage_class: "normal",
+    state: "active",
+    realization: { realization_generation: 3, storage_class: "normal" },
+    capability_proof_digest: `sha256:${"a".repeat(64)}`,
+    health_evidence_digest: `sha256:${"b".repeat(64)}`,
+    failure_code: null,
+    owner_revision: 2,
+    created_at: "2026-10-17T00:00:00Z",
+    updated_at: "2026-10-17T00:01:00Z",
+  };
+  const connection = await connected(async (input, init) => {
+    requests.push({ input, init });
+    if (init.method === "POST") return json({ disposition: "applied", enrollment }, 201);
+    if (input.endsWith(enrollmentOperationId)) return json(enrollment);
+    return json({ enrollments: [enrollment] });
+  });
+  context.after(async () => {
+    await connection.client.close();
+    await connection.server.close();
+  });
+  const scope = { tenant_id: tenantId, project_id: projectId };
+  const provider_configuration = {
+    provider: "aws_s3",
+    partition: "aws",
+    account_id: "123456789012",
+    region: "us-east-1",
+    bucket: "customer-files",
+    expected_bucket_owner: "123456789012",
+    role_arn: "arn:aws:iam::123456789012:role/almira",
+    encryption: "aws_sse_s3",
+    encryption_key: null,
+  };
+
+  await connection.client.callTool({ name: "almira_storage_enrollment_list", arguments: scope });
+  const started = await connection.client.callTool({
+    name: "almira_storage_enrollment_create",
+    arguments: {
+      ...scope,
+      binding_label: "production-primary",
+      storage_class: "normal",
+      provider_configuration,
+      operation_id: enrollmentOperationId,
+    },
+  });
+  await connection.client.callTool({
+    name: "almira_storage_enrollment_get",
+    arguments: { ...scope, enrollment_operation_id: enrollmentOperationId },
+  });
+
+  assert.equal(started.isError, undefined);
+  assert.equal(started.structuredContent.operation_id, enrollmentOperationId);
+  const path = `https://almira.test/v1/projects/${projectId}/storage-enrollments`;
+  assert.deepEqual(requests.map(({ input, init }) => ({
+    input,
+    method: init.method,
+    operationId: init.headers.get("idempotency-key"),
+    body: init.body === undefined ? undefined : JSON.parse(init.body),
+  })), [
+    { input: path, method: "GET", operationId: null, body: undefined },
+    {
+      input: path,
+      method: "POST",
+      operationId: enrollmentOperationId,
+      body: { binding_label: "production-primary", storage_class: "normal", provider_configuration },
+    },
+    { input: `${path}/${enrollmentOperationId}`, method: "GET", operationId: null, body: undefined },
   ]);
 });
 

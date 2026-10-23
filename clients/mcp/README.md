@@ -36,6 +36,13 @@ server does not invent a success assertion or expose key material beyond public 
 current revision. The default is 30 days, the value applies to future deletions, and existing
 recycle deadlines are unchanged.
 
+`almira_storage_enrollment_create`, `almira_storage_enrollment_list`, and
+`almira_storage_enrollment_get` expose the same project-scoped customer-storage workflow as the
+console and CLI. Creation accepts S3, GCS, or Azure Blob coordinates plus a workload-federation
+identity and provider-native encryption configuration; it never accepts static cloud credentials.
+List and get return only durable safe proof, health, and opaque realization state, so an external
+coding agent can resume after a restart without receiving provider coordinates.
+
 Portability tools start credential-free FileService-bound imports, start safe retained-generation
 exports, and inspect durable job progress. Imports accept no provider credential or storage target.
 `almira_portability_export_download` consumes the completed export's one-use bearer inside the MCP
@@ -81,8 +88,9 @@ operations because PAT/SAK-backed coding agents are management principals, not b
 or application users.
 
 `almira_storage_migration_start` changes an existing collection between advertised classes using
-its current revision and returns a durable receipt; it never accepts a provider target. Uploads to
-that collection pause while migration is active. Retain the returned operation ID after an
+its current revision and the exact opaque realization generation selected from fresh capabilities
+or an active enrollment receipt; it never accepts provider coordinates. Uploads to that collection
+pause while migration is active. Retain the returned operation ID after an
 ambiguous start and poll `almira_storage_migration_get` until `succeeded` or `failed`.
 
 `almira_configuration_preview` and `almira_configuration_apply` accept the structured form of the

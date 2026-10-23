@@ -24,6 +24,7 @@ const uuid = z
   .string()
   .regex(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u);
 const operationId = uuid.optional().describe("UUIDv7 to reuse after an ambiguous mutation outcome");
+const cloudUuid = z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u);
 const scope = { tenant_id: uuid, project_id: uuid };
 const tenancyProject = z
   .object({
@@ -116,6 +117,40 @@ const collectionScope = {
   environment_id: uuid,
   collection_instance_id: uuid,
 };
+const storageProviderConfiguration = z.discriminatedUnion("provider", [
+  z.object({
+    provider: z.literal("aws_s3"),
+    partition: z.enum(["aws", "aws_cn", "aws_us_gov"]),
+    account_id: z.string().regex(/^[0-9]{12}$/u),
+    region: z.string().min(1).max(64),
+    bucket: z.string().min(1).max(255),
+    expected_bucket_owner: z.string().regex(/^[0-9]{12}$/u),
+    role_arn: z.string().min(20).max(512),
+    encryption: z.enum(["aws_sse_s3", "aws_sse_kms"]),
+    encryption_key: z.string().min(1).max(512).nullable(),
+  }).strict().refine((value) => (value.encryption === "aws_sse_s3") === (value.encryption_key === null)),
+  z.object({
+    provider: z.literal("gcs"),
+    project_id: z.string().min(1).max(128),
+    project_number: z.string().regex(/^[0-9]{1,32}$/u),
+    bucket: z.string().min(1).max(255),
+    location: z.string().min(1).max(64),
+    service_account: z.string().min(3).max(320),
+    encryption: z.enum(["gcp_managed", "gcp_cmek"]),
+    encryption_key: z.string().min(1).max(1024).nullable(),
+  }).strict().refine((value) => (value.encryption === "gcp_managed") === (value.encryption_key === null)),
+  z.object({
+    provider: z.literal("azure_blob"),
+    tenant_id: cloudUuid,
+    subscription_id: cloudUuid,
+    account: z.string().min(1).max(64),
+    container: z.string().min(1).max(128),
+    location: z.string().min(1).max(64),
+    client_id: cloudUuid,
+    encryption: z.enum(["azure_managed", "azure_encryption_scope"]),
+    encryption_scope: z.string().min(1).max(256).nullable(),
+  }).strict().refine((value) => (value.encryption === "azure_managed") === (value.encryption_scope === null)),
+]);
 const metadataComponent = z.string().regex(/^[a-z]([a-z0-9._-]{0,62}[a-z0-9])?$/u);
 const customMetadataValue = z.union([
   z.boolean(),
@@ -371,7 +406,7 @@ export function createAlmiraMcpServer(
   client: AlmiraClient,
   dependencies: AlmiraMcpDependencies = {},
 ): McpServer {
-  const server = new McpServer({ name: "almira", version: "0.1.0-dev.44" });
+  const server = new McpServer({ name: "almira", version: "0.1.0-dev.45" });
 
   server.registerTool(
     "almira_project_bootstrap",
@@ -588,6 +623,64 @@ export function createAlmiraMcpServer(
           environmentId: environment_id,
         }),
       ),
+  );
+
+  server.registerTool(
+    "almira_storage_enrollment_list",
+    {
+      title: "List customer storage enrollments",
+      description: "List durable provider-opaque customer storage enrollment receipts for a project.",
+      inputSchema: z.object(scope).strict(),
+      outputSchema,
+      annotations: readAnnotations,
+    },
+    async ({ tenant_id, project_id }) =>
+      execute(() => client.listStorageEnrollments({ tenantId: tenant_id, projectId: project_id })),
+  );
+
+  server.registerTool(
+    "almira_storage_enrollment_create",
+    {
+      title: "Enroll customer-owned storage",
+      description: "Start FileService proof and workload federation for a credential-free S3, GCS, or Azure Blob target.",
+      inputSchema: z.object({
+        ...scope,
+        binding_label: z.string().regex(/^[A-Za-z0-9._/-]{1,128}$/u),
+        storage_class: z.enum(["normal", "express"]),
+        provider_configuration: storageProviderConfiguration,
+        operation_id: operationId,
+      }).strict(),
+      outputSchema,
+      annotations: mutationAnnotations,
+    },
+    async ({ tenant_id, project_id, binding_label, storage_class, provider_configuration, operation_id }) => {
+      const id = operation_id ?? createOperationId();
+      return execute(
+        () => client.createStorageEnrollment(
+          { tenantId: tenant_id, projectId: project_id },
+          { binding_label, storage_class, provider_configuration },
+          { operationId: id },
+        ),
+        id,
+      );
+    },
+  );
+
+  server.registerTool(
+    "almira_storage_enrollment_get",
+    {
+      title: "Get customer storage enrollment",
+      description: "Reconcile one durable customer storage enrollment with FileService using its original operation identity.",
+      inputSchema: z.object({ ...scope, enrollment_operation_id: uuid }).strict(),
+      outputSchema,
+      annotations: readAnnotations,
+    },
+    async ({ tenant_id, project_id, enrollment_operation_id }) =>
+      execute(() => client.getStorageEnrollment({
+        tenantId: tenant_id,
+        projectId: project_id,
+        operationId: enrollment_operation_id,
+      })),
   );
 
   server.registerTool(
@@ -994,6 +1087,7 @@ export function createAlmiraMcpServer(
         environment_id: uuid,
         collection_instance_id: uuid,
         target_storage_class: z.enum(["normal", "express"]),
+        target_realization_generation: z.number().int().min(1),
         expected_collection_revision: z.number().int().min(1),
         operation_id: operationId,
       }).strict(),
@@ -1006,6 +1100,7 @@ export function createAlmiraMcpServer(
       environment_id,
       collection_instance_id,
       target_storage_class,
+      target_realization_generation,
       expected_collection_revision,
       operation_id,
     }) => {
@@ -1018,7 +1113,7 @@ export function createAlmiraMcpServer(
             environmentId: environment_id,
             collectionInstanceId: collection_instance_id,
           },
-          { target_storage_class, expected_collection_revision },
+          { target_storage_class, target_realization_generation, expected_collection_revision },
           { operationId: id },
         ),
         id,

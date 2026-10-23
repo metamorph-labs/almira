@@ -18,6 +18,26 @@ const capabilities = await almira.getStorageCapabilities({
   environmentId: environments[0].environment_id,
 });
 
+const enrolled = await almira.createStorageEnrollment(
+  { tenantId, projectId },
+  {
+    binding_label: "customer-media",
+    storage_class: "express",
+    provider_configuration: {
+      provider: "aws_s3",
+      partition: "aws",
+      account_id: "123456789012",
+      region: "us-east-1",
+      bucket: "customer-media-prod",
+      expected_bucket_owner: "123456789012",
+      role_arn: "arn:aws:iam::123456789012:role/almira-fileservice",
+      encryption: "aws_sse_kms",
+      encryption_key: "arn:aws:kms:us-east-1:123456789012:key/example",
+    },
+  },
+  { operationId: enrollmentOperationId },
+);
+
 const collection = await almira.createCollection(
   { tenantId, projectId, environmentId: environments[0].environment_id },
   {
@@ -36,7 +56,11 @@ const migration = await almira.startStorageMigration(
     environmentId: environments[0].environment_id,
     collectionInstanceId: collection.collection.collection_instance_id,
   },
-  { target_storage_class: "express", expected_collection_revision: collection.collection.revision },
+  {
+    target_storage_class: "express",
+    target_realization_generation: enrolled.enrollment.realization!.realization_generation,
+    expected_collection_revision: collection.collection.revision,
+  },
   { operationId: migrationOperationId },
 );
 
@@ -82,8 +106,16 @@ Azure Blob realizations available to an active environment in one Almira request
 opaque realization IDs and safe provider, location, health and `normal`/`express` capability
 evidence—never provider coordinates or credentials.
 
-`startStorageMigration` changes only the logical `normal`/`express` class. Almira chooses the
-opaque compatible target and FileService owns inventory, copy, verification, cutover and cleanup.
+`createStorageEnrollment` starts durable FileService proof for a customer-owned S3, GCS, or Azure
+Blob target. Supply only provider coordinates and its workload-federation identity; static cloud
+keys and secrets are outside the contract and are rejected. Use `listStorageEnrollments` after a
+reload and `getStorageEnrollment` with the original operation ID to reconcile proof, health, and
+opaque realization state. Provider coordinates are used only for the owner call and are not
+returned or persisted in Almira's enrollment ledger.
+
+`startStorageMigration` changes the logical `normal`/`express` class and binds the exact opaque
+realization generation selected from the fresh capability catalog or an active enrollment receipt.
+FileService owns inventory, copy, verification, cutover and cleanup.
 Uploads to that collection pause while the receipt is non-terminal; reads remain bound to their
 stored generations. Poll `getStorageMigration` to `succeeded` or `failed` and reuse the original
 operation ID if the start outcome is ambiguous; the same operation exactly replays while the

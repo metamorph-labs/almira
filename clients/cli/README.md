@@ -23,6 +23,17 @@ almira storage capabilities \
   --tenant 018f0000-0000-7000-8000-000000000002 \
   --project 018f0000-0000-7000-8000-000000000003 \
   --environment 018f0000-0000-7000-8000-000000000004
+almira storage enroll \
+  --tenant 018f0000-0000-7000-8000-000000000002 \
+  --project 018f0000-0000-7000-8000-000000000003 \
+  --input ./storage-enrollment.json
+almira storage enrollments \
+  --tenant 018f0000-0000-7000-8000-000000000002 \
+  --project 018f0000-0000-7000-8000-000000000003
+almira enrollment get \
+  --tenant 018f0000-0000-7000-8000-000000000002 \
+  --project 018f0000-0000-7000-8000-000000000003 \
+  --enrollment 018f0000-0000-7000-8000-000000000020
 almira config preview \
   --tenant 018f0000-0000-7000-8000-000000000002 \
   --project 018f0000-0000-7000-8000-000000000003 \
@@ -41,7 +52,7 @@ almira collection migrate \
   --project 018f0000-0000-7000-8000-000000000003 \
   --environment 018f0000-0000-7000-8000-000000000004 \
   --collection 018f0000-0000-7000-8000-000000000012 \
-  --class express --revision 1
+  --class express --realization-generation 7 --revision 1
 almira lifecycle set \
   --tenant 018f0000-0000-7000-8000-000000000002 \
   --project 018f0000-0000-7000-8000-000000000003 \
@@ -120,6 +131,13 @@ environment. Provider family, location, health and supported `normal`/`express` 
 planning inputs; realization IDs are opaque and provider coordinates or credentials are never
 returned.
 
+`storage enroll --input FILE` starts durable FileService proof for a customer-owned S3, GCS, or
+Azure Blob target. The exact JSON body contains a binding label, class, provider coordinates,
+workload-federation identity and provider-native encryption choice; static cloud credentials are
+not accepted. `storage enrollments` restores the project's safe receipts after a reload and
+`enrollment get` reconciles one receipt using its original operation ID. Neither command returns
+the submitted provider coordinates.
+
 `collection create` defaults `--class` to `normal`. Select `express` only when the environment's
 fresh storage-capability result advertises it.
 
@@ -127,8 +145,9 @@ fresh storage-capability result advertises it.
 revision. The default is 30 days. The setting is captured by later deletions and never changes an
 entry's existing recycle deadline; expired entries are no longer listed or restorable.
 
-`collection migrate` starts a governed class change using the current collection `--revision`;
-the provider target remains opaque. Uploads pause while that collection is migrating. Retain the
+`collection migrate` starts a governed class change using the current collection `--revision` and
+the exact opaque `--realization-generation` selected from fresh capabilities or an active
+enrollment receipt. Uploads pause while that collection is migrating. Retain the
 emitted operation ID after an ambiguous start and use `migration get` until the durable receipt is
 `succeeded` or `failed`; retrying the start with that same ID exactly replays even after the
 collection reports `migrating`.

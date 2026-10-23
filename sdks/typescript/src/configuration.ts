@@ -74,6 +74,7 @@ export type AlmiraConfigurationAction =
       readonly collection_instance_id: UuidV7;
       readonly collection_key: string;
       readonly target_storage_class: "normal" | "express";
+      readonly target_realization_generation: number;
       readonly expected_collection_revision: number;
     }
   | {
@@ -327,13 +328,14 @@ export async function previewConfiguration(
           }
         }
         if (existing.storage_class !== collection.storage_class) {
+          const targetRealizationGeneration = realizationGeneration(capabilities, collection.storage_class, true);
           if (existing.storage_binding_state !== "ready" && existing.storage_binding_state !== "migrating") {
             conflicts.push(conflict(
               "ALMIRA_CONFIGURATION_COLLECTION_NOT_READY",
               desired.key,
               collection.key,
             ));
-          } else if (!classAvailable(capabilities, collection.storage_class)) {
+          } else if (targetRealizationGeneration === null) {
             conflicts.push(conflict(
               "ALMIRA_CONFIGURATION_STORAGE_CLASS_UNAVAILABLE",
               desired.key,
@@ -348,6 +350,7 @@ export async function previewConfiguration(
               collection_instance_id: existing.collection_instance_id,
               collection_key: collection.key,
               target_storage_class: collection.storage_class,
+              target_realization_generation: targetRealizationGeneration,
               expected_collection_revision: expectedRevision,
             });
           }
@@ -467,6 +470,7 @@ export async function applyConfiguration(
         { ...environment, collectionInstanceId: action.collection_instance_id },
         {
           target_storage_class: action.target_storage_class,
+          target_realization_generation: action.target_realization_generation,
           expected_collection_revision: action.expected_collection_revision,
         },
         { operationId, ...signalOptions },
@@ -787,9 +791,19 @@ function classAvailable(
   capabilities: Awaited<ReturnType<AlmiraClient["getStorageCapabilities"]>> | null,
   storageClass: "normal" | "express",
 ): boolean {
-  return capabilities?.realizations.some((realization) =>
-    realization.health === "ready" && realization.storage_classes.some((value) => value === storageClass),
-  ) === true;
+  return realizationGeneration(capabilities, storageClass, false) !== null;
+}
+
+function realizationGeneration(
+  capabilities: Awaited<ReturnType<AlmiraClient["getStorageCapabilities"]>> | null,
+  storageClass: "normal" | "express",
+  migration: boolean,
+): number | null {
+  const realization = capabilities?.realizations.find((candidate) =>
+    candidate.storage_class === storageClass &&
+    (!migration || candidate.supported_capabilities.includes("class_migration")),
+  );
+  return realization?.realization_generation ?? null;
 }
 
 function originAction(

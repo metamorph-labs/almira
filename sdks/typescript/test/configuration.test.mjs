@@ -37,6 +37,32 @@ function response(value, status = 200) {
   });
 }
 
+function capabilityCatalog(storageClasses = ["normal", "express"]) {
+  const capabilities = ["direct_upload", "multipart_upload", "resumable_upload", "exact_generation_delete", "class_migration"];
+  return {
+    environment_id: environmentId,
+    operating_model: "managed",
+    route_epoch: 1,
+    placement_epoch: null,
+    authorization_decision_id: "018f0000-0000-7000-8000-000000000040",
+    authorization_fact_set_digest: `sha256:${"a".repeat(64)}`,
+    catalog_epoch: 1,
+    catalog_release_id: "release.one",
+    catalog_bundle_digest: `sha256:${"b".repeat(64)}`,
+    realization_catalog_digest: `sha256:${"c".repeat(64)}`,
+    realizations: storageClasses.map((storageClass, index) => ({
+      realization_generation: index + 1,
+      storage_class: storageClass,
+      operating_model: "managed",
+      provider_family: null,
+      binding_label: null,
+      maximum_object_bytes: 10_737_418_240,
+      supported_capabilities: capabilities,
+      unavailable_capabilities: [],
+    })),
+  };
+}
+
 function fixture(calls) {
   return new AlmiraClient({
     credential: "mm_sak_v1.test",
@@ -63,28 +89,7 @@ function fixture(calls) {
       }
       if (input.includes("/collections?")) return response({ collections: [], next_cursor: null });
       if (input.endsWith("/storage-capabilities")) {
-        return response({
-          environment_id: environmentId,
-          deployment_profile: "hosted",
-          catalog_revision: 1,
-          catalog_digest: `sha256:${"a".repeat(64)}`,
-          expires_at: "2099-10-17T00:00:00Z",
-          provider_matrix: {
-            hosted: ["aws_s3", "google_cloud_storage", "azure_blob"],
-            connected_site: ["aws_s3", "google_cloud_storage", "azure_blob"],
-          },
-          realizations: [{
-            realization_id: "018f0000-0000-7000-8000-000000000040",
-            display_name: "Managed storage",
-            provider_family: "aws_s3",
-            operating_model: "managed",
-            location_id: "region.one",
-            storage_classes: ["normal", "express"],
-            health: "ready",
-            capability_generation: 1,
-            evidence_digest: `sha256:${"b".repeat(64)}`,
-          }],
-        });
+        return response(capabilityCatalog());
       }
       if (input.endsWith("/collections") && init.method === "POST") {
         return response({ disposition: "applied", collection: {} }, 201);
@@ -267,28 +272,7 @@ test("apply wires explicit extraction and vector settings after collection creat
       }
       if (input.includes("/collections?")) return response({ collections: [], next_cursor: null });
       if (input.endsWith("/storage-capabilities")) {
-        return response({
-          environment_id: environmentId,
-          deployment_profile: "hosted",
-          catalog_revision: 1,
-          catalog_digest: `sha256:${"a".repeat(64)}`,
-          expires_at: "2099-10-17T00:00:00Z",
-          provider_matrix: {
-            hosted: ["aws_s3", "google_cloud_storage", "azure_blob"],
-            connected_site: ["aws_s3", "google_cloud_storage", "azure_blob"],
-          },
-          realizations: [{
-            realization_id: "018f0000-0000-7000-8000-000000000040",
-            display_name: "Managed storage",
-            provider_family: "aws_s3",
-            operating_model: "managed",
-            location_id: "region.one",
-            storage_classes: ["normal"],
-            health: "ready",
-            capability_generation: 1,
-            evidence_digest: `sha256:${"b".repeat(64)}`,
-          }],
-        });
+        return response(capabilityCatalog(["normal"]));
       }
       if (input.endsWith("/collections") && init.method === "POST") {
         return response({
@@ -359,28 +343,7 @@ test("apply wires bounded media presets after collection creation", async () => 
       }
       if (input.includes("/collections?")) return response({ collections: [], next_cursor: null });
       if (input.endsWith("/storage-capabilities")) {
-        return response({
-          environment_id: environmentId,
-          deployment_profile: "hosted",
-          catalog_revision: 1,
-          catalog_digest: `sha256:${"a".repeat(64)}`,
-          expires_at: "2099-10-17T00:00:00Z",
-          provider_matrix: {
-            hosted: ["aws_s3", "google_cloud_storage", "azure_blob"],
-            connected_site: ["aws_s3", "google_cloud_storage", "azure_blob"],
-          },
-          realizations: [{
-            realization_id: "018f0000-0000-7000-8000-000000000040",
-            display_name: "Managed storage",
-            provider_family: "aws_s3",
-            operating_model: "managed",
-            location_id: "region.one",
-            storage_classes: ["normal"],
-            health: "ready",
-            capability_generation: 1,
-            evidence_digest: `sha256:${"b".repeat(64)}`,
-          }],
-        });
+        return response(capabilityCatalog(["normal"]));
       }
       if (input.endsWith("/collections") && init.method === "POST") {
         return response({ disposition: "applied", collection: { collection_instance_id: collectionId, revision: 1 } }, 201);
@@ -525,28 +488,7 @@ test("existing collection class changes plan and apply a governed migration", as
         return response({ environment_id: environmentId, origins: ["https://app.example"], revision: 1 });
       }
       if (input.endsWith("/storage-capabilities") && init.method === "GET") {
-        return response({
-          environment_id: environmentId,
-          deployment_profile: "hosted",
-          catalog_revision: 1,
-          catalog_digest: `sha256:${"a".repeat(64)}`,
-          expires_at: "2099-10-17T00:00:00Z",
-          provider_matrix: {
-            hosted: ["aws_s3", "google_cloud_storage", "azure_blob"],
-            connected_site: ["aws_s3", "google_cloud_storage", "azure_blob"],
-          },
-          realizations: [{
-            realization_id: "018f0000-0000-7000-8000-000000000040",
-            display_name: "Managed storage",
-            provider_family: "aws_s3",
-            operating_model: "managed",
-            location_id: "region.one",
-            storage_classes: ["normal", "express"],
-            health: "ready",
-            capability_generation: 1,
-            evidence_digest: `sha256:${"b".repeat(64)}`,
-          }],
-        });
+        return response(capabilityCatalog());
       }
       if (input.endsWith("/storage-migrations") && init.method === "POST") {
         return response({ disposition: bindingState === "ready" ? "applied" : "exact_replay", migration: { migration_id: operationId } }, 201);
@@ -564,6 +506,7 @@ test("existing collection class changes plan and apply a governed migration", as
     collection_instance_id: "018f0000-0000-7000-8000-000000000061",
     collection_key: "sessions",
     target_storage_class: "express",
+    target_realization_generation: 2,
     expected_collection_revision: 4,
   }]);
   const receipt = await applyConfiguration(
@@ -576,6 +519,7 @@ test("existing collection class changes plan and apply a governed migration", as
   const mutation = calls.find(({ input, init }) => input.endsWith("/storage-migrations") && init.method === "POST");
   assert.deepEqual(JSON.parse(mutation.init.body), {
     target_storage_class: "express",
+    target_realization_generation: 2,
     expected_collection_revision: 4,
   });
   assert.equal(mutation.init.headers.get("idempotency-key"), receipt.actions[0].operation_id);
@@ -639,28 +583,7 @@ test("existing collection protection, extraction, media, and class changes share
         }], next_cursor: null });
       }
       if (input.endsWith("/storage-capabilities") && init.method === "GET") {
-        return response({
-          environment_id: environmentId,
-          deployment_profile: "hosted",
-          catalog_revision: 1,
-          catalog_digest: `sha256:${"a".repeat(64)}`,
-          expires_at: "2099-10-17T00:00:00Z",
-          provider_matrix: {
-            hosted: ["aws_s3", "google_cloud_storage", "azure_blob"],
-            connected_site: ["aws_s3", "google_cloud_storage", "azure_blob"],
-          },
-          realizations: [{
-            realization_id: "018f0000-0000-7000-8000-000000000040",
-            display_name: "Managed storage",
-            provider_family: "aws_s3",
-            operating_model: "managed",
-            location_id: "region.one",
-            storage_classes: ["normal", "express"],
-            health: "ready",
-            capability_generation: 1,
-            evidence_digest: `sha256:${"b".repeat(64)}`,
-          }],
-        });
+        return response(capabilityCatalog());
       }
       if (input.endsWith(`/collections/${collectionId}/media`) && init.method === "GET") {
         return response({
@@ -741,6 +664,6 @@ test("existing collection protection, extraction, media, and class changes share
     { expected_revision: 5, config: { malware_scan_required: true } },
     { expected_revision: 6, config: { content: true, ocr: false, transcription: false, vector_indexing: true } },
     { expected_revision: 7, config: { image_presets: {}, document_previews: true, video_profile: null } },
-    { target_storage_class: "express", expected_collection_revision: 8 },
+    { target_storage_class: "express", target_realization_generation: 2, expected_collection_revision: 8 },
   ]);
 });

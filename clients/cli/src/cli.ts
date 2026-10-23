@@ -36,6 +36,7 @@ import {
   type PortableExportStream,
   type PortabilityJob,
   type PortabilityJobOutcome,
+  type StartStorageEnrollmentRequest,
   type StartStorageMigrationOutcome,
   type StorageMigration,
   type TenancyProjectGetResponse,
@@ -78,6 +79,9 @@ Commands:
   origin get              Read an environment's browser-origin policy
   origin set              Replace an environment's browser-origin policy
   storage capabilities    Discover storage realizations available to an environment
+  storage enroll          Enroll a credential-free customer storage target from --input JSON
+  storage enrollments     List durable customer storage enrollment receipts
+  enrollment get         Reconcile one customer storage enrollment by operation ID
   config preview          Preview additive almira.yaml changes
   config apply            Apply an almira.yaml configuration
   collection list         List collections in an environment
@@ -143,6 +147,7 @@ Common identifiers:
   --environment UUID      Almira environment UUIDv7
   --collection UUID       Almira collection-instance UUIDv7
   --migration UUID        Almira storage-migration UUIDv7
+  --enrollment UUID       Customer storage enrollment operation UUIDv7
   --portability-job UUID  Almira import/export job UUIDv7
   --entry UUID            Almira file-entry UUIDv7
   --generation UUID       Almira immutable generation UUIDv7
@@ -179,6 +184,7 @@ const options = {
   display: { type: "string" },
   "dry-run": { type: "boolean" },
   entry: { type: "string" },
+  enrollment: { type: "string" },
   environment: { type: "string" },
   file: { type: "string" },
   generation: { type: "string" },
@@ -208,6 +214,7 @@ const options = {
   project: { type: "string" },
   "portability-job": { type: "string" },
   revision: { type: "string" },
+  "realization-generation": { type: "string" },
   scan: { type: "string" },
   state: { type: "string" },
   "created-after": { type: "string" },
@@ -336,6 +343,21 @@ export async function runCli(arguments_: string[], dependencies: CliDependencies
         ...reference,
         environmentId: required(values, "environment"),
       });
+    } else if (noun === "storage" && verb === "enroll") {
+      operationId = mutationId(values);
+      mutation = true;
+      result = await client.createStorageEnrollment(
+        reference,
+        await readJson<StartStorageEnrollmentRequest>(required(values, "input"), dependencies.io.stdin),
+        { operationId },
+      );
+    } else if (noun === "storage" && verb === "enrollments") {
+      result = await client.listStorageEnrollments(reference);
+    } else if (noun === "enrollment" && verb === "get") {
+      result = await client.getStorageEnrollment({
+        ...reference,
+        operationId: required(values, "enrollment"),
+      });
     } else if (noun === "config" && verb === "preview") {
       result = await previewConfiguration(
         client,
@@ -395,6 +417,7 @@ export async function runCli(arguments_: string[], dependencies: CliDependencies
         collectionReference(values, tenantId, projectId),
         {
           target_storage_class: targetStorageClass,
+          target_realization_generation: positiveInteger(values, "realization-generation"),
           expected_collection_revision: positiveInteger(values, "revision"),
         },
         { operationId },
@@ -917,13 +940,16 @@ const commandOptions = new Map<string, ReadonlySet<string>>([
   ["origin:get", new Set(["base-url", "environment", "project", "tenant"])],
   ["origin:set", new Set(["base-url", "environment", "operation-id", "origin", "project", "revision", "tenant"])],
   ["storage:capabilities", new Set(["base-url", "environment", "project", "tenant"])],
+  ["storage:enroll", new Set(["base-url", "input", "operation-id", "project", "tenant"])],
+  ["storage:enrollments", new Set(["base-url", "project", "tenant"])],
+  ["enrollment:get", new Set(["base-url", "enrollment", "project", "tenant"])],
   ["config:preview", new Set(["base-url", "file", "project", "tenant"])],
   ["config:apply", new Set(["base-url", "file", "operation-id", "project", "tenant"])],
   ["collection:list", new Set(["base-url", "cursor", "environment", "limit", "project", "tenant"])],
   ["collection:create", new Set(["base-url", "class", "display", "environment", "key", "operation-id", "project", "scan", "tenant"])],
   ["collection:get", new Set(["base-url", "collection", "environment", "project", "tenant"])],
   ["lifecycle:set", collectionCommandOptions("days", "operation-id", "revision")],
-  ["collection:migrate", new Set(["base-url", "class", "collection", "environment", "operation-id", "project", "revision", "tenant"])],
+  ["collection:migrate", new Set(["base-url", "class", "collection", "environment", "operation-id", "project", "realization-generation", "revision", "tenant"])],
   ["migration:get", new Set(["base-url", "collection", "environment", "migration", "project", "tenant"])],
   ["import:start", collectionCommandOptions("input", "operation-id")],
   ["export:start", collectionCommandOptions("operation-id", "revision")],
@@ -982,7 +1008,7 @@ const commandOptions = new Map<string, ReadonlySet<string>>([
 
 const mutationCommands = new Set([
   "project:bootstrap", "environment:create", "environment:update", "environment:delete", "origin:set",
-  "config:apply", "collection:create", "lifecycle:set", "collection:migrate", "import:start", "export:start",
+  "storage:enroll", "config:apply", "collection:create", "lifecycle:set", "collection:migrate", "import:start", "export:start",
   "export:download", "extraction:set", "media:set", "protection:set", "scan:rescan", "scan:review",
   "job:retry", "job:cancel", "file:batch", "file:copy", "metadata:set", "file:rename",
   "file:select-version", "file:delete", "file:restore", "policy:set", "policy:simulate", "delivery:set",
