@@ -1,8 +1,10 @@
 use crate::server::{
-    DirectUploadDescriptor, DirectUploadPart, DirectUploadPartCompletion, FinalizeUploadRequest,
-    valid_direct_upload_descriptor, valid_provider_receipt, valid_provider_version,
+    CreateMultipartPartGrantRequest, DirectUploadDescriptor, DirectUploadPart,
+    DirectUploadPartCompletion, FinalizeUploadRequest, valid_direct_upload_descriptor,
+    valid_direct_upload_part, valid_provider_receipt, valid_provider_version,
 };
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
+use sha2::{Digest, Sha256};
 use std::future::Future;
 use std::path::Path;
 use time::OffsetDateTime;
@@ -38,6 +40,26 @@ pub trait DirectUploadTransport: Send + Sync {
         part: &'a DirectUploadPart,
         source_path: &'a Path,
     ) -> impl Future<Output = Result<DirectUploadResponse, TransferError>> + Send + 'a;
+}
+
+pub trait DirectUploadPartGrant: Send + Sync {
+    fn grant(
+        &self,
+        request: CreateMultipartPartGrantRequest,
+    ) -> impl Future<Output = Result<DirectUploadPart, TransferError>> + Send;
+}
+
+impl<F, Output> DirectUploadPartGrant for F
+where
+    F: Fn(CreateMultipartPartGrantRequest) -> Output + Send + Sync,
+    Output: Future<Output = Result<DirectUploadPart, TransferError>> + Send,
+{
+    fn grant(
+        &self,
+        request: CreateMultipartPartGrantRequest,
+    ) -> impl Future<Output = Result<DirectUploadPart, TransferError>> + Send {
+        self(request)
+    }
 }
 
 #[derive(Clone)]
@@ -149,19 +171,28 @@ pub async fn upload_direct_file(
         descriptor,
         source_path.as_ref(),
         &transport,
+        &|_| async {
+            Err(transfer_error(
+                "ALMIRA_TRANSFER_DESCRIPTOR_INVALID",
+                None,
+                None,
+            ))
+        },
         OffsetDateTime::now_utc,
     )
     .await
 }
 
-pub async fn upload_direct_file_with<T, C>(
+pub async fn upload_direct_file_with<T, G, C>(
     descriptor: &DirectUploadDescriptor,
     source_path: &Path,
     transport: &T,
+    grant_part: &G,
     clock: C,
 ) -> Result<FinalizeUploadRequest, TransferError>
 where
     T: DirectUploadTransport,
+    G: DirectUploadPartGrant,
     C: Fn() -> OffsetDateTime,
 {
     if !valid_direct_upload_descriptor(descriptor) {
@@ -182,12 +213,37 @@ where
             None,
         ));
     }
-    let mut completions = Vec::with_capacity(descriptor.requests.len());
+    let mut completions = Vec::with_capacity(usize::from(descriptor.part_count));
     let mut object_etag = None;
     let mut provider_version = None;
-    for part in &descriptor.requests {
+    for part_number in 1..=descriptor.part_count {
         require_unexpired(descriptor, clock())?;
-        let response = transport.put(part, source_path).await?;
+        let expected = expected_part(descriptor, part_number);
+        let part = if descriptor.protocol == "single_put" {
+            descriptor.requests[0].clone()
+        } else {
+            let digest = part_sha256(source_path, &expected).await?;
+            let part = grant_part
+                .grant(CreateMultipartPartGrantRequest {
+                    part_number,
+                    content_sha256: digest,
+                })
+                .await?;
+            if !valid_direct_upload_part(&part)
+                || part.part_number != expected.part_number
+                || part.offset_bytes != expected.offset_bytes
+                || part.length_bytes != expected.length_bytes
+            {
+                return Err(transfer_error(
+                    "ALMIRA_TRANSFER_DESCRIPTOR_INVALID",
+                    Some(part_number),
+                    None,
+                ));
+            }
+            require_unexpired(descriptor, clock())?;
+            part
+        };
+        let response = transport.put(&part, source_path).await?;
         if !(100..=599).contains(&response.status) {
             return Err(transfer_error(
                 "ALMIRA_TRANSFER_RESPONSE_INVALID",
@@ -245,6 +301,67 @@ where
         size_bytes: size,
         content_sha256: descriptor.content_sha256.clone(),
     })
+}
+
+fn expected_part(descriptor: &DirectUploadDescriptor, part_number: u16) -> DirectUploadPart {
+    if descriptor.protocol == "single_put" {
+        return descriptor.requests[0].clone();
+    }
+    let part_size = descriptor
+        .part_size_bytes
+        .expect("validated multipart geometry");
+    let offset = u64::from(part_number - 1) * part_size;
+    DirectUploadPart {
+        part_number,
+        offset_bytes: offset,
+        length_bytes: part_size.min(descriptor.expected_size_bytes - offset),
+        method: "PUT".into(),
+        url: String::new(),
+        headers: vec![],
+        one_use: true,
+    }
+}
+
+async fn part_sha256(source_path: &Path, part: &DirectUploadPart) -> Result<String, TransferError> {
+    let mut file = tokio::fs::File::open(source_path).await.map_err(|_| {
+        transfer_error(
+            "ALMIRA_TRANSFER_SOURCE_UNAVAILABLE",
+            Some(part.part_number),
+            None,
+        )
+    })?;
+    file.seek(std::io::SeekFrom::Start(part.offset_bytes))
+        .await
+        .map_err(|_| {
+            transfer_error(
+                "ALMIRA_TRANSFER_SOURCE_UNAVAILABLE",
+                Some(part.part_number),
+                None,
+            )
+        })?;
+    let mut remaining = part.length_bytes;
+    let mut buffer = vec![0_u8; 1024 * 1024];
+    let mut digest = Sha256::new();
+    while remaining > 0 {
+        let limit = usize::try_from(remaining.min(buffer.len() as u64)).unwrap_or(buffer.len());
+        let read = file.read(&mut buffer[..limit]).await.map_err(|_| {
+            transfer_error(
+                "ALMIRA_TRANSFER_SOURCE_UNAVAILABLE",
+                Some(part.part_number),
+                None,
+            )
+        })?;
+        if read == 0 {
+            return Err(transfer_error(
+                "ALMIRA_TRANSFER_DESCRIPTOR_INVALID",
+                Some(part.part_number),
+                None,
+            ));
+        }
+        digest.update(&buffer[..read]);
+        remaining -= u64::try_from(read).unwrap_or(remaining);
+    }
+    Ok(format!("sha256:{:x}", digest.finalize()))
 }
 
 fn require_unexpired(

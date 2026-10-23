@@ -227,6 +227,15 @@ pub struct CreateUploadRequest {
     pub declared_media_type: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub browser_origin: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub protocol: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct CreateMultipartPartGrantRequest {
+    pub part_number: u16,
+    pub content_sha256: String,
 }
 
 #[derive(Clone, Eq, PartialEq, Deserialize)]
@@ -283,6 +292,8 @@ pub struct DirectUploadDescriptor {
     pub content_sha256: String,
     pub one_use: bool,
     pub expires_at: String,
+    pub part_size_bytes: Option<u64>,
+    pub part_count: u16,
 }
 
 impl Debug for DirectUploadDescriptor {
@@ -296,6 +307,8 @@ impl Debug for DirectUploadDescriptor {
             .field("content_sha256", &self.content_sha256)
             .field("one_use", &self.one_use)
             .field("expires_at", &self.expires_at)
+            .field("part_size_bytes", &self.part_size_bytes)
+            .field("part_count", &self.part_count)
             .finish()
     }
 }
@@ -483,6 +496,40 @@ impl ServerClient {
         Ok(generation)
     }
 
+    pub async fn create_upload_part(
+        &self,
+        reference: &CollectionReference,
+        transfer_session_id: &str,
+        request: &CreateMultipartPartGrantRequest,
+        operation_id: &str,
+    ) -> Result<DirectUploadPart, Error> {
+        if !valid_uuid_v7(transfer_session_id)
+            || request.part_number == 0
+            || request.part_number > 10_000
+            || !valid_content_sha256(&request.content_sha256)
+        {
+            return Err(invalid_input());
+        }
+        let path = management_collection_path(
+            reference,
+            &format!("/uploads/{transfer_session_id}/parts"),
+        )?;
+        let part: DirectUploadPart = self
+            .request_json(
+                Method::POST,
+                &path,
+                &reference.tenant_id,
+                Some(operation_id),
+                Some(request),
+                StatusCode::CREATED,
+            )
+            .await?;
+        if part.part_number != request.part_number || !valid_direct_upload_part(&part) {
+            return Err(invalid_response());
+        }
+        Ok(part)
+    }
+
     pub async fn bind_subject(
         &self,
         reference: &crate::types::FileReference,
@@ -662,7 +709,10 @@ impl ServerClient {
                 .next_cursor
                 .as_ref()
                 .is_some_and(|value| value.is_empty() || value.len() > 2048)
-            || page.items.iter().any(|item| !valid_subject_lifecycle_item(item))
+            || page
+                .items
+                .iter()
+                .any(|item| !valid_subject_lifecycle_item(item))
         {
             return Err(invalid_response());
         }
@@ -863,6 +913,10 @@ fn validate_create_upload_request(request: &CreateUploadRequest) -> Result<(), E
             .browser_origin
             .as_ref()
             .is_some_and(|value| !valid_browser_origin(value))
+        || request
+            .protocol
+            .as_ref()
+            .is_some_and(|value| !matches!(value.as_str(), "auto" | "single_put" | "multipart"))
     {
         return Err(invalid_input());
     }
@@ -883,8 +937,15 @@ fn validate_create_upload_outcome(outcome: &CreateUploadOutcome) -> Result<(), E
 pub(crate) fn valid_direct_upload_descriptor(descriptor: &DirectUploadDescriptor) -> bool {
     if !valid_uuid_v7(&descriptor.descriptor_id)
         || !matches!(descriptor.protocol.as_str(), "single_put" | "multipart")
-        || descriptor.protocol == "single_put" && descriptor.requests.len() != 1
-        || descriptor.protocol == "multipart" && !(2..=256).contains(&descriptor.requests.len())
+        || descriptor.protocol == "single_put"
+            && (descriptor.requests.len() != 1
+                || descriptor.part_size_bytes.is_some()
+                || descriptor.part_count != 1)
+        || descriptor.protocol == "multipart"
+            && (!descriptor.requests.is_empty()
+                || descriptor.part_size_bytes.is_none()
+                || descriptor.part_count == 0
+                || descriptor.part_count > 10_000)
         || descriptor.expected_size_bytes == 0
         || descriptor.expected_size_bytes > 10_737_418_240
         || !valid_content_sha256(&descriptor.content_sha256)
@@ -893,35 +954,57 @@ pub(crate) fn valid_direct_upload_descriptor(descriptor: &DirectUploadDescriptor
     {
         return false;
     }
+    if descriptor.protocol == "multipart" {
+        let part_size = descriptor.part_size_bytes.unwrap_or(0);
+        let Some(lower_bound) = part_size.checked_mul(u64::from(descriptor.part_count - 1)) else {
+            return false;
+        };
+        let Some(upper_bound) = part_size.checked_mul(u64::from(descriptor.part_count)) else {
+            return false;
+        };
+        if part_size == 0
+            || lower_bound >= descriptor.expected_size_bytes
+            || upper_bound < descriptor.expected_size_bytes
+        {
+            return false;
+        }
+    }
     let mut offset = 0_u64;
     for (index, part) in descriptor.requests.iter().enumerate() {
         if part.part_number != u16::try_from(index + 1).unwrap_or(u16::MAX)
             || part.offset_bytes != offset
-            || part.length_bytes == 0
-            || part.method != "PUT"
-            || !part.one_use
-            || !valid_transfer_url(&part.url)
-            || part.headers.len() > 32
+            || !valid_direct_upload_part(part)
         {
             return false;
-        }
-        let mut names = BTreeSet::new();
-        for header in &part.headers {
-            if !valid_header_name(&header.name)
-                || header.value.is_empty()
-                || header.value.len() > 4096
-                || header.value.chars().any(char::is_control)
-                || !names.insert(&header.name)
-            {
-                return false;
-            }
         }
         let Some(next) = offset.checked_add(part.length_bytes) else {
             return false;
         };
         offset = next;
     }
-    offset == descriptor.expected_size_bytes
+    descriptor.protocol == "multipart" || offset == descriptor.expected_size_bytes
+}
+
+pub(crate) fn valid_direct_upload_part(part: &DirectUploadPart) -> bool {
+    if part.part_number == 0
+        || part.part_number > 10_000
+        || part.length_bytes == 0
+        || part.length_bytes > 10_737_418_240
+        || part.method != "PUT"
+        || !part.one_use
+        || !valid_transfer_url(&part.url)
+        || part.headers.len() > 32
+    {
+        return false;
+    }
+    let mut names = BTreeSet::new();
+    part.headers.iter().all(|header| {
+        valid_header_name(&header.name)
+            && !header.value.is_empty()
+            && header.value.len() <= 4096
+            && !header.value.chars().any(char::is_control)
+            && names.insert(&header.name)
+    })
 }
 
 fn validate_finalize_upload_request(request: &FinalizeUploadRequest) -> Result<(), Error> {
@@ -954,7 +1037,7 @@ fn valid_completion_parts(protocol: &str, parts: &[DirectUploadPartCompletion]) 
     let count_valid = if protocol == "single_put" {
         parts.len() == 1
     } else {
-        (2..=256).contains(&parts.len())
+        (1..=10_000).contains(&parts.len())
     };
     count_valid
         && parts.iter().enumerate().all(|(index, part)| {
@@ -1021,7 +1104,9 @@ fn valid_subject_lifecycle_operation(operation: &SubjectLifecycleOperation) -> b
         && valid_subject_reference(&operation.subject)
         && matches!(operation.kind.as_str(), "restrict" | "export" | "delete")
         && matches!(operation.state.as_str(), "complete" | "pending")
-        && operation.completed_entries.checked_add(operation.pending_entries)
+        && operation
+            .completed_entries
+            .checked_add(operation.pending_entries)
             == Some(operation.matched_entries)
         && (operation.state == "complete") == (operation.pending_entries == 0)
         && valid_content_sha256(&operation.manifest_digest)
@@ -1048,9 +1133,10 @@ fn valid_subject_lifecycle_item(item: &SubjectLifecycleItem) -> bool {
                 | "export_pending_retention"
         )
         && (item.disposition == "export_ready") == item.content_path.is_some()
-        && item.content_path.as_ref().is_none_or(|path| {
-            path.starts_with("/v1/projects/") && path.len() <= 512
-        })
+        && item
+            .content_path
+            .as_ref()
+            .is_none_or(|path| path.starts_with("/v1/projects/") && path.len() <= 512)
         && item
             .recycle_until
             .as_ref()

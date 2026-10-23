@@ -406,7 +406,7 @@
                   "parts": {
                     "type": "array",
                     "minItems": 1,
-                    "maxItems": 256,
+                    "maxItems": 10000,
                     "items": {
                       "type": "object",
                       "additionalProperties": false,
@@ -414,7 +414,7 @@
                         "part_number": {
                           "type": "integer",
                           "minimum": 1,
-                          "maximum": 65535
+                          "maximum": 10000
                         },
                         "etag": {
                           "type": "string",
@@ -959,6 +959,222 @@
       }
     },
     {
+      "schema_id": "almira.app.external-job-output-part-create.input.v1",
+      "schema_version": 1,
+      "canonical_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://contracts.almira.dev/apps/external-job-output-part-create.input.v1.schema.json",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": 1
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "target": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "environment_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "collection_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "file_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "generation_id": {
+                "type": "string",
+                "format": "uuid"
+              }
+            },
+            "required": [
+              "environment_id",
+              "collection_id",
+              "file_id",
+              "generation_id"
+            ]
+          },
+          "arguments": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "job_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "expected_job_revision": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              "staged_output_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "transfer_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "part_number": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 10000
+              },
+              "content_sha256": {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              }
+            },
+            "required": [
+              "job_id",
+              "expected_job_revision",
+              "staged_output_id",
+              "transfer_id",
+              "part_number",
+              "content_sha256"
+            ]
+          },
+          "operation_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "schema_version",
+          "request_id",
+          "target",
+          "arguments",
+          "operation_id"
+        ]
+      },
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "schema_id": "almira.app.external-job-output-part-create.output.v1",
+      "schema_version": 1,
+      "canonical_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://contracts.almira.dev/apps/external-job-output-part-create.output.v1.schema.json",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": 1
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "result": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "job_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "staged_output_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "transfer_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "request": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "part_number": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10000
+                  },
+                  "offset_bytes": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 10737418239
+                  },
+                  "length_bytes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10737418240
+                  },
+                  "method": {
+                    "enum": [
+                      "PUT",
+                      "POST"
+                    ]
+                  },
+                  "url": {
+                    "type": "string",
+                    "format": "uri",
+                    "maxLength": 8192
+                  },
+                  "headers": {
+                    "type": "object",
+                    "maxProperties": 32,
+                    "additionalProperties": {
+                      "type": "string",
+                      "maxLength": 8192
+                    }
+                  },
+                  "one_use": {
+                    "const": true
+                  }
+                },
+                "required": [
+                  "part_number",
+                  "offset_bytes",
+                  "length_bytes",
+                  "method",
+                  "url",
+                  "headers",
+                  "one_use"
+                ]
+              }
+            },
+            "required": [
+              "job_id",
+              "staged_output_id",
+              "transfer_id",
+              "request"
+            ]
+          },
+          "operation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "disposition": {
+            "enum": [
+              "succeeded",
+              "accepted",
+              "exact_replay"
+            ]
+          }
+        },
+        "required": [
+          "schema_version",
+          "request_id",
+          "result",
+          "operation_id",
+          "disposition"
+        ]
+      },
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
       "schema_id": "almira.app.external-job-output.input.v1",
       "schema_version": 1,
       "canonical_schema": {
@@ -1083,88 +1299,198 @@
                 "format": "uuid"
               },
               "upload": {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                  "descriptor_id": {
-                    "type": "string",
-                    "format": "uuid"
-                  },
-                  "protocol": {
-                    "enum": [
-                      "single_put",
-                      "multipart"
-                    ]
-                  },
-                  "requests": {
-                    "type": "array",
-                    "minItems": 1,
-                    "maxItems": 256,
-                    "items": {
-                      "type": "object",
-                      "additionalProperties": false,
-                      "properties": {
-                        "part_number": {
-                          "type": "integer",
-                          "minimum": 1,
-                          "maximum": 65535
-                        },
-                        "offset_bytes": {
-                          "type": "integer",
-                          "minimum": 0,
-                          "maximum": 10737418239
-                        },
-                        "length_bytes": {
-                          "type": "integer",
-                          "minimum": 1,
-                          "maximum": 10737418240
-                        },
-                        "method": {
-                          "enum": [
-                            "PUT",
-                            "POST"
-                          ]
-                        },
-                        "url": {
-                          "type": "string",
-                          "format": "uri",
-                          "maxLength": 8192
-                        },
-                        "headers": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "descriptor_id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "protocol": {
+                        "const": "single_put"
+                      },
+                      "requests": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 1,
+                        "items": {
                           "type": "object",
-                          "maxProperties": 32,
-                          "additionalProperties": {
-                            "type": "string",
-                            "maxLength": 8192
-                          }
+                          "additionalProperties": false,
+                          "properties": {
+                            "part_number": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 10000
+                            },
+                            "offset_bytes": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 10737418239
+                            },
+                            "length_bytes": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 10737418240
+                            },
+                            "method": {
+                              "enum": [
+                                "PUT",
+                                "POST"
+                              ]
+                            },
+                            "url": {
+                              "type": "string",
+                              "format": "uri",
+                              "maxLength": 8192
+                            },
+                            "headers": {
+                              "type": "object",
+                              "maxProperties": 32,
+                              "additionalProperties": {
+                                "type": "string",
+                                "maxLength": 8192
+                              }
+                            },
+                            "one_use": {
+                              "const": true
+                            }
+                          },
+                          "required": [
+                            "part_number",
+                            "offset_bytes",
+                            "length_bytes",
+                            "method",
+                            "url",
+                            "headers",
+                            "one_use"
+                          ]
                         }
                       },
-                      "required": [
-                        "part_number",
-                        "offset_bytes",
-                        "length_bytes",
-                        "method",
-                        "url",
-                        "headers"
-                      ]
-                    }
+                      "expires_at": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "maximum_bytes": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 10737418240
+                      },
+                      "part_size_bytes": {
+                        "type": "null"
+                      },
+                      "part_count": {
+                        "const": 1
+                      }
+                    },
+                    "required": [
+                      "descriptor_id",
+                      "protocol",
+                      "requests",
+                      "expires_at",
+                      "maximum_bytes",
+                      "part_size_bytes",
+                      "part_count"
+                    ]
                   },
-                  "expires_at": {
-                    "type": "string",
-                    "format": "date-time"
-                  },
-                  "maximum_bytes": {
-                    "type": "integer",
-                    "minimum": 1,
-                    "maximum": 10737418240
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "descriptor_id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "protocol": {
+                        "const": "multipart"
+                      },
+                      "requests": {
+                        "type": "array",
+                        "maxItems": 0,
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "properties": {
+                            "part_number": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 10000
+                            },
+                            "offset_bytes": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 10737418239
+                            },
+                            "length_bytes": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 10737418240
+                            },
+                            "method": {
+                              "enum": [
+                                "PUT",
+                                "POST"
+                              ]
+                            },
+                            "url": {
+                              "type": "string",
+                              "format": "uri",
+                              "maxLength": 8192
+                            },
+                            "headers": {
+                              "type": "object",
+                              "maxProperties": 32,
+                              "additionalProperties": {
+                                "type": "string",
+                                "maxLength": 8192
+                              }
+                            },
+                            "one_use": {
+                              "const": true
+                            }
+                          },
+                          "required": [
+                            "part_number",
+                            "offset_bytes",
+                            "length_bytes",
+                            "method",
+                            "url",
+                            "headers",
+                            "one_use"
+                          ]
+                        }
+                      },
+                      "expires_at": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "maximum_bytes": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 10737418240
+                      },
+                      "part_size_bytes": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 10737418240
+                      },
+                      "part_count": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 10000
+                      }
+                    },
+                    "required": [
+                      "descriptor_id",
+                      "protocol",
+                      "requests",
+                      "expires_at",
+                      "maximum_bytes",
+                      "part_size_bytes",
+                      "part_count"
+                    ]
                   }
-                },
-                "required": [
-                  "descriptor_id",
-                  "protocol",
-                  "requests",
-                  "expires_at",
-                  "maximum_bytes"
                 ]
               }
             },
@@ -2570,88 +2896,198 @@
                 "format": "uuid"
               },
               "transfer": {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                  "descriptor_id": {
-                    "type": "string",
-                    "format": "uuid"
-                  },
-                  "protocol": {
-                    "enum": [
-                      "single_put",
-                      "multipart"
-                    ]
-                  },
-                  "requests": {
-                    "type": "array",
-                    "minItems": 1,
-                    "maxItems": 256,
-                    "items": {
-                      "type": "object",
-                      "additionalProperties": false,
-                      "properties": {
-                        "part_number": {
-                          "type": "integer",
-                          "minimum": 1,
-                          "maximum": 65535
-                        },
-                        "offset_bytes": {
-                          "type": "integer",
-                          "minimum": 0,
-                          "maximum": 10737418239
-                        },
-                        "length_bytes": {
-                          "type": "integer",
-                          "minimum": 1,
-                          "maximum": 10737418240
-                        },
-                        "method": {
-                          "enum": [
-                            "PUT",
-                            "POST"
-                          ]
-                        },
-                        "url": {
-                          "type": "string",
-                          "format": "uri",
-                          "maxLength": 8192
-                        },
-                        "headers": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "descriptor_id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "protocol": {
+                        "const": "single_put"
+                      },
+                      "requests": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 1,
+                        "items": {
                           "type": "object",
-                          "maxProperties": 32,
-                          "additionalProperties": {
-                            "type": "string",
-                            "maxLength": 8192
-                          }
+                          "additionalProperties": false,
+                          "properties": {
+                            "part_number": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 10000
+                            },
+                            "offset_bytes": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 10737418239
+                            },
+                            "length_bytes": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 10737418240
+                            },
+                            "method": {
+                              "enum": [
+                                "PUT",
+                                "POST"
+                              ]
+                            },
+                            "url": {
+                              "type": "string",
+                              "format": "uri",
+                              "maxLength": 8192
+                            },
+                            "headers": {
+                              "type": "object",
+                              "maxProperties": 32,
+                              "additionalProperties": {
+                                "type": "string",
+                                "maxLength": 8192
+                              }
+                            },
+                            "one_use": {
+                              "const": true
+                            }
+                          },
+                          "required": [
+                            "part_number",
+                            "offset_bytes",
+                            "length_bytes",
+                            "method",
+                            "url",
+                            "headers",
+                            "one_use"
+                          ]
                         }
                       },
-                      "required": [
-                        "part_number",
-                        "offset_bytes",
-                        "length_bytes",
-                        "method",
-                        "url",
-                        "headers"
-                      ]
-                    }
+                      "expires_at": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "maximum_bytes": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 10737418240
+                      },
+                      "part_size_bytes": {
+                        "type": "null"
+                      },
+                      "part_count": {
+                        "const": 1
+                      }
+                    },
+                    "required": [
+                      "descriptor_id",
+                      "protocol",
+                      "requests",
+                      "expires_at",
+                      "maximum_bytes",
+                      "part_size_bytes",
+                      "part_count"
+                    ]
                   },
-                  "expires_at": {
-                    "type": "string",
-                    "format": "date-time"
-                  },
-                  "maximum_bytes": {
-                    "type": "integer",
-                    "minimum": 1,
-                    "maximum": 10737418240
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "descriptor_id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "protocol": {
+                        "const": "multipart"
+                      },
+                      "requests": {
+                        "type": "array",
+                        "maxItems": 0,
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "properties": {
+                            "part_number": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 10000
+                            },
+                            "offset_bytes": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 10737418239
+                            },
+                            "length_bytes": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 10737418240
+                            },
+                            "method": {
+                              "enum": [
+                                "PUT",
+                                "POST"
+                              ]
+                            },
+                            "url": {
+                              "type": "string",
+                              "format": "uri",
+                              "maxLength": 8192
+                            },
+                            "headers": {
+                              "type": "object",
+                              "maxProperties": 32,
+                              "additionalProperties": {
+                                "type": "string",
+                                "maxLength": 8192
+                              }
+                            },
+                            "one_use": {
+                              "const": true
+                            }
+                          },
+                          "required": [
+                            "part_number",
+                            "offset_bytes",
+                            "length_bytes",
+                            "method",
+                            "url",
+                            "headers",
+                            "one_use"
+                          ]
+                        }
+                      },
+                      "expires_at": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "maximum_bytes": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 10737418240
+                      },
+                      "part_size_bytes": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 10737418240
+                      },
+                      "part_count": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 10000
+                      }
+                    },
+                    "required": [
+                      "descriptor_id",
+                      "protocol",
+                      "requests",
+                      "expires_at",
+                      "maximum_bytes",
+                      "part_size_bytes",
+                      "part_count"
+                    ]
                   }
-                },
-                "required": [
-                  "descriptor_id",
-                  "protocol",
-                  "requests",
-                  "expires_at",
-                  "maximum_bytes"
                 ]
               }
             },
@@ -2791,7 +3227,7 @@
                   "parts": {
                     "type": "array",
                     "minItems": 1,
-                    "maxItems": 256,
+                    "maxItems": 10000,
                     "items": {
                       "type": "object",
                       "additionalProperties": false,
@@ -2799,7 +3235,7 @@
                         "part_number": {
                           "type": "integer",
                           "minimum": 1,
-                          "maximum": 65535
+                          "maximum": 10000
                         },
                         "etag": {
                           "type": "string",
@@ -2911,6 +3347,211 @@
               "revision",
               "safety_state",
               "lifecycle"
+            ]
+          },
+          "operation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "disposition": {
+            "enum": [
+              "succeeded",
+              "accepted",
+              "exact_replay"
+            ]
+          }
+        },
+        "required": [
+          "schema_version",
+          "request_id",
+          "result",
+          "operation_id",
+          "disposition"
+        ]
+      },
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "schema_id": "almira.app.transfer-part-create.input.v1",
+      "schema_version": 1,
+      "canonical_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://contracts.almira.dev/apps/transfer-part-create.input.v1.schema.json",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": 1
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "target": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "environment_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "collection_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "file_id": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "generation_id": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "environment_id",
+              "collection_id",
+              "file_id",
+              "generation_id"
+            ]
+          },
+          "arguments": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "transfer_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "part_number": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 10000
+              },
+              "content_sha256": {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              }
+            },
+            "required": [
+              "transfer_id",
+              "part_number",
+              "content_sha256"
+            ]
+          },
+          "operation_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "schema_version",
+          "request_id",
+          "target",
+          "arguments",
+          "operation_id"
+        ]
+      },
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "schema_id": "almira.app.transfer-part-create.output.v1",
+      "schema_version": 1,
+      "canonical_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://contracts.almira.dev/apps/transfer-part-create.output.v1.schema.json",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": 1
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "result": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "transfer_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "request": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "part_number": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10000
+                  },
+                  "offset_bytes": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 10737418239
+                  },
+                  "length_bytes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10737418240
+                  },
+                  "method": {
+                    "enum": [
+                      "PUT",
+                      "POST"
+                    ]
+                  },
+                  "url": {
+                    "type": "string",
+                    "format": "uri",
+                    "maxLength": 8192
+                  },
+                  "headers": {
+                    "type": "object",
+                    "maxProperties": 32,
+                    "additionalProperties": {
+                      "type": "string",
+                      "maxLength": 8192
+                    }
+                  },
+                  "one_use": {
+                    "const": true
+                  }
+                },
+                "required": [
+                  "part_number",
+                  "offset_bytes",
+                  "length_bytes",
+                  "method",
+                  "url",
+                  "headers",
+                  "one_use"
+                ]
+              }
+            },
+            "required": [
+              "transfer_id",
+              "request"
             ]
           },
           "operation_id": {
@@ -3468,6 +4109,29 @@
       }
     },
     {
+      "operation_id": "almira.integration.external-job-output-part.create",
+      "input_schema_id": "almira.app.external-job-output-part-create.input.v1",
+      "output_schema_id": "almira.app.external-job-output-part-create.output.v1",
+      "permission_id": "almira.external_processing.execute",
+      "actor_modes": [
+        "autonomous",
+        "user_delegated"
+      ],
+      "effect": "mutation",
+      "idempotency": "operation_id_with_outcome_query",
+      "outcome_query_operation_id": "almira.integration.operation.get",
+      "audit_event_type_id": "almira.integration.external-job-output-part.create.v1",
+      "data_categories": [
+        {
+          "category_id": "file_content",
+          "classification": "restricted"
+        }
+      ],
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
       "operation_id": "almira.integration.external-job.complete",
       "input_schema_id": "almira.app.external-job-complete.input.v1",
       "output_schema_id": "almira.app.external-job-complete.output.v1",
@@ -3688,6 +4352,33 @@
       "outcome_query_operation_id": null,
       "audit_event_type_id": "almira.integration.resource.discover.v1",
       "data_categories": [
+        {
+          "category_id": "storage_metadata",
+          "classification": "confidential"
+        }
+      ],
+      "lifecycle": {
+        "state": "active"
+      }
+    },
+    {
+      "operation_id": "almira.integration.transfer-part.create",
+      "input_schema_id": "almira.app.transfer-part-create.input.v1",
+      "output_schema_id": "almira.app.transfer-part-create.output.v1",
+      "permission_id": "almira.storage.create",
+      "actor_modes": [
+        "autonomous",
+        "user_delegated"
+      ],
+      "effect": "mutation",
+      "idempotency": "operation_id_with_outcome_query",
+      "outcome_query_operation_id": "almira.integration.operation.get",
+      "audit_event_type_id": "almira.integration.transfer-part.create.v1",
+      "data_categories": [
+        {
+          "category_id": "file_content",
+          "classification": "restricted"
+        },
         {
           "category_id": "storage_metadata",
           "classification": "confidential"

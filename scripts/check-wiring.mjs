@@ -7,6 +7,7 @@ const workloadOperations = new Set([
   "bindSubject",
   "createCapabilitySession",
   "createUpload",
+  "createUploadPart",
   "finalizeUpload",
   "listSubjectBindings",
   "readSubjectLifecycleOperation",

@@ -383,7 +383,7 @@ func TestServerUploadCreateAndFinalizePreserveDescriptorEvidence(t *testing.T) {
 		body := `{"entry_id":"` + entryID + `","generation_id":"` + generationID + `","generation_number":1,"state":"available","expected_size_bytes":5,"content_sha256":"` + contentSHA256 + `","declared_media_type":"text/plain","malware_scan_requirement":"required","safety_state":"clean","revision":1,"created_at":"2026-10-17T12:00:00Z"}`
 		if strings.HasSuffix(request.URL.Path, "/uploads") {
 			status = http.StatusCreated
-			body = `{"transfer_session_id":"` + requestID + `","entry_id":"` + entryID + `","generation_id":"` + generationID + `","descriptor":{"descriptor_id":"` + descriptorID + `","protocol":"single_put","requests":[{"part_number":1,"offset_bytes":0,"length_bytes":5,"method":"PUT","url":"https://objects.example/one-use-secret","headers":[{"name":"content-type","value":"text/plain"}],"one_use":true}],"expected_size_bytes":5,"content_sha256":"` + contentSHA256 + `","one_use":true,"expires_at":"2026-10-17T12:00:00Z"}}`
+			body = `{"transfer_session_id":"` + requestID + `","entry_id":"` + entryID + `","generation_id":"` + generationID + `","descriptor":{"descriptor_id":"` + descriptorID + `","protocol":"single_put","requests":[{"part_number":1,"offset_bytes":0,"length_bytes":5,"method":"PUT","url":"https://objects.example/one-use-secret","headers":[{"name":"content-type","value":"text/plain"}],"one_use":true}],"expected_size_bytes":5,"content_sha256":"` + contentSHA256 + `","one_use":true,"expires_at":"2026-10-17T12:00:00Z","part_size_bytes":null,"part_count":1}}`
 		}
 		return &http.Response{
 			StatusCode: status,
@@ -512,18 +512,53 @@ func TestWorkloadSubjectBindingsAreNamespacedAndOperationScoped(t *testing.T) {
 	}
 }
 
+func TestServerMultipartPartGrantBindsTransferChecksumAndOperation(t *testing.T) {
+	contentSHA256 := "sha256:" + strings.Repeat("d", 64)
+	var call recordedCall
+	transport := roundTripperFunc(func(request *http.Request) (*http.Response, error) {
+		raw, _ := io.ReadAll(request.Body)
+		call = recordedCall{method: request.Method, path: request.URL.Path, header: request.Header.Clone(), body: string(raw)}
+		return &http.Response{
+			StatusCode: http.StatusCreated,
+			Header:     http.Header{"Content-Type": {"application/json"}},
+			Body: io.NopCloser(strings.NewReader(
+				`{"part_number":2,"offset_bytes":67108864,"length_bytes":1024,"method":"PUT","url":"https://objects.example/one-use-part","headers":[{"name":"x-upload-token","value":"secret"}],"one_use":true}`,
+			)),
+		}, nil
+	})
+	server, err := NewServerClient(ServerClientOptions{
+		BaseURL: "https://almira.test", WorkloadSession: "workload_session_evidence", Transport: transport,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	part, err := server.CreateUploadPart(context.Background(), collection, requestID, CreateMultipartPartGrantRequest{
+		PartNumber: 2, ContentSHA256: contentSHA256,
+	}, generationID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if part.PartNumber != 2 || call.path != "/v1/projects/"+projectID+"/environments/"+environmentID+"/collections/"+collectionID+"/uploads/"+requestID+"/parts" ||
+		call.header.Get("Idempotency-Key") != generationID {
+		t.Fatalf("multipart part grant drifted: %#v %#v", part, call)
+	}
+	var payload CreateMultipartPartGrantRequest
+	if err := json.Unmarshal([]byte(call.body), &payload); err != nil || payload.PartNumber != 2 || payload.ContentSHA256 != contentSHA256 {
+		t.Fatalf("multipart part request drifted: %#v %v", payload, err)
+	}
+}
+
 func TestDirectUploadStreamsExactPartsWithoutAlmiraCredentials(t *testing.T) {
 	contentSHA256 := "sha256:" + strings.Repeat("a", 64)
 	descriptor := DirectUploadDescriptor{
-		DescriptorID: "018f0000-0000-7000-8000-000000000011",
-		Protocol:     "multipart",
-		Requests: []DirectUploadPart{
-			{PartNumber: 1, OffsetBytes: 0, LengthBytes: 2, Method: "PUT", URL: "https://objects.example/secret-one", Headers: []DirectUploadHeader{{Name: "content-type", Value: "text/plain"}}, OneUse: true},
-			{PartNumber: 2, OffsetBytes: 2, LengthBytes: 3, Method: "PUT", URL: "https://objects.example/secret-two", Headers: []DirectUploadHeader{{Name: "content-type", Value: "text/plain"}}, OneUse: true},
-		},
+		DescriptorID:      "018f0000-0000-7000-8000-000000000011",
+		Protocol:          "multipart",
+		Requests:          []DirectUploadPart{},
 		ExpectedSizeBytes: 5, ContentSHA256: contentSHA256, OneUse: true, ExpiresAt: "2026-10-17T12:00:00Z",
+		PartSizeBytes: func() *int64 { value := int64(2); return &value }(), PartCount: 3,
 	}
 	var transferred [][]byte
+	var grants []CreateMultipartPartGrantRequest
 	transport := roundTripperFunc(func(request *http.Request) (*http.Response, error) {
 		raw, _ := io.ReadAll(request.Body)
 		if request.Header.Get("Authorization") != "" || request.ContentLength != int64(len(raw)) {
@@ -540,16 +575,25 @@ func TestDirectUploadStreamsExactPartsWithoutAlmiraCredentials(t *testing.T) {
 	})
 	completion, err := UploadDirect(
 		context.Background(), descriptor, bytes.NewReader([]byte("hello")), 5,
-		DirectUploadOptions{Transport: transport, Now: func() time.Time {
+		DirectUploadOptions{Transport: transport, GrantPart: func(_ context.Context, request CreateMultipartPartGrantRequest) (DirectUploadPart, error) {
+			grants = append(grants, request)
+			offset := int64(request.PartNumber-1) * 2
+			return DirectUploadPart{
+				PartNumber: request.PartNumber, OffsetBytes: offset, LengthBytes: min(int64(2), 5-offset), Method: http.MethodPut,
+				URL:     fmt.Sprintf("https://objects.example/secret-%d", request.PartNumber),
+				Headers: []DirectUploadHeader{{Name: "content-type", Value: "text/plain"}}, OneUse: true,
+			}, nil
+		}, Now: func() time.Time {
 			return time.Date(2026, 10, 17, 10, 0, 0, 0, time.UTC)
 		}},
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(transferred) != 2 || string(transferred[0]) != "he" || string(transferred[1]) != "llo" ||
-		completion.ETag != nil || completion.ProviderVersion != nil || len(completion.Parts) != 2 {
-		t.Fatalf("direct transfer drifted: %#v %#v", transferred, completion)
+	if len(transferred) != 3 || string(transferred[0]) != "he" || string(transferred[1]) != "ll" || string(transferred[2]) != "o" ||
+		len(grants) != 3 || grants[0].ContentSHA256 != "sha256:372f7e2fd2d01ce2a1d71dc072acbba4c6fd25a1087cd7f153f4ec0ce37e1ede" ||
+		completion.ETag != nil || completion.ProviderVersion != nil || len(completion.Parts) != 3 {
+		t.Fatalf("direct transfer drifted: %#v %#v %#v", transferred, grants, completion)
 	}
 }
 

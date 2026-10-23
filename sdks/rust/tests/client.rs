@@ -470,7 +470,7 @@ async fn server_upload_create_and_finalize_preserve_descriptor_evidence() {
                     content_type: "application/json",
                     headers: vec![],
                     body: format!(
-                        r#"{{"transfer_session_id":"{REQUEST}","entry_id":"{ENTRY}","generation_id":"{GENERATION}","descriptor":{{"descriptor_id":"{descriptor_id}","protocol":"single_put","requests":[{{"part_number":1,"offset_bytes":0,"length_bytes":5,"method":"PUT","url":"https://objects.example/one-use-secret","headers":[{{"name":"content-type","value":"text/plain"}}],"one_use":true}}],"expected_size_bytes":5,"content_sha256":"{descriptor_digest}","one_use":true,"expires_at":"2026-10-17T12:00:00Z"}}}}"#
+                        r#"{{"transfer_session_id":"{REQUEST}","entry_id":"{ENTRY}","generation_id":"{GENERATION}","descriptor":{{"descriptor_id":"{descriptor_id}","protocol":"single_put","requests":[{{"part_number":1,"offset_bytes":0,"length_bytes":5,"method":"PUT","url":"https://objects.example/one-use-secret","headers":[{{"name":"content-type","value":"text/plain"}}],"one_use":true}}],"expected_size_bytes":5,"content_sha256":"{descriptor_digest}","one_use":true,"expires_at":"2026-10-17T12:00:00Z","part_size_bytes":null,"part_count":1}}}}"#
                     ),
                 };
             }
@@ -498,6 +498,7 @@ async fn server_upload_create_and_finalize_preserve_descriptor_evidence() {
                 content_sha256: content_sha256.clone(),
                 declared_media_type: "text/plain".into(),
                 browser_origin: None,
+                protocol: None,
             },
             GENERATION,
         )
@@ -558,22 +559,31 @@ async fn workload_subject_bindings_are_namespaced_and_operation_scoped() {
     let (base_url, requests) = serve(
         4,
         Arc::new(move |request| {
-            let lifecycle_search = request.target.ends_with("/subject-lifecycle-operations/search");
+            let lifecycle_search = request
+                .target
+                .ends_with("/subject-lifecycle-operations/search");
             let lifecycle_start = request.target.ends_with("/subject-lifecycle-operations");
             Response {
-            status: if lifecycle_start { "202 Accepted" } else if request.target.ends_with("/subject-bindings") { "201 Created" } else { "200 OK" },
-            content_type: "application/json",
-            headers: vec![],
-            body: if lifecycle_search {
-                format!(r#"{{"operation":{lifecycle},"items":[],"next_cursor":null}}"#)
-            } else if lifecycle_start {
-                format!(r#"{{"operation":{lifecycle}}}"#)
-            } else if request.target.ends_with("/subject-bindings/search") {
-                list_response.clone()
-            } else {
-                bind_response.clone()
-            },
-        }}),
+                status: if lifecycle_start {
+                    "202 Accepted"
+                } else if request.target.ends_with("/subject-bindings") {
+                    "201 Created"
+                } else {
+                    "200 OK"
+                },
+                content_type: "application/json",
+                headers: vec![],
+                body: if lifecycle_search {
+                    format!(r#"{{"operation":{lifecycle},"items":[],"next_cursor":null}}"#)
+                } else if lifecycle_start {
+                    format!(r#"{{"operation":{lifecycle}}}"#)
+                } else if request.target.ends_with("/subject-bindings/search") {
+                    list_response.clone()
+                } else {
+                    bind_response.clone()
+                },
+            }
+        }),
     );
     let server = ServerClient::new(ServerClientOptions::new(
         &base_url,
@@ -683,6 +693,54 @@ struct RecordingDirectTransport {
     bodies: Mutex<Vec<Vec<u8>>>,
 }
 
+#[tokio::test]
+async fn server_multipart_part_grant_binds_transfer_checksum_and_operation() {
+    let content_sha256 = format!("sha256:{}", "d".repeat(64));
+    let (base_url, requests) = serve(
+        1,
+        Arc::new(|_| {
+            Response {
+            status: "201 Created",
+            content_type: "application/json",
+            headers: vec![],
+            body: r#"{"part_number":2,"offset_bytes":67108864,"length_bytes":1024,"method":"PUT","url":"https://objects.example/one-use-part","headers":[{"name":"x-upload-token","value":"secret"}],"one_use":true}"#.into(),
+        }
+        }),
+    );
+    let server = ServerClient::new(ServerClientOptions::new(
+        &base_url,
+        "workload_session_evidence",
+    ))
+    .unwrap();
+    let part = server
+        .create_upload_part(
+            &collection(),
+            REQUEST,
+            &metamorph_almira::CreateMultipartPartGrantRequest {
+                part_number: 2,
+                content_sha256: content_sha256.clone(),
+            },
+            GENERATION,
+        )
+        .await
+        .unwrap();
+    assert_eq!(part.part_number, 2);
+    let request = requests.recv().unwrap();
+    assert!(
+        request
+            .target
+            .ends_with(&format!("/uploads/{REQUEST}/parts"))
+    );
+    assert_eq!(
+        request.headers.get("idempotency-key"),
+        Some(&GENERATION.into())
+    );
+    assert_eq!(
+        serde_json::from_str::<Value>(&request.body).unwrap(),
+        serde_json::json!({"part_number": 2, "content_sha256": content_sha256})
+    );
+}
+
 impl DirectUploadTransport for RecordingDirectTransport {
     #[allow(clippy::manual_async_fn)] // Match the SDK trait's explicit Send future.
     fn put<'a>(
@@ -718,41 +776,37 @@ async fn direct_upload_streams_exact_file_parts_without_almira_credentials() {
     let descriptor = DirectUploadDescriptor {
         descriptor_id: "018f0000-0000-7000-8000-000000000011".into(),
         protocol: "multipart".into(),
-        requests: vec![
-            DirectUploadPart {
-                part_number: 1,
-                offset_bytes: 0,
-                length_bytes: 2,
-                method: "PUT".into(),
-                url: "https://objects.example/secret-one".into(),
-                headers: vec![DirectUploadHeader {
-                    name: "content-type".into(),
-                    value: "text/plain".into(),
-                }],
-                one_use: true,
-            },
-            DirectUploadPart {
-                part_number: 2,
-                offset_bytes: 2,
-                length_bytes: 3,
-                method: "PUT".into(),
-                url: "https://objects.example/secret-two".into(),
-                headers: vec![DirectUploadHeader {
-                    name: "content-type".into(),
-                    value: "text/plain".into(),
-                }],
-                one_use: true,
-            },
-        ],
+        requests: vec![],
         expected_size_bytes: 5,
         content_sha256: format!("sha256:{}", "a".repeat(64)),
         one_use: true,
         expires_at: "2026-10-17T12:00:00Z".into(),
+        part_size_bytes: Some(2),
+        part_count: 3,
     };
     let transport = RecordingDirectTransport {
         bodies: Mutex::new(vec![]),
     };
-    let completion = upload_direct_file_with(&descriptor, &path, &transport, || {
+    let grants = Mutex::new(Vec::new());
+    let grant_part = |request: metamorph_almira::CreateMultipartPartGrantRequest| {
+        grants.lock().unwrap().push(request.clone());
+        async move {
+            let offset = u64::from(request.part_number - 1) * 2;
+            Ok(DirectUploadPart {
+                part_number: request.part_number,
+                offset_bytes: offset,
+                length_bytes: 2_u64.min(5 - offset),
+                method: "PUT".into(),
+                url: format!("https://objects.example/secret-{}", request.part_number),
+                headers: vec![DirectUploadHeader {
+                    name: "content-type".into(),
+                    value: "text/plain".into(),
+                }],
+                one_use: true,
+            })
+        }
+    };
+    let completion = upload_direct_file_with(&descriptor, &path, &transport, &grant_part, || {
         OffsetDateTime::parse(
             "2026-10-17T10:00:00Z",
             &time::format_description::well_known::Rfc3339,
@@ -764,12 +818,17 @@ async fn direct_upload_streams_exact_file_parts_without_almira_credentials() {
     std::fs::remove_file(&path).unwrap();
     assert_eq!(
         *transport.bodies.lock().unwrap(),
-        vec![b"he".to_vec(), b"llo".to_vec()]
+        vec![b"he".to_vec(), b"ll".to_vec(), b"o".to_vec()]
+    );
+    assert_eq!(grants.lock().unwrap().len(), 3);
+    assert_eq!(
+        grants.lock().unwrap()[0].content_sha256,
+        "sha256:372f7e2fd2d01ce2a1d71dc072acbba4c6fd25a1087cd7f153f4ec0ce37e1ede"
     );
     assert_eq!(completion.protocol, "multipart");
     assert!(completion.etag.is_none());
     assert!(completion.provider_version.is_none());
-    assert_eq!(completion.parts.len(), 2);
+    assert_eq!(completion.parts.len(), 3);
 }
 
 fn collection() -> CollectionReference {

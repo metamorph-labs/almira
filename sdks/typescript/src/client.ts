@@ -19,6 +19,7 @@ import type {
   CollectionReference,
   CreateCollectionOutcome,
   CreateCollectionRequest,
+  CreateMultipartPartGrantRequest,
   CreateProtectionReviewRequest,
   CreateCapabilitySessionRequest,
   CreateEnvironmentRequest,
@@ -28,6 +29,7 @@ import type {
   CreateVerificationReceiptRequest,
   CreateShareRequest,
   DeleteFileOutcome,
+  DirectUploadPart,
   DeliveryConfig,
   DeliveryConfigOutcome,
   EnvironmentList,
@@ -596,6 +598,29 @@ export class AlmiraClient {
       body: request,
       signal: options.signal,
     }, reference.tenantId);
+  }
+
+  async createUploadPart(
+    reference: CollectionReference & { transferSessionId: UuidV7 },
+    request: CreateMultipartPartGrantRequest,
+    options: MutationOptions,
+  ): Promise<DirectUploadPart> {
+    if (
+      !Number.isSafeInteger(request.part_number) ||
+      request.part_number < 1 ||
+      request.part_number > 10_000 ||
+      !/^sha256:[0-9a-f]{64}$/u.test(request.content_sha256)
+    ) invalidInput();
+    return this.#json(
+      collectionPath(reference, `/uploads/${uuid(reference.transferSessionId)}/parts`),
+      {
+        method: "POST",
+        headers: mutationHeaders(options.operationId),
+        body: request,
+        signal: options.signal,
+      },
+      reference.tenantId,
+    );
   }
 
   async bindSubject(

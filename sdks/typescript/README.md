@@ -89,8 +89,11 @@ stored generations. Poll `getStorageMigration` to `succeeded` or `failed` and re
 operation ID if the start outcome is ambiguous; the same operation exactly replays while the
 collection reports `migrating`.
 
-Direct transfer URLs and headers returned by `createUpload` are sensitive, one-use capabilities.
-The SDK returns them only to the caller and never logs or persists them.
+Direct transfer URLs and headers are sensitive, one-use capabilities. A single-put descriptor
+contains its only request. A multipart descriptor contains only bounded part geometry;
+`uploadDirect` hashes each exact slice and invokes its `createPart` callback to obtain a fresh
+checksum-bound request through `createUploadPart`. The SDK never logs or persists those grants and
+never forwards an Almira credential to the object provider.
 
 Application data reads and read-only search can opt into bounded retries with `retry` on
 `AlmiraDataClient`. Retries are off by default, honor a bounded numeric `Retry-After`, cover only

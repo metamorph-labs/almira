@@ -1,7 +1,7 @@
 {
   "schema_id": "almira.public.api-conformance-vectors.v1",
   "format_version": 1,
-  "openapi": "0.1.0-dev.43",
+  "openapi": "0.1.0-dev.44",
   "schema_vectors": [
     {
       "name": "additional_environment_is_managed_by_default",
@@ -295,6 +295,111 @@
         "bucket": "customer-data"
       },
       "expected": "invalid"
+    },
+    {
+      "name": "upload_can_explicitly_request_multipart",
+      "schema": "CreateUploadRequest",
+      "instance": {
+        "path": "videos/launch.mp4",
+        "expected_size_bytes": 67108865,
+        "content_sha256": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "declared_media_type": "video/mp4",
+        "protocol": "multipart"
+      },
+      "expected": "valid"
+    },
+    {
+      "name": "single-put-descriptor-contains-one-one-use-request",
+      "schema": "DirectUploadDescriptor",
+      "instance": {
+        "descriptor_id": "018f0000-0000-7000-8000-000000000001",
+        "protocol": "single_put",
+        "requests": [
+          {
+            "part_number": 1,
+            "offset_bytes": 0,
+            "length_bytes": 11,
+            "method": "PUT",
+            "url": "https://transfer.invalid/one-use",
+            "headers": [],
+            "one_use": true
+          }
+        ],
+        "expected_size_bytes": 11,
+        "content_sha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "one_use": true,
+        "expires_at": "2026-10-23T12:05:00Z",
+        "part_size_bytes": null,
+        "part_count": 1
+      },
+      "expected": "valid"
+    },
+    {
+      "name": "multipart-descriptor-contains-only-bounded-geometry",
+      "schema": "DirectUploadDescriptor",
+      "instance": {
+        "descriptor_id": "018f0000-0000-7000-8000-000000000002",
+        "protocol": "multipart",
+        "requests": [],
+        "expected_size_bytes": 67108865,
+        "content_sha256": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "one_use": true,
+        "expires_at": "2026-10-23T12:05:00Z",
+        "part_size_bytes": 67108864,
+        "part_count": 2
+      },
+      "expected": "valid"
+    },
+    {
+      "name": "multipart-descriptor-refuses-prefetched-part-credentials",
+      "schema": "DirectUploadDescriptor",
+      "instance": {
+        "descriptor_id": "018f0000-0000-7000-8000-000000000003",
+        "protocol": "multipart",
+        "requests": [
+          {
+            "part_number": 1,
+            "offset_bytes": 0,
+            "length_bytes": 67108864,
+            "method": "PUT",
+            "url": "https://transfer.invalid/part/1",
+            "headers": [],
+            "one_use": true
+          }
+        ],
+        "expected_size_bytes": 67108865,
+        "content_sha256": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "one_use": true,
+        "expires_at": "2026-10-23T12:05:00Z",
+        "part_size_bytes": 67108864,
+        "part_count": 2
+      },
+      "expected": "invalid"
+    },
+    {
+      "name": "multipart-descriptor-refuses-incomplete-geometry",
+      "schema": "DirectUploadDescriptor",
+      "instance": {
+        "descriptor_id": "018f0000-0000-7000-8000-000000000004",
+        "protocol": "multipart",
+        "requests": [],
+        "expected_size_bytes": 67108865,
+        "content_sha256": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "one_use": true,
+        "expires_at": "2026-10-23T12:05:00Z",
+        "part_size_bytes": 33554432,
+        "part_count": 2
+      },
+      "expected": "invalid"
+    },
+    {
+      "name": "multipart-part-grant-request-binds-part-checksum",
+      "schema": "CreateMultipartPartGrantRequest",
+      "instance": {
+        "part_number": 2,
+        "content_sha256": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      },
+      "expected": "valid"
     },
     {
       "name": "single_put_completion",

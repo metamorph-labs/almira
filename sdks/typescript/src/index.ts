@@ -22,7 +22,12 @@ export {
 } from "./configuration.js";
 export type * from "./configuration.js";
 export { openPortableExport, uploadDirect } from "./transfer.js";
-export type { DirectUploadBody, DirectUploadOptions, PortableExportStream } from "./transfer.js";
+export type {
+  DirectUploadBody,
+  DirectUploadOptions,
+  DirectUploadPartGrant,
+  PortableExportStream,
+} from "./transfer.js";
 export type * from "./types.js";
 export { verifyReceiptWithClient, verifyVerificationReceipt } from "./verification.js";
 export type { VerificationReceiptExpectation } from "./verification.js";

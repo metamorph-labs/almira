@@ -18,7 +18,7 @@ bundle independently; see [`AGENTS.md`](AGENTS.md) before proposing a contract c
 
 [`contracts/apps`](contracts/apps/) contains Almira's reviewed and admitted `APP-01`
 product-surface contribution: exact operation/event schemas, stable-ID ceilings, separately
-disclosed byte and external-processing permissions, and refusal vectors. Almira exposes all 15
+disclosed byte and external-processing permissions, and refusal vectors. Almira exposes all 17
 operations as one complete app-authenticated plane; admission, installation authentication,
 suspension, uninstall and webhook delivery remain owned by the common Metamorph Apps capability.
 
@@ -92,4 +92,6 @@ application-integration guidance; they do not gain embedded-agent privileges or 
 approval layer.
 
 [`examples/node-upload`](examples/node-upload) exercises the complete SDK upload path: create a
-transfer, PUT bytes using only the one-use descriptor, and finalize the resulting generation.
+transfer, choose single-put or multipart from the returned descriptor, obtain each checksum-bound
+multipart part grant only when needed, PUT bytes without an Almira credential, and finalize the
+resulting generation.

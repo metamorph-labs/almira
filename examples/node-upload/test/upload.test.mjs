@@ -51,6 +51,8 @@ test("example performs create, direct PUT and finalize without credential crosso
               content_sha256: `sha256:${"9f64a747e1b97f131fabb6b447296c9b6f0201e79fb3c5356e6c77e89b6a806a"}`,
               one_use: true,
               expires_at: "2030-01-01T00:00:00.000000Z",
+              part_size_bytes: null,
+              part_count: 1,
             },
           },
           201,
@@ -85,6 +87,81 @@ test("example performs create, direct PUT and finalize without credential crosso
   assert.equal(directAuthorization, null);
   assert.equal(generation.entry_id, entryId);
   assert.equal(generation.generation_id, generationId);
+});
+
+test("example obtains multipart grants only after hashing each exact part", async () => {
+  const controlCalls = [];
+  const partDigests = [];
+  const client = new AlmiraClient({
+    credential: "mm_sak_v1.test",
+    fetch: async (input, init) => {
+      controlCalls.push({ input, init });
+      if (input.endsWith("/uploads")) {
+        return json({
+          transfer_session_id: transferSessionId,
+          entry_id: entryId,
+          generation_id: generationId,
+          descriptor: {
+            descriptor_id: descriptorId,
+            protocol: "multipart",
+            requests: [],
+            expected_size_bytes: 4,
+            content_sha256: "sha256:9f64a747e1b97f131fabb6b447296c9b6f0201e79fb3c5356e6c77e89b6a806a",
+            one_use: true,
+            expires_at: "2030-01-01T00:00:00Z",
+            part_size_bytes: 2,
+            part_count: 2,
+          },
+        }, 201);
+      }
+      if (input.endsWith("/parts")) {
+        const request = JSON.parse(init.body);
+        partDigests.push(request);
+        return json({
+          part_number: request.part_number,
+          offset_bytes: (request.part_number - 1) * 2,
+          length_bytes: 2,
+          method: "PUT",
+          url: `https://opaque.example/upload/${request.part_number}?secret=signed`,
+          headers: [{ name: "x-upload-part", value: String(request.part_number) }],
+          one_use: true,
+        }, 201);
+      }
+      const completion = JSON.parse(init.body);
+      assert.equal(completion.protocol, "multipart");
+      assert.equal(completion.etag, null);
+      assert.deepEqual(completion.parts, [
+        { part_number: 1, etag: "part-1" },
+        { part_number: 2, etag: "part-2" },
+      ]);
+      return json({ entry_id: entryId, generation_id: generationId });
+    },
+  });
+  const directBodies = [];
+  await uploadFile({
+    client,
+    tenantId,
+    projectId,
+    environmentId,
+    collectionInstanceId,
+    bytes: new Uint8Array([1, 2, 3, 4]),
+    path: "multipart.bin",
+    mediaType: "application/octet-stream",
+    directFetch: async (_input, init) => {
+      directBodies.push([...init.body]);
+      assert.equal(init.headers.get("authorization"), null);
+      return new Response(null, {
+        status: 200,
+        headers: { etag: `part-${directBodies.length}` },
+      });
+    },
+  });
+  assert.deepEqual(directBodies, [[1, 2], [3, 4]]);
+  assert.deepEqual(partDigests, [
+    { part_number: 1, content_sha256: "sha256:a12871fee210fb8619291eaea194581cbd2531e4b23759d225f6806923f63222" },
+    { part_number: 2, content_sha256: "sha256:0ce3940bebf2b22a5d2108ecf0c368a0541c7e3c45703f8540921b4eafc82947" },
+  ]);
+  assert.equal(controlCalls.length, 4);
 });
 
 function canonical(value) {
@@ -133,6 +210,8 @@ test("example obtains and verifies the canonical positive, retry, refusal, and s
             content_sha256: "sha256:9f64a747e1b97f131fabb6b447296c9b6f0201e79fb3c5356e6c77e89b6a806a",
             one_use: true,
             expires_at: "2030-01-01T00:00:00Z",
+            part_size_bytes: null,
+            part_count: 1,
           },
         }, 201);
       }
@@ -141,7 +220,7 @@ test("example obtains and verifies the canonical positive, retry, refusal, and s
       }
       const receipt = {
         receipt_version: "almira.verification.v1",
-        contract_version: "0.1.0-dev.43",
+        contract_version: "0.1.0-dev.44",
         verification_id: verificationId,
         realm_id: realmId,
         tenant_id: tenantId,

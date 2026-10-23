@@ -1,5 +1,6 @@
 import { AlmiraTransferError } from "./errors.js";
 import type {
+  CreateMultipartPartGrantRequest,
   DirectUploadDescriptor,
   DirectUploadPart,
   DirectUploadPartCompletion,
@@ -17,10 +18,16 @@ const PROVIDER_VERSION_HEADERS = ["x-amz-version-id", "x-goog-generation", "x-ms
 export type DirectUploadBody = Blob | ArrayBuffer | ArrayBufferView;
 
 export interface DirectUploadOptions {
+  createPart?: DirectUploadPartGrant;
   fetch?: typeof globalThis.fetch;
   now?: () => number;
   signal?: AbortSignal;
 }
+
+export type DirectUploadPartGrant = (
+  request: CreateMultipartPartGrantRequest,
+  signal?: AbortSignal,
+) => Promise<DirectUploadPart>;
 
 export interface PortableExportStream {
   body: ReadableStream<Uint8Array>;
@@ -47,9 +54,15 @@ export async function uploadDirect(
   const parts: DirectUploadPartCompletion[] = [];
   let objectEtag: string | null = null;
   let providerVersion: string | null = null;
-  for (const request of descriptor.requests) {
+  for (let partNumber = 1; partNumber <= descriptor.part_count; partNumber += 1) {
     requireUnexpired(descriptor, now());
-    const response = await putPart(fetch_, request, sliceBody(body, request), options.signal);
+    const expected = expectedPart(descriptor, partNumber);
+    const partBody = sliceBody(body, expected);
+    const request = descriptor.protocol === "single_put"
+      ? descriptor.requests[0]!
+      : await grantMultipartPart(descriptor, expected, partBody, options);
+    validateGrantedPart(request, expected);
+    const response = await putPart(fetch_, request, partBody, options.signal);
     const etag = response.headers.get("etag");
     if (etag === null || !PROVIDER_RECEIPT.test(etag)) {
       await discard(response);
@@ -179,9 +192,20 @@ function validateDescriptor(descriptor: DirectUploadDescriptor, size: number): v
     size > 10_737_418_240 ||
     typeof descriptor.expires_at !== "string" ||
     !Number.isFinite(Date.parse(descriptor.expires_at)) ||
-    (descriptor.protocol === "single_put" && descriptor.requests.length !== 1) ||
+    !Number.isSafeInteger(descriptor.part_count) ||
+    descriptor.part_count < 1 ||
+    descriptor.part_count > 10_000 ||
+    (descriptor.protocol === "single_put" &&
+      (descriptor.requests.length !== 1 ||
+        descriptor.part_size_bytes !== null ||
+        descriptor.part_count !== 1)) ||
     (descriptor.protocol === "multipart" &&
-      (descriptor.requests.length < 2 || descriptor.requests.length > 256))
+      (descriptor.requests.length !== 0 ||
+        !Number.isSafeInteger(descriptor.part_size_bytes) ||
+        descriptor.part_size_bytes === null ||
+        descriptor.part_size_bytes < 1 ||
+        descriptor.part_size_bytes * (descriptor.part_count - 1) >= size ||
+        descriptor.part_size_bytes * descriptor.part_count < size))
   ) {
     invalidDescriptor();
   }
@@ -205,7 +229,56 @@ function validateDescriptor(descriptor: DirectUploadDescriptor, size: number): v
     }
     offset += request.length_bytes;
   }
-  if (offset !== size) invalidDescriptor();
+  if (descriptor.protocol === "single_put" && offset !== size) invalidDescriptor();
+}
+
+function expectedPart(descriptor: DirectUploadDescriptor, partNumber: number): DirectUploadPart {
+  if (descriptor.protocol === "single_put") return descriptor.requests[0]!;
+  const partSize = descriptor.part_size_bytes!;
+  const offset = (partNumber - 1) * partSize;
+  return {
+    part_number: partNumber,
+    offset_bytes: offset,
+    length_bytes: Math.min(partSize, descriptor.expected_size_bytes - offset),
+    method: "PUT",
+    url: "https://geometry.invalid",
+    headers: [],
+    one_use: true,
+  };
+}
+
+async function grantMultipartPart(
+  descriptor: DirectUploadDescriptor,
+  expected: DirectUploadPart,
+  body: Blob | Uint8Array<ArrayBuffer>,
+  options: DirectUploadOptions,
+): Promise<DirectUploadPart> {
+  if (options.createPart === undefined) invalidDescriptor();
+  const content_sha256 = await partSha256(body);
+  requireUnexpired(descriptor, (options.now ?? Date.now)());
+  return options.createPart({ part_number: expected.part_number, content_sha256 }, options.signal);
+}
+
+function validateGrantedPart(request: DirectUploadPart, expected: DirectUploadPart): void {
+  if (
+    request === null ||
+    typeof request !== "object" ||
+    request.part_number !== expected.part_number ||
+    request.offset_bytes !== expected.offset_bytes ||
+    request.length_bytes !== expected.length_bytes ||
+    request.method !== "PUT" ||
+    request.one_use !== true ||
+    !validTransferUrl(request.url) ||
+    !validHeaders(request)
+  ) invalidDescriptor();
+}
+
+async function partSha256(body: Blob | Uint8Array<ArrayBuffer>): Promise<`sha256:${string}`> {
+  const source = body instanceof Blob ? await body.arrayBuffer() : body;
+  const subtle = globalThis.crypto?.subtle;
+  if (subtle === undefined) invalidDescriptor();
+  const digest = new Uint8Array(await subtle.digest("SHA-256", source));
+  return `sha256:${[...digest].map((byte) => byte.toString(16).padStart(2, "0")).join("")}`;
 }
 
 function validatePortableDescriptor(descriptor: PortableDownloadDescriptor): void {

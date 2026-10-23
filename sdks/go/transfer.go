@@ -2,6 +2,8 @@ package almira
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
@@ -19,7 +21,10 @@ func (error *TransferError) Error() string { return error.Code }
 type DirectUploadOptions struct {
 	Transport http.RoundTripper
 	Now       func() time.Time
+	GrantPart DirectUploadPartGrant
 }
+
+type DirectUploadPartGrant func(context.Context, CreateMultipartPartGrantRequest) (DirectUploadPart, error)
 
 // UploadDirect streams exact one-use descriptor slices and returns finalize evidence.
 func UploadDirect(
@@ -45,11 +50,32 @@ func UploadDirect(
 	if now == nil {
 		now = time.Now
 	}
-	parts := make([]DirectUploadPartCompletion, 0, len(descriptor.Requests))
+	parts := make([]DirectUploadPartCompletion, 0, descriptor.PartCount)
 	var objectETag, providerVersion *string
-	for _, part := range descriptor.Requests {
+	for partNumber := 1; partNumber <= descriptor.PartCount; partNumber++ {
 		if err := requireUnexpired(descriptor, now()); err != nil {
 			return zero, err
+		}
+		expected := expectedDirectUploadPart(descriptor, partNumber)
+		part := expected
+		if descriptor.Protocol == "multipart" {
+			if options.GrantPart == nil {
+				return zero, transferFailure("ALMIRA_TRANSFER_DESCRIPTOR_INVALID", partNumber, 0)
+			}
+			digest, err := directPartSHA256(body, expected.OffsetBytes, expected.LengthBytes)
+			if err != nil {
+				return zero, err
+			}
+			part, err = options.GrantPart(ctx, CreateMultipartPartGrantRequest{PartNumber: partNumber, ContentSHA256: digest})
+			if err != nil {
+				return zero, err
+			}
+			if !validDirectUploadPart(part) || part.PartNumber != expected.PartNumber || part.OffsetBytes != expected.OffsetBytes || part.LengthBytes != expected.LengthBytes {
+				return zero, transferFailure("ALMIRA_TRANSFER_DESCRIPTOR_INVALID", partNumber, 0)
+			}
+			if err := requireUnexpired(descriptor, now()); err != nil {
+				return zero, err
+			}
 		}
 		request, err := http.NewRequestWithContext(
 			ctx,
@@ -108,6 +134,24 @@ func UploadDirect(
 		ETag: objectETag, ProviderVersion: providerVersion, Parts: parts,
 		SizeBytes: sizeBytes, ContentSHA256: descriptor.ContentSHA256,
 	}, nil
+}
+
+func expectedDirectUploadPart(descriptor DirectUploadDescriptor, partNumber int) DirectUploadPart {
+	if descriptor.Protocol == "single_put" {
+		return descriptor.Requests[0]
+	}
+	partSize := *descriptor.PartSizeBytes
+	offset := int64(partNumber-1) * partSize
+	length := min(partSize, descriptor.ExpectedSizeBytes-offset)
+	return DirectUploadPart{PartNumber: partNumber, OffsetBytes: offset, LengthBytes: length, Method: http.MethodPut, OneUse: true}
+}
+
+func directPartSHA256(body io.ReaderAt, offset, length int64) (string, error) {
+	hash := sha256.New()
+	if _, err := io.CopyN(hash, io.NewSectionReader(body, offset, length), length); err != nil {
+		return "", transferFailure("ALMIRA_TRANSFER_DESCRIPTOR_INVALID", 0, 0)
+	}
+	return "sha256:" + hex.EncodeToString(hash.Sum(nil)), nil
 }
 
 func requireUnexpired(descriptor DirectUploadDescriptor, now time.Time) error {

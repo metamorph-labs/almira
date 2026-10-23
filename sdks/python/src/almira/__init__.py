@@ -20,6 +20,7 @@ from .server import (
     CapabilitySessionGrant,
     CreateUploadOutcome,
     CreateUploadRequest,
+    CreateMultipartPartGrantRequest,
     CreateCapabilitySessionRequest,
     DirectUploadDescriptor,
     DirectUploadHeader,
@@ -37,7 +38,7 @@ from .server import (
     SubjectProjectReference,
     SubjectReference,
 )
-from .transfer import AlmiraTransferError, DirectUploadResponse, upload_direct
+from .transfer import AlmiraTransferError, DirectUploadPartGrant, DirectUploadResponse, upload_direct
 from .webhook import VerifiedWebhook, verify_webhook_signature
 
 __all__ = [
@@ -58,6 +59,7 @@ __all__ = [
     "CapabilitySessionGrant",
     "CreateUploadOutcome",
     "CreateUploadRequest",
+    "CreateMultipartPartGrantRequest",
     "CreateCapabilitySessionRequest",
     "DirectUploadDescriptor",
     "DirectUploadHeader",
@@ -76,10 +78,11 @@ __all__ = [
     "SubjectReference",
     "AlmiraTransferError",
     "DirectUploadResponse",
+    "DirectUploadPartGrant",
     "upload_direct",
     "VerifiedWebhook",
     "verify_webhook_signature",
 ]
 
-__version__ = "0.1.0.dev38"
-__contract_version__ = "0.1.0-dev.43"
+__version__ = "0.1.0.dev44"
+__contract_version__ = "0.1.0-dev.44"

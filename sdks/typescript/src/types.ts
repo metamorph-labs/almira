@@ -554,6 +554,7 @@ export interface CreateUploadRequest {
   content_sha256: ContentSha256;
   declared_media_type: string;
   browser_origin?: string | null;
+  protocol?: UploadProtocolPreference;
 }
 
 export interface CreateFileVersionRequest {
@@ -562,6 +563,14 @@ export interface CreateFileVersionRequest {
   content_sha256: ContentSha256;
   declared_media_type: string;
   browser_origin?: string | null;
+  protocol?: UploadProtocolPreference;
+}
+
+export type UploadProtocolPreference = "auto" | "single_put" | "multipart";
+
+export interface CreateMultipartPartGrantRequest {
+  part_number: number;
+  content_sha256: ContentSha256;
 }
 
 export interface DirectUploadHeader {
@@ -587,6 +596,8 @@ export interface DirectUploadDescriptor {
   content_sha256: ContentSha256;
   one_use: true;
   expires_at: Timestamp;
+  part_size_bytes: number | null;
+  part_count: number;
 }
 
 export interface CreateUploadOutcome {
@@ -633,7 +644,7 @@ export interface VerificationCheck {
 
 export interface VerificationReceipt {
   receipt_version: "almira.verification.v1";
-  contract_version: "0.1.0-dev.43";
+  contract_version: "0.1.0-dev.44";
   verification_id: UuidV7;
   realm_id: UuidV7;
   tenant_id: UuidV7;

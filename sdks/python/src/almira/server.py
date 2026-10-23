@@ -153,6 +153,13 @@ class CreateUploadRequest:
     content_sha256: str
     declared_media_type: str
     browser_origin: str | None = None
+    protocol: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class CreateMultipartPartGrantRequest:
+    part_number: int
+    content_sha256: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -181,6 +188,8 @@ class DirectUploadDescriptor:
     content_sha256: str = ""
     one_use: bool = True
     expires_at: str = ""
+    part_size_bytes: int | None = None
+    part_count: int = 1
 
 
 @dataclass(frozen=True, slots=True)
@@ -313,6 +322,29 @@ class AlmiraServerClient:
             200,
         )
         return _file_generation(value)
+
+    def create_upload_part(
+        self,
+        reference: CollectionReference,
+        transfer_session_id: str,
+        request: CreateMultipartPartGrantRequest,
+        *,
+        operation_id: str,
+    ) -> DirectUploadPart:
+        transfer_session_id = _uuid(transfer_session_id)
+        payload = _multipart_part_request_payload(request)
+        value = self._json(
+            "POST",
+            _collection_path(reference, f"/uploads/{transfer_session_id}/parts"),
+            reference.tenant_id,
+            operation_id,
+            payload,
+            201,
+        )
+        part = _upload_part(value)
+        if part.part_number != request.part_number:
+            _invalid_response()
+        return part
 
     def bind_subject(
         self,
@@ -565,7 +597,23 @@ def _upload_request_payload(request: CreateUploadRequest) -> dict[str, object]:
     }
     if request.browser_origin is not None:
         value["browser_origin"] = request.browser_origin
+    if request.protocol is not None:
+        if request.protocol not in {"auto", "single_put", "multipart"}:
+            _invalid_input()
+        value["protocol"] = request.protocol
     return value
+
+
+def _multipart_part_request_payload(request: CreateMultipartPartGrantRequest) -> dict[str, object]:
+    if (
+        not isinstance(request, CreateMultipartPartGrantRequest)
+        or isinstance(request.part_number, bool)
+        or not isinstance(request.part_number, int)
+        or not 1 <= request.part_number <= 10_000
+        or CONTENT_SHA256.fullmatch(request.content_sha256) is None
+    ):
+        _invalid_input()
+    return {"part_number": request.part_number, "content_sha256": request.content_sha256}
 
 
 def _finalize_request_payload(request: FinalizeUploadRequest) -> dict[str, object]:
@@ -836,7 +884,7 @@ def _upload_outcome(value: object) -> CreateUploadOutcome:
 
 
 def _upload_descriptor(value: object) -> DirectUploadDescriptor:
-    expected = {"descriptor_id", "protocol", "requests", "expected_size_bytes", "content_sha256", "one_use", "expires_at"}
+    expected = {"descriptor_id", "protocol", "requests", "expected_size_bytes", "content_sha256", "one_use", "expires_at", "part_size_bytes", "part_count"}
     if not isinstance(value, dict) or set(value) != expected:
         _invalid_response()
     raw_requests = value["requests"]
@@ -846,9 +894,17 @@ def _upload_descriptor(value: object) -> DirectUploadDescriptor:
         or value["protocol"] not in {"single_put", "multipart"}
         or not isinstance(raw_requests, list)
         or value["protocol"] == "single_put"
-        and len(raw_requests) != 1
+        and (len(raw_requests) != 1 or value["part_size_bytes"] is not None or value["part_count"] != 1)
         or value["protocol"] == "multipart"
-        and not 2 <= len(raw_requests) <= 256
+        and (
+            len(raw_requests) != 0
+            or isinstance(value["part_size_bytes"], bool)
+            or not isinstance(value["part_size_bytes"], int)
+            or not 1 <= value["part_size_bytes"] <= 10_737_418_240
+            or isinstance(value["part_count"], bool)
+            or not isinstance(value["part_count"], int)
+            or not 1 <= value["part_count"] <= 10_000
+        )
         or isinstance(value["expected_size_bytes"], bool)
         or not isinstance(value["expected_size_bytes"], int)
         or not 1 <= value["expected_size_bytes"] <= 10_737_418_240
@@ -859,45 +915,20 @@ def _upload_descriptor(value: object) -> DirectUploadDescriptor:
         or not _timestamp(value["expires_at"])
     ):
         _invalid_response()
+    if value["protocol"] == "multipart" and (
+        value["part_size_bytes"] * (value["part_count"] - 1) >= value["expected_size_bytes"]
+        or value["part_size_bytes"] * value["part_count"] < value["expected_size_bytes"]
+    ):
+        _invalid_response()
     parts: list[DirectUploadPart] = []
     offset = 0
     for index, raw in enumerate(raw_requests, 1):
-        if not isinstance(raw, dict) or set(raw) != {"part_number", "offset_bytes", "length_bytes", "method", "url", "headers", "one_use"}:
+        part = _upload_part(raw)
+        if part.part_number != index or part.offset_bytes != offset:
             _invalid_response()
-        raw_headers = raw["headers"]
-        if (
-            raw["part_number"] != index
-            or raw["offset_bytes"] != offset
-            or isinstance(raw["length_bytes"], bool)
-            or not isinstance(raw["length_bytes"], int)
-            or not 1 <= raw["length_bytes"] <= 10_737_418_240
-            or raw["method"] != "PUT"
-            or not isinstance(raw["url"], str)
-            or not _transfer_url(raw["url"])
-            or not isinstance(raw_headers, list)
-            or len(raw_headers) > 32
-            or raw["one_use"] is not True
-        ):
-            _invalid_response()
-        headers: list[DirectUploadHeader] = []
-        names: set[str] = set()
-        for header in raw_headers:
-            if (
-                not isinstance(header, dict)
-                or set(header) != {"name", "value"}
-                or not isinstance(header["name"], str)
-                or HEADER_NAME.fullmatch(header["name"]) is None
-                or header["name"] in names
-                or not isinstance(header["value"], str)
-                or not 1 <= len(header["value"]) <= 4096
-                or any(ord(character) < 32 or ord(character) == 127 for character in header["value"])
-            ):
-                _invalid_response()
-            names.add(header["name"])
-            headers.append(DirectUploadHeader(header["name"], header["value"]))
-        parts.append(DirectUploadPart(index, offset, raw["length_bytes"], "PUT", raw["url"], tuple(headers)))
-        offset += raw["length_bytes"]
-    if offset != value["expected_size_bytes"]:
+        parts.append(part)
+        offset += part.length_bytes
+    if value["protocol"] == "single_put" and offset != value["expected_size_bytes"]:
         _invalid_response()
     return DirectUploadDescriptor(
         value["descriptor_id"],
@@ -907,11 +938,54 @@ def _upload_descriptor(value: object) -> DirectUploadDescriptor:
         value["content_sha256"],
         True,
         value["expires_at"],
+        value["part_size_bytes"],
+        value["part_count"],
     )
 
 
+def _upload_part(raw: object) -> DirectUploadPart:
+    if not isinstance(raw, dict) or set(raw) != {"part_number", "offset_bytes", "length_bytes", "method", "url", "headers", "one_use"}:
+        _invalid_response()
+    raw_headers = raw["headers"]
+    if (
+        isinstance(raw["part_number"], bool)
+        or not isinstance(raw["part_number"], int)
+        or not 1 <= raw["part_number"] <= 10_000
+        or isinstance(raw["offset_bytes"], bool)
+        or not isinstance(raw["offset_bytes"], int)
+        or raw["offset_bytes"] < 0
+        or isinstance(raw["length_bytes"], bool)
+        or not isinstance(raw["length_bytes"], int)
+        or not 1 <= raw["length_bytes"] <= 10_737_418_240
+        or raw["method"] != "PUT"
+        or not isinstance(raw["url"], str)
+        or not _transfer_url(raw["url"])
+        or not isinstance(raw_headers, list)
+        or len(raw_headers) > 32
+        or raw["one_use"] is not True
+    ):
+        _invalid_response()
+    headers: list[DirectUploadHeader] = []
+    names: set[str] = set()
+    for header in raw_headers:
+        if (
+            not isinstance(header, dict)
+            or set(header) != {"name", "value"}
+            or not isinstance(header["name"], str)
+            or HEADER_NAME.fullmatch(header["name"]) is None
+            or header["name"] in names
+            or not isinstance(header["value"], str)
+            or not 1 <= len(header["value"]) <= 4096
+            or any(ord(character) < 32 or ord(character) == 127 for character in header["value"])
+        ):
+            _invalid_response()
+        names.add(header["name"])
+        headers.append(DirectUploadHeader(header["name"], header["value"]))
+    return DirectUploadPart(raw["part_number"], raw["offset_bytes"], raw["length_bytes"], "PUT", raw["url"], tuple(headers))
+
+
 def _completion_parts(protocol: str, parts: tuple[DirectUploadPartCompletion, ...]) -> bool:
-    expected_count = len(parts) == 1 if protocol == "single_put" else 2 <= len(parts) <= 256
+    expected_count = len(parts) == 1 if protocol == "single_put" else 1 <= len(parts) <= 10_000
     return expected_count and all(
         isinstance(part, DirectUploadPartCompletion)
         and part.part_number == index

@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Almira API",
-    "version": "0.1.0-dev.43",
+    "version": "0.1.0-dev.44",
     "description": "Provider-neutral application file storage management and data API."
   },
   "servers": [
@@ -1359,6 +1359,76 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/environments/{environment_id}/collections/{collection_instance_id}/uploads/{transfer_session_id}/parts": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "post": {
+        "operationId": "createUploadPart",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/TransferSessionId"
+          },
+          {
+            "$ref": "#/components/parameters/OperationId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMultipartPartGrantRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Fresh checksum-bound one-use request for one exact multipart segment.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectUploadPart"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/Gone"
           },
           "503": {
             "$ref": "#/components/responses/Unavailable"
@@ -7293,6 +7363,9 @@
                 "type": "null"
               }
             ]
+          },
+          "protocol": {
+            "$ref": "#/components/schemas/UploadProtocolPreference"
           }
         }
       },
@@ -7330,6 +7403,36 @@
                 "type": "null"
               }
             ]
+          },
+          "protocol": {
+            "$ref": "#/components/schemas/UploadProtocolPreference"
+          }
+        }
+      },
+      "UploadProtocolPreference": {
+        "type": "string",
+        "enum": [
+          "auto",
+          "single_put",
+          "multipart"
+        ],
+        "default": "auto"
+      },
+      "CreateMultipartPartGrantRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "part_number",
+          "content_sha256"
+        ],
+        "properties": {
+          "part_number": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "content_sha256": {
+            "$ref": "#/components/schemas/ContentSha256"
           }
         }
       },
@@ -7369,7 +7472,7 @@
           "part_number": {
             "type": "integer",
             "minimum": 1,
-            "maximum": 256
+            "maximum": 10000
           },
           "offset_bytes": {
             "type": "integer",
@@ -7405,6 +7508,57 @@
       "DirectUploadDescriptor": {
         "type": "object",
         "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "protocol": {
+                  "const": "single_put"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "requests": {
+                  "minItems": 1,
+                  "maxItems": 1
+                },
+                "part_size_bytes": {
+                  "type": "null"
+                },
+                "part_count": {
+                  "const": 1
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "protocol": {
+                  "const": "multipart"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "requests": {
+                  "maxItems": 0
+                },
+                "part_size_bytes": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 10737418240
+                },
+                "part_count": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 10000
+                }
+              }
+            }
+          }
+        ],
         "required": [
           "descriptor_id",
           "protocol",
@@ -7412,7 +7566,9 @@
           "expected_size_bytes",
           "content_sha256",
           "one_use",
-          "expires_at"
+          "expires_at",
+          "part_size_bytes",
+          "part_count"
         ],
         "properties": {
           "descriptor_id": {
@@ -7427,8 +7583,7 @@
           },
           "requests": {
             "type": "array",
-            "minItems": 1,
-            "maxItems": 256,
+            "maxItems": 10000,
             "items": {
               "$ref": "#/components/schemas/DirectUploadPart"
             }
@@ -7446,6 +7601,19 @@
           },
           "expires_at": {
             "$ref": "#/components/schemas/Timestamp"
+          },
+          "part_size_bytes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "maximum": 10737418240
+          },
+          "part_count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000
           }
         }
       },
@@ -7484,7 +7652,7 @@
           "part_number": {
             "type": "integer",
             "minimum": 1,
-            "maximum": 256
+            "maximum": 10000
           },
           "etag": {
             "$ref": "#/components/schemas/ProviderReceiptToken"
@@ -7537,7 +7705,7 @@
           "parts": {
             "type": "array",
             "minItems": 1,
-            "maxItems": 256,
+            "maxItems": 10000,
             "items": {
               "$ref": "#/components/schemas/DirectUploadPartCompletion"
             }
@@ -7645,7 +7813,7 @@
             "const": "almira.verification.v1"
           },
           "contract_version": {
-            "const": "0.1.0-dev.43"
+            "const": "0.1.0-dev.44"
           },
           "verification_id": {
             "$ref": "#/components/schemas/UuidV7"

@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-const ContractVersion = "0.1.0-dev.43"
+const ContractVersion = "0.1.0-dev.44"
 
 // RetryPolicy opts safe data reads and read-only search into bounded retries.
 type RetryPolicy struct {

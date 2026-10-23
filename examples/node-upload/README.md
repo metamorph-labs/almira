@@ -1,7 +1,7 @@
 # Node.js direct upload example
 
 This executable example demonstrates the complete application path: create an Almira upload,
-execute its one-use provider request without forwarding Metamorph credentials, finalize the
+execute its single-put or on-demand checksum-bound multipart requests without forwarding Metamorph credentials, finalize the
 immutable generation, obtain and cryptographically verify Almira's signed behavior receipt, and
 move the command-line canary into its configured recycle window using a fresh file revision.
 
@@ -13,8 +13,10 @@ node dist/main.js ./photo.jpg TENANT_ID PROJECT_ID DEVELOPMENT_ENVIRONMENT_ID CO
 ```
 
 The small example reads one file into memory to keep the integration clear. Production callers can
-pass a `Blob`, `ArrayBuffer` or typed-array view directly to `uploadDirect`; transfer URLs and
-headers remain one-use secrets and should never be logged or persisted.
+pass a `Blob`, `ArrayBuffer` or typed-array view directly to `uploadDirect`. Multipart descriptors
+contain geometry rather than prefetched credentials; the example uses `createUploadPart` after each
+part is hashed. Transfer URLs and headers remain one-use secrets and should never be logged or
+persisted.
 
 The second environment is a refusal target, not a source or destination. Almira replays the exact
 finalize operation, hashes a bounded private read of the immutable generation, requires that the

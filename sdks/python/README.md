@@ -44,9 +44,11 @@ capability-only client, without copying workload evidence into browser/mobile re
 session with the original explicit operation identity when it is no longer needed.
 The same server client creates an upload intent and finalizes exact descriptor/provider evidence;
 one-use transfer URLs, signed headers and capability tokens are redacted from SDK representations.
-Pass that descriptor and a seekable binary source to `upload_direct`; it streams only the exact
-declared slices to the object provider, never adds an Almira credential or follows a redirect,
-does not retry an ambiguous write, and returns the typed evidence for `finalize_upload`.
+Pass that descriptor and a seekable binary source to `upload_direct`. For multipart, provide a
+`grant_part` callback backed by `create_upload_part`; the helper hashes each exact slice before it
+requests that checksum-bound one-use grant. It streams only the admitted bytes to the object
+provider, never adds an Almira credential or follows a redirect, does not retry an ambiguous write,
+and returns the typed evidence for `finalize_upload`.
 `bind_subject` and `list_subject_bindings` persist and discover namespaced opaque builder-user
 lifecycle associations under workload evidence. They support the builder's privacy workflows;
 subjects are lifecycle metadata, never Almira authorization identities, and opaque identifiers are

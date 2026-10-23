@@ -40,8 +40,10 @@ operation identity and is never retried implicitly.
 provider credential; one-use descriptor URLs, signed headers and capability tokens are redacted
 from SDK formatting.
 `UploadDirect` streams exact descriptor slices from an `io.ReaderAt` directly to the object
-provider, adds no Almira credential, refuses redirects and automatic retries, and returns the typed
-evidence accepted by `FinalizeUpload`.
+provider. For multipart, its `GrantPart` callback calls `CreateUploadPart` after the helper hashes
+the exact slice, so credentials are issued on demand and bound to the part checksum. It adds no
+Almira credential, refuses redirects and automatic retries, and returns the typed evidence accepted
+by `FinalizeUpload`.
 `BindSubject` and `ListSubjectBindings` persist and discover namespaced opaque builder-user
 lifecycle associations under workload evidence. They support the builder's privacy workflows;
 subjects are lifecycle metadata, never Almira authorization identities, and opaque identifiers are

@@ -6,7 +6,7 @@ import { AlmiraTransferError, openPortableExport, uploadDirect } from "../dist/i
 const descriptorId = "018f0000-0000-7000-8000-000000000001";
 const digest = `sha256:${"a".repeat(64)}`;
 
-function descriptor(protocol, requests, size = 4) {
+function descriptor(protocol, requests, size = 4, partSize = null, partCount = 1) {
   return {
     descriptor_id: descriptorId,
     protocol,
@@ -15,6 +15,8 @@ function descriptor(protocol, requests, size = 4) {
     content_sha256: digest,
     one_use: true,
     expires_at: "2030-01-01T00:00:00.000000Z",
+    part_size_bytes: partSize,
+    part_count: partCount,
   };
 }
 
@@ -64,11 +66,16 @@ test("single PUT omits Almira credentials and returns finalization evidence", as
 
 test("multipart uploads exact slices and does not invent aggregate evidence", async () => {
   const bodies = [];
+  const grants = [];
   const completion = await uploadDirect(
-    descriptor("multipart", [part(1, 0, 2), part(2, 2, 2)]),
+    descriptor("multipart", [], 4, 2, 2),
     new Uint8Array([1, 2, 3, 4]),
     {
       now: () => 1_800_000_000_000,
+      createPart: async (request) => {
+        grants.push(request);
+        return part(request.part_number, (request.part_number - 1) * 2, 2);
+      },
       fetch: async (_input, init) => {
         bodies.push([...init.body]);
         return new Response(null, {
@@ -78,6 +85,10 @@ test("multipart uploads exact slices and does not invent aggregate evidence", as
       },
     },
   );
+  assert.deepEqual(grants, [
+    { part_number: 1, content_sha256: "sha256:a12871fee210fb8619291eaea194581cbd2531e4b23759d225f6806923f63222" },
+    { part_number: 2, content_sha256: "sha256:0ce3940bebf2b22a5d2108ecf0c368a0541c7e3c45703f8540921b4eafc82947" },
+  ]);
   assert.deepEqual(bodies, [[1, 2], [3, 4]]);
   assert.equal(completion.etag, null);
   assert.equal(completion.provider_version, null);

@@ -186,7 +186,7 @@
       }
     },
     {
-      "name": "multipart-upload-descriptor-is-explicit",
+      "name": "multipart-upload-descriptor-publishes-bounded-geometry-without-credentials",
       "schema_id": "almira.app.transfer-create.output.v1",
       "expected": "valid",
       "instance": {
@@ -199,26 +199,11 @@
           "transfer": {
             "descriptor_id": "018f0000-0000-7000-8000-000000000133",
             "protocol": "multipart",
-            "requests": [
-              {
-                "part_number": 1,
-                "offset_bytes": 0,
-                "length_bytes": 5242880,
-                "method": "PUT",
-                "url": "https://transfer.invalid/part/1",
-                "headers": {}
-              },
-              {
-                "part_number": 2,
-                "offset_bytes": 5242880,
-                "length_bytes": 1,
-                "method": "PUT",
-                "url": "https://transfer.invalid/part/2",
-                "headers": {}
-              }
-            ],
+            "requests": [],
             "expires_at": "2026-10-20T12:05:00.000000Z",
-            "maximum_bytes": 5242881
+            "maximum_bytes": 5242881,
+            "part_size_bytes": 5242880,
+            "part_count": 2
           }
         }
       }
@@ -241,12 +226,64 @@
               {
                 "method": "PUT",
                 "url": "https://transfer.invalid/part/1",
-                "headers": {}
+                "headers": {},
+                "one_use": true
               }
             ],
             "expires_at": "2026-10-20T12:05:00.000000Z",
-            "maximum_bytes": 5242881
+            "maximum_bytes": 5242881,
+            "part_size_bytes": 5242880,
+            "part_count": 2
           }
+        }
+      }
+    },
+    {
+      "name": "multipart-part-grant-is-checksum-bound-and-one-use",
+      "schema_id": "almira.app.transfer-part-create.output.v1",
+      "expected": "valid",
+      "instance": {
+        "schema_version": 1,
+        "request_id": "018f0000-0000-7000-8000-000000000154",
+        "operation_id": "018f0000-0000-7000-8000-000000000155",
+        "disposition": "succeeded",
+        "result": {
+          "transfer_id": "018f0000-0000-7000-8000-000000000156",
+          "request": {
+            "part_number": 1,
+            "offset_bytes": 0,
+            "length_bytes": 5242880,
+            "method": "PUT",
+            "url": "https://transfer.invalid/part/1",
+            "headers": {
+              "x-checksum-sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "one_use": true
+          }
+        }
+      }
+    },
+    {
+      "name": "external-job-part-grant-retains-job-and-staged-output-binding",
+      "schema_id": "almira.app.external-job-output-part-create.input.v1",
+      "expected": "valid",
+      "instance": {
+        "schema_version": 1,
+        "request_id": "018f0000-0000-7000-8000-000000000157",
+        "operation_id": "018f0000-0000-7000-8000-000000000158",
+        "target": {
+          "environment_id": "018f0000-0000-7000-8000-000000000159",
+          "collection_id": "018f0000-0000-7000-8000-000000000160",
+          "file_id": "018f0000-0000-7000-8000-000000000161",
+          "generation_id": "018f0000-0000-7000-8000-000000000162"
+        },
+        "arguments": {
+          "job_id": "018f0000-0000-7000-8000-000000000163",
+          "expected_job_revision": "4",
+          "staged_output_id": "018f0000-0000-7000-8000-000000000164",
+          "transfer_id": "018f0000-0000-7000-8000-000000000165",
+          "part_number": 2,
+          "content_sha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
         }
       }
     },

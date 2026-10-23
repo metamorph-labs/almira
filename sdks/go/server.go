@@ -117,8 +117,8 @@ type SubjectLifecycleItem struct {
 
 type SubjectLifecyclePage struct {
 	Operation  SubjectLifecycleOperation `json:"operation"`
-	Items      []SubjectLifecycleItem     `json:"items"`
-	NextCursor *string                    `json:"next_cursor"`
+	Items      []SubjectLifecycleItem    `json:"items"`
+	NextCursor *string                   `json:"next_cursor"`
 }
 
 type CapabilityResource struct {
@@ -158,6 +158,12 @@ type CreateUploadRequest struct {
 	ContentSHA256     string  `json:"content_sha256"`
 	DeclaredMediaType string  `json:"declared_media_type"`
 	BrowserOrigin     *string `json:"browser_origin,omitempty"`
+	Protocol          string  `json:"protocol,omitempty"`
+}
+
+type CreateMultipartPartGrantRequest struct {
+	PartNumber    int    `json:"part_number"`
+	ContentSHA256 string `json:"content_sha256"`
 }
 
 type DirectUploadHeader struct {
@@ -195,6 +201,8 @@ type DirectUploadDescriptor struct {
 	ContentSHA256     string             `json:"content_sha256"`
 	OneUse            bool               `json:"one_use"`
 	ExpiresAt         string             `json:"expires_at"`
+	PartSizeBytes     *int64             `json:"part_size_bytes"`
+	PartCount         int                `json:"part_count"`
 }
 
 func (descriptor DirectUploadDescriptor) String() string {
@@ -365,6 +373,34 @@ func (c *ServerClient) FinalizeUpload(
 		return zero, invalidResponse()
 	}
 	return generation, nil
+}
+
+func (c *ServerClient) CreateUploadPart(
+	ctx context.Context,
+	reference CollectionReference,
+	transferSessionID string,
+	request CreateMultipartPartGrantRequest,
+	operationID string,
+) (DirectUploadPart, error) {
+	var zero DirectUploadPart
+	if _, err := uuid(transferSessionID); err != nil {
+		return zero, err
+	}
+	if request.PartNumber < 1 || request.PartNumber > 10_000 || !contentSHA256Pattern.MatchString(request.ContentSHA256) {
+		return zero, invalidInput()
+	}
+	path, err := managementCollectionPath(reference, "/uploads/"+transferSessionID+"/parts")
+	if err != nil {
+		return zero, err
+	}
+	part, err := serverRequestJSON[DirectUploadPart](c, ctx, http.MethodPost, path, reference.TenantID, operationID, request, http.StatusCreated)
+	if err != nil {
+		return zero, err
+	}
+	if part.PartNumber != request.PartNumber || !validDirectUploadPart(part) {
+		return zero, invalidResponse()
+	}
+	return part, nil
 }
 
 func (c *ServerClient) BindSubject(
@@ -760,6 +796,9 @@ func validateCreateUploadRequest(request CreateUploadRequest) error {
 	if request.BrowserOrigin != nil && !validBrowserOrigin(*request.BrowserOrigin) {
 		return invalidInput()
 	}
+	if request.Protocol != "" && request.Protocol != "auto" && request.Protocol != "single_put" && request.Protocol != "multipart" {
+		return invalidInput()
+	}
 	return nil
 }
 
@@ -774,35 +813,47 @@ func validateCreateUploadOutcome(outcome CreateUploadOutcome) error {
 func validDirectUploadDescriptor(descriptor DirectUploadDescriptor) bool {
 	if !uuidV7Pattern.MatchString(descriptor.DescriptorID) ||
 		descriptor.Protocol != "single_put" && descriptor.Protocol != "multipart" ||
-		descriptor.Protocol == "single_put" && len(descriptor.Requests) != 1 ||
-		descriptor.Protocol == "multipart" && (len(descriptor.Requests) < 2 || len(descriptor.Requests) > 256) ||
+		descriptor.Protocol == "single_put" && (len(descriptor.Requests) != 1 || descriptor.PartSizeBytes != nil || descriptor.PartCount != 1) ||
+		descriptor.Protocol == "multipart" && (len(descriptor.Requests) != 0 || descriptor.PartSizeBytes == nil || *descriptor.PartSizeBytes < 1 || descriptor.PartCount < 1 || descriptor.PartCount > 10_000) ||
 		descriptor.ExpectedSizeBytes < 1 || descriptor.ExpectedSizeBytes > 10_737_418_240 ||
 		!contentSHA256Pattern.MatchString(descriptor.ContentSHA256) || !descriptor.OneUse || !validTimestamp(descriptor.ExpiresAt) {
 		return false
 	}
+	if descriptor.Protocol == "multipart" &&
+		(*descriptor.PartSizeBytes*int64(descriptor.PartCount-1) >= descriptor.ExpectedSizeBytes ||
+			*descriptor.PartSizeBytes*int64(descriptor.PartCount) < descriptor.ExpectedSizeBytes) {
+		return false
+	}
 	var offset int64
 	for index, part := range descriptor.Requests {
-		if part.PartNumber != index+1 || part.OffsetBytes != offset || part.LengthBytes < 1 ||
-			part.Method != http.MethodPut || !part.OneUse || !validTransferURL(part.URL) || len(part.Headers) > 32 {
+		if part.PartNumber != index+1 || part.OffsetBytes != offset || !validDirectUploadPart(part) {
 			return false
-		}
-		names := make(map[string]struct{}, len(part.Headers))
-		for _, header := range part.Headers {
-			if !headerNamePattern.MatchString(header.Name) || header.Value == "" || len(header.Value) > 4096 ||
-				hasControls(header.Value) {
-				return false
-			}
-			if _, exists := names[header.Name]; exists {
-				return false
-			}
-			names[header.Name] = struct{}{}
 		}
 		if part.LengthBytes > 10_737_418_240-offset {
 			return false
 		}
 		offset += part.LengthBytes
 	}
-	return offset == descriptor.ExpectedSizeBytes
+	return descriptor.Protocol == "multipart" || offset == descriptor.ExpectedSizeBytes
+}
+
+func validDirectUploadPart(part DirectUploadPart) bool {
+	if part.PartNumber < 1 || part.PartNumber > 10_000 || part.OffsetBytes < 0 || part.LengthBytes < 1 ||
+		part.LengthBytes > 10_737_418_240 || part.Method != http.MethodPut || !part.OneUse ||
+		!validTransferURL(part.URL) || len(part.Headers) > 32 {
+		return false
+	}
+	names := make(map[string]struct{}, len(part.Headers))
+	for _, header := range part.Headers {
+		if !headerNamePattern.MatchString(header.Name) || header.Value == "" || len(header.Value) > 4096 || hasControls(header.Value) {
+			return false
+		}
+		if _, exists := names[header.Name]; exists {
+			return false
+		}
+		names[header.Name] = struct{}{}
+	}
+	return true
 }
 
 func validateFinalizeUploadRequest(request FinalizeUploadRequest) error {
@@ -822,7 +873,7 @@ func validateFinalizeUploadRequest(request FinalizeUploadRequest) error {
 }
 
 func validCompletionParts(protocol string, parts []DirectUploadPartCompletion) bool {
-	if protocol == "single_put" && len(parts) != 1 || protocol == "multipart" && (len(parts) < 2 || len(parts) > 256) {
+	if protocol == "single_put" && len(parts) != 1 || protocol == "multipart" && (len(parts) < 1 || len(parts) > 10_000) {
 		return false
 	}
 	for index, part := range parts {

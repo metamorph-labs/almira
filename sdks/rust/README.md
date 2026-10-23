@@ -43,9 +43,11 @@ never retried implicitly.
 `create_upload` and `finalize_upload` expose the durable upload ceremony without accepting a
 provider credential; one-use descriptor URLs, signed headers and capability tokens are redacted
 from `Debug` output.
-`upload_direct_file` streams exact descriptor slices from a file directly to the object provider,
-adds no Almira credential, refuses redirects and automatic retries, and returns the typed evidence
-accepted by `finalize_upload`.
+`upload_direct_file` handles single-put descriptors. For multipart,
+`upload_direct_file_with` accepts a part-grant callback: it hashes each exact file slice before the
+callback calls `create_upload_part`, then sends the checksum-bound one-use request directly to the
+object provider. Neither path adds an Almira credential, follows redirects or retries an ambiguous
+write; both return the typed evidence accepted by `finalize_upload`.
 
 `bind_subject` and `list_subject_bindings` let the builder workload associate a namespaced opaque
 end-user identifier with retained files and discover those bindings for privacy workflows. They use

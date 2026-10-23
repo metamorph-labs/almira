@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "metamorph-almira"
-version = "0.1.0.dev38"
+version = "0.1.0.dev44"
 description = "Official Python application SDK for Almira file storage"
 readme = "README.md"
 requires-python = ">=3.11"

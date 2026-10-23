@@ -33,6 +33,11 @@ export async function uploadFile(input: UploadFileInput): Promise<FileGeneration
   );
   const completion = await uploadDirect(created.descriptor, input.bytes, {
     ...(input.directFetch === undefined ? {} : { fetch: input.directFetch }),
+    createPart: (request, signal) => input.client.createUploadPart(
+      { ...input, transferSessionId: created.transfer_session_id },
+      request,
+      { operationId: createOperationId(), ...(signal === undefined ? {} : { signal }) },
+    ),
   });
   return input.client.finalizeUpload(
     { ...input, transferSessionId: created.transfer_session_id },
@@ -71,6 +76,11 @@ export async function uploadAndVerifyFile(
   );
   const completion = await uploadDirect(created.descriptor, input.bytes, {
     ...(input.directFetch === undefined ? {} : { fetch: input.directFetch }),
+    createPart: (request, signal) => input.client.createUploadPart(
+      { ...input, transferSessionId: created.transfer_session_id },
+      request,
+      { operationId: createOperationId(), ...(signal === undefined ? {} : { signal }) },
+    ),
   });
   const finalizeOperationId = createOperationId();
   const generation = await input.client.finalizeUpload(

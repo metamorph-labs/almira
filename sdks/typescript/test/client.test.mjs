@@ -266,6 +266,38 @@ test("storage migration start and status use the collection-scoped contract", as
   ]);
 });
 
+test("multipart part grants bind the exact transfer, part, checksum, and operation", async () => {
+  let call;
+  const contentSha256 = `sha256:${"d".repeat(64)}`;
+  const part = {
+    part_number: 2,
+    offset_bytes: 67_108_864,
+    length_bytes: 1024,
+    method: "PUT",
+    url: "https://objects.example/one-use-part",
+    headers: [{ name: "x-upload-token", value: "secret" }],
+    one_use: true,
+  };
+  const client = new AlmiraClient({
+    credential: "mm_pat_v1.test",
+    fetch: async (input, init) => {
+      call = { input, init };
+      return json(part, { status: 201 });
+    },
+  });
+  assert.deepEqual(await client.createUploadPart(
+    { tenantId, projectId, environmentId, collectionInstanceId, transferSessionId: requestId },
+    { part_number: 2, content_sha256: contentSha256 },
+    { operationId },
+  ), part);
+  assert.equal(
+    call.input,
+    `/v1/projects/${projectId}/environments/${environmentId}/collections/${collectionInstanceId}/uploads/${requestId}/parts`,
+  );
+  assert.equal(call.init.headers.get("idempotency-key"), operationId);
+  assert.deepEqual(JSON.parse(call.init.body), { part_number: 2, content_sha256: contentSha256 });
+});
+
 test("portable import, export, status, and download use exact collection scope", async () => {
   const calls = [];
   const source = {

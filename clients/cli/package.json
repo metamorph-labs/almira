@@ -1,6 +1,6 @@
 {
   "name": "@metamorph-labs/almira-cli",
-  "version": "0.1.0-dev.43",
+  "version": "0.1.0-dev.44",
   "description": "Composable management CLI for Almira",
   "type": "module",
   "license": "Apache-2.0",

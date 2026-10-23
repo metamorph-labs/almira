@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+import hashlib
 import io
 import json
 import pathlib
@@ -21,6 +22,7 @@ from almira import (  # noqa: E402
     CapabilityResource,
     CollectionReference,
     CreateCapabilitySessionRequest,
+    CreateMultipartPartGrantRequest,
     CreateUploadRequest,
     DirectUploadDescriptor,
     DirectUploadHeader,
@@ -357,6 +359,8 @@ class AlmiraPythonSdkTest(unittest.TestCase):
                             "content_sha256": content_sha256,
                             "one_use": True,
                             "expires_at": "2026-10-17T12:00:00Z",
+                            "part_size_bytes": None,
+                            "part_count": 1,
                         },
                     },
                     201,
@@ -453,6 +457,7 @@ class AlmiraPythonSdkTest(unittest.TestCase):
             workload_session="workload_session",
             transport=transport,
         )
+
         collection = CollectionReference(TENANT, PROJECT, ENVIRONMENT, COLLECTION)
         outcome = server.bind_subject(collection, ENTRY, subject, operation_id=REQUEST)
         page = server.list_subject_bindings(
@@ -503,21 +508,68 @@ class AlmiraPythonSdkTest(unittest.TestCase):
             ],
         )
 
+    def test_server_multipart_part_grant_binds_transfer_checksum_and_operation(self) -> None:
+        calls: list[tuple[str, str, dict[str, str], bytes | None]] = []
+        content_sha256 = f"sha256:{'d' * 64}"
+
+        def part_api(method: str, url: str, headers: dict[str, str], body: bytes | None) -> HttpResponse:
+            calls.append((method, url, dict(headers), body))
+            return response({
+                "part_number": 2,
+                "offset_bytes": 67_108_864,
+                "length_bytes": 1024,
+                "method": "PUT",
+                "url": "https://objects.example/one-use-part",
+                "headers": [{"name": "x-upload-token", "value": "secret"}],
+                "one_use": True,
+            }, 201)
+
+        server = AlmiraServerClient(
+            base_url="https://almira.test",
+            workload_session="workload_session_evidence",
+            transport=part_api,
+        )
+        part = server.create_upload_part(
+            self.collection,
+            REQUEST,
+            CreateMultipartPartGrantRequest(2, content_sha256),
+            operation_id=GENERATION,
+        )
+        self.assertEqual(part.part_number, 2)
+        self.assertTrue(calls[0][1].endswith(f"/uploads/{REQUEST}/parts"))
+        self.assertEqual(calls[0][2]["idempotency-key"], GENERATION)
+        self.assertEqual(json.loads(calls[0][3] or b"{}"), {
+            "part_number": 2,
+            "content_sha256": content_sha256,
+        })
+
     def test_direct_upload_streams_exact_parts_without_almira_credentials(self) -> None:
         content_sha256 = f"sha256:{'a' * 64}"
         descriptor = DirectUploadDescriptor(
             "018f0000-0000-7000-8000-000000000011",
             "multipart",
-            (
-                DirectUploadPart(1, 0, 2, "PUT", "https://objects.example/secret-one", (DirectUploadHeader("content-type", "text/plain"),)),
-                DirectUploadPart(2, 2, 3, "PUT", "https://objects.example/secret-two", (DirectUploadHeader("content-type", "text/plain"),)),
-            ),
+            (),
             5,
             content_sha256,
             True,
             "2026-10-17T12:00:00Z",
+            2,
+            3,
         )
         transferred: list[tuple[int, bytes, tuple[str, ...]]] = []
+        grants: list[CreateMultipartPartGrantRequest] = []
+
+        def grant(request: CreateMultipartPartGrantRequest) -> DirectUploadPart:
+            grants.append(request)
+            offset = (request.part_number - 1) * 2
+            return DirectUploadPart(
+                request.part_number,
+                offset,
+                min(2, 5 - offset),
+                "PUT",
+                f"https://objects.example/secret-{request.part_number}",
+                (DirectUploadHeader("content-type", "text/plain"),),
+            )
 
         def transfer(part: DirectUploadPart, stream: io.BytesIO) -> DirectUploadResponse:
             transferred.append((part.part_number, stream.read(), tuple(header.name for header in part.headers)))
@@ -528,13 +580,22 @@ class AlmiraPythonSdkTest(unittest.TestCase):
             io.BytesIO(b"hello"),
             size_bytes=5,
             transport=transfer,
+            grant_part=grant,
             now=lambda: datetime(2026, 10, 17, 10, tzinfo=timezone.utc),
         )
-        self.assertEqual(transferred, [(1, b"he", ("content-type",)), (2, b"llo", ("content-type",))])
+        self.assertEqual(transferred, [(1, b"he", ("content-type",)), (2, b"ll", ("content-type",)), (3, b"o", ("content-type",))])
+        self.assertEqual(
+            [(request.part_number, request.content_sha256) for request in grants],
+            [
+                (1, f"sha256:{hashlib.sha256(b'he').hexdigest()}"),
+                (2, f"sha256:{hashlib.sha256(b'll').hexdigest()}"),
+                (3, f"sha256:{hashlib.sha256(b'o').hexdigest()}"),
+            ],
+        )
         self.assertEqual(completion.protocol, "multipart")
         self.assertIsNone(completion.etag)
         self.assertIsNone(completion.provider_version)
-        self.assertEqual([part.etag for part in completion.parts], ['"part-1"', '"part-2"'])
+        self.assertEqual([part.etag for part in completion.parts], ['"part-1"', '"part-2"', '"part-3"'])
 
     def test_malformed_transport_response_is_stable_and_closed(self) -> None:
         body = io.StringIO("not bytes")
