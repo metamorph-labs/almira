@@ -489,6 +489,8 @@ test("portability commands preserve credential-free manifests, scope, and replay
   const sourceObjectId = "018f0000-0000-7000-8000-000000000014";
   const sourceBindingId = "018f0000-0000-7000-8000-000000000015";
   const input = join(directory, "import.json");
+  const content = join(directory, "hello.txt");
+  const contentBytes = new TextEncoder().encode("hello");
   const requestBody = {
     expected_collection_revision: 4,
     source: {
@@ -508,6 +510,7 @@ test("portability commands preserve credential-free manifests, scope, and replay
     destination_prefix: "imported",
   };
   await writeFile(input, JSON.stringify(requestBody));
+  await writeFile(content, contentBytes);
   const requests = [];
   const invoke = async (arguments_) => {
     const stream = io();
@@ -515,7 +518,10 @@ test("portability commands preserve credential-free manifests, scope, and replay
       environment,
       io: stream.value,
       fetch: async (url, init) => {
-        requests.push({ url, init });
+        const bytes = init.body !== undefined && typeof init.body !== "string"
+          ? new Uint8Array(await new Response(init.body).arrayBuffer())
+          : undefined;
+        requests.push({ url, init, bytes });
         if (init.method === "POST") {
           return json({ disposition: "applied", job: { job_id: portabilityJobId } }, 201);
         }
@@ -536,6 +542,10 @@ test("portability commands preserve credential-free manifests, scope, and replay
     "import", "start", ...scope, "--input", input, "--operation-id", operationId,
   ]);
   await invoke([
+    "import", "upload", ...scope, "--portability-job", portabilityJobId,
+    "--source-object", sourceObjectId, "--content", content, "--operation-id", operationId,
+  ]);
+  await invoke([
     "export", "start", ...scope, "--revision", "5", "--operation-id", operationId,
   ]);
   await invoke(["portability", "list", ...scope, "--kind", "export", "--limit", "25"]);
@@ -543,24 +553,33 @@ test("portability commands preserve credential-free manifests, scope, and replay
 
   assert.equal(imported.operation_id, operationId);
   const base = `https://almira.test/v1/projects/${projectId}/environments/${environmentId}/collections/${collectionId}`;
-  assert.deepEqual(requests.map(({ url, init }) => ({
+  assert.deepEqual(requests.map(({ url, init, bytes }) => ({
     url,
     method: init.method,
     operationId: init.headers.get("idempotency-key"),
-    body: init.body === undefined ? undefined : JSON.parse(init.body),
+    body: typeof init.body === "string" ? JSON.parse(init.body) : undefined,
+    bytes,
+    contentLength: init.headers.get("content-length"),
   })), [
-    { url: `${base}/imports`, method: "POST", operationId, body: requestBody },
+    {
+      url: `${base}/imports`, method: "POST", operationId, body: requestBody,
+      bytes: undefined, contentLength: null,
+    },
+    {
+      url: `${base}/portability-jobs/${portabilityJobId}/objects/${sourceObjectId}/content`,
+      method: "PUT", operationId, body: undefined, bytes: contentBytes, contentLength: "5",
+    },
     {
       url: `${base}/exports`, method: "POST", operationId,
-      body: { expected_collection_revision: 5 },
+      body: { expected_collection_revision: 5 }, bytes: undefined, contentLength: null,
     },
     {
       url: `${base}/portability-jobs?limit=25&kind=export`, method: "GET",
-      operationId: null, body: undefined,
+      operationId: null, body: undefined, bytes: undefined, contentLength: null,
     },
     {
       url: `${base}/portability-jobs/${portabilityJobId}`, method: "GET",
-      operationId: null, body: undefined,
+      operationId: null, body: undefined, bytes: undefined, contentLength: null,
     },
   ]);
   assert.doesNotMatch(JSON.stringify(requestBody), /credential|secret|token|bucket|account|region/iu);

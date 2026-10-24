@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
-import { createWriteStream } from "node:fs";
-import { link, unlink } from "node:fs/promises";
+import { createReadStream, createWriteStream } from "node:fs";
+import { link, stat, unlink } from "node:fs/promises";
 import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { McpServer } from "@modelcontextprotocol/server";
@@ -409,7 +409,7 @@ export function createAlmiraMcpServer(
   client: AlmiraClient,
   dependencies: AlmiraMcpDependencies = {},
 ): McpServer {
-  const server = new McpServer({ name: "almira", version: "0.1.0-dev.54" });
+  const server = new McpServer({ name: "almira", version: "0.1.0-dev.55" });
 
   server.registerTool(
     "almira_project_bootstrap",
@@ -1257,6 +1257,47 @@ export function createAlmiraMcpServer(
   );
 
   server.registerTool(
+    "almira_portability_import_upload",
+    {
+      title: "Upload portable-import object",
+      description: "Stream one local file into an existing import manifest object without returning bytes or transfer credentials to model context.",
+      inputSchema: z.object({
+        ...collectionScope,
+        portability_job_id: uuid,
+        source_object_id: uuid,
+        input_path: outputPath,
+        operation_id: operationId,
+      }).strict(),
+      outputSchema,
+      annotations: transferAnnotations,
+    },
+    async ({
+      tenant_id,
+      project_id,
+      environment_id,
+      collection_instance_id,
+      portability_job_id,
+      source_object_id,
+      input_path,
+      operation_id,
+    }) => {
+      const id = operation_id ?? createOperationId();
+      return execute(async () => {
+        const source = await portableImportContent(input_path);
+        return client.putPortabilityImportContent(
+          {
+            ...collectionReference(tenant_id, project_id, environment_id, collection_instance_id),
+            jobId: portability_job_id,
+            sourceObjectId: source_object_id,
+          },
+          source.body,
+          { operationId: id, contentLength: source.contentLength },
+        );
+      }, id);
+    },
+  );
+
+  server.registerTool(
     "almira_portability_jobs_list",
     {
       title: "List portability jobs",
@@ -2083,6 +2124,28 @@ class McpDownloadError extends Error {
   }
 }
 
+class McpImportError extends Error {
+  readonly code = "ALMIRA_MCP_INPUT_INVALID";
+}
+
+async function portableImportContent(
+  input: string,
+): Promise<{ body: ReadableStream<Uint8Array>; contentLength: number }> {
+  try {
+    const metadata = await stat(input);
+    if (!metadata.isFile() || metadata.size < 1 || metadata.size > 10_737_418_240) {
+      throw new McpImportError();
+    }
+    return {
+      body: Readable.toWeb(createReadStream(input)) as ReadableStream<Uint8Array>,
+      contentLength: metadata.size,
+    };
+  } catch (error) {
+    if (error instanceof McpImportError) throw error;
+    throw new McpImportError();
+  }
+}
+
 async function savePortableExport(
   output: string,
   descriptorId: string,
@@ -2173,6 +2236,12 @@ function safeError(error: unknown, operationId?: string): Record<string, unknown
     };
   }
   if (error instanceof McpDownloadError) {
+    return {
+      code: error.code,
+      ...(operationId === undefined ? {} : { operation_id: operationId }),
+    };
+  }
+  if (error instanceof McpImportError) {
     return {
       code: error.code,
       ...(operationId === undefined ? {} : { operation_id: operationId }),

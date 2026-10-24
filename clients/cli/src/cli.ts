@@ -1,7 +1,7 @@
 import { parseArgs } from "node:util";
 import { createHash } from "node:crypto";
-import { createWriteStream } from "node:fs";
-import { chmod, link, mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
+import { createReadStream, createWriteStream } from "node:fs";
+import { chmod, link, mkdir, readFile, rename, stat, unlink, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { Readable, Transform } from "node:stream";
@@ -93,6 +93,7 @@ Commands:
   collection migrate      Migrate a collection to another storage realization
   migration get           Read durable storage-migration progress
   import start            Start an import from a FileService-issued source manifest
+  import upload           Stream one declared import object from --content
   export start            Build a retained-generation portable export
   export download         Stream and verify a completed export to --output
   portability list        List collection import and export jobs
@@ -152,6 +153,7 @@ Common identifiers:
   --migration UUID        Almira storage-migration UUIDv7
   --enrollment UUID       Customer storage enrollment operation UUIDv7
   --portability-job UUID  Almira import/export job UUIDv7
+  --source-object UUID    Source-object UUIDv7 declared by an import manifest
   --entry UUID            Almira file-entry UUIDv7
   --generation UUID       Almira immutable generation UUIDv7
   --kind KIND             technical, content, ocr, or transcription
@@ -161,6 +163,7 @@ Common identifiers:
   --input PATH            Exact JSON request body for structured operations
                           Use - to read the bounded body from stdin
   --output PATH           New local file for a verified portable export
+  --content PATH          Existing local file for one portable-import object
   --path PATH             Canonical logical file path
   --include-deleted       Include entries still inside their recycle window
   --file PATH             almira.yaml path for config preview/apply
@@ -181,6 +184,7 @@ const options = {
   "base-url": { type: "string" },
   class: { type: "string" },
   collection: { type: "string" },
+  content: { type: "string" },
   context: { type: "string" },
   cursor: { type: "string" },
   days: { type: "string" },
@@ -219,6 +223,7 @@ const options = {
   revision: { type: "string" },
   "realization-generation": { type: "string" },
   scan: { type: "string" },
+  "source-object": { type: "string" },
   state: { type: "string" },
   "created-after": { type: "string" },
   "created-before": { type: "string" },
@@ -277,7 +282,7 @@ export async function runCli(arguments_: string[], dependencies: CliDependencies
           dryRunRequest = {
             method,
             url: typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url,
-            body: safeRequestBody(init?.body),
+            body: safeRequestBody(init?.body, new Headers(init?.headers)),
           };
           return new Response(JSON.stringify({
             code: "ALMIRA_DRY_RUN_CAPTURED",
@@ -501,6 +506,19 @@ export async function runCli(arguments_: string[], dependencies: CliDependencies
           }
         : outcome;
       streamed = watch;
+    } else if (noun === "import" && verb === "upload") {
+      operationId = mutationId(values);
+      mutation = true;
+      const source = await portableImportContent(required(values, "content"));
+      result = await client.putPortabilityImportContent(
+        {
+          ...collectionReference(values, tenantId, projectId),
+          jobId: required(values, "portability-job"),
+          sourceObjectId: required(values, "source-object"),
+        },
+        source.body,
+        { operationId, contentLength: source.contentLength },
+      );
     } else if (noun === "export" && verb === "start") {
       operationId = mutationId(values);
       mutation = true;
@@ -983,6 +1001,7 @@ const commandOptions = new Map<string, ReadonlySet<string>>([
   ["collection:migrate", new Set(["base-url", "class", "collection", "environment", "operation-id", "project", "realization-generation", "revision", "tenant"])],
   ["migration:get", new Set(["base-url", "collection", "environment", "migration", "project", "tenant"])],
   ["import:start", collectionCommandOptions("input", "operation-id")],
+  ["import:upload", collectionCommandOptions("content", "operation-id", "portability-job", "source-object")],
   ["export:start", collectionCommandOptions("operation-id", "revision")],
   ["export:download", collectionCommandOptions("operation-id", "output", "portability-job")],
   ["portability:list", collectionCommandOptions("cursor", "kind", "limit")],
@@ -1040,7 +1059,7 @@ const commandOptions = new Map<string, ReadonlySet<string>>([
 
 const mutationCommands = new Set([
   "project:bootstrap", "environment:create", "environment:update", "environment:delete", "origin:set",
-  "storage:enroll", "storage:adopt", "storage:restore-managed", "config:apply", "collection:create", "lifecycle:set", "collection:migrate", "import:start", "export:start",
+  "storage:enroll", "storage:adopt", "storage:restore-managed", "config:apply", "collection:create", "lifecycle:set", "collection:migrate", "import:start", "import:upload", "export:start",
   "export:download", "extraction:set", "media:set", "protection:set", "scan:rescan", "scan:review",
   "job:retry", "job:cancel", "file:batch", "file:copy", "metadata:set", "file:rename",
   "file:select-version", "file:delete", "file:restore", "policy:set", "policy:simulate", "delivery:set", "delivery:purge",
@@ -1422,13 +1441,41 @@ async function sleep(milliseconds: number): Promise<void> {
   await new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
 }
 
-function safeRequestBody(body: BodyInit | null | undefined): unknown {
+function safeRequestBody(body: BodyInit | null | undefined, headers: Headers): unknown {
   if (body === undefined || body === null) return null;
-  if (typeof body !== "string") throw new CliUsageError();
+  if (typeof body !== "string") {
+    const contentLength = headers.get("content-length");
+    if (
+      headers.get("content-type") !== "application/octet-stream" ||
+      contentLength === null ||
+      !/^[1-9][0-9]{0,10}$/u.test(contentLength) ||
+      Number(contentLength) > 10_737_418_240
+    ) throw new CliUsageError();
+    return { binary_content_length: Number(contentLength) };
+  }
   if (body.length > 256 * 1024) throw new CliUsageError();
   try {
     return JSON.parse(body) as unknown;
   } catch {
+    throw new CliUsageError();
+  }
+}
+
+async function portableImportContent(
+  path: string,
+): Promise<{ body: ReadableStream<Uint8Array>; contentLength: number }> {
+  if (path.length === 0 || path === "-") throw new CliUsageError();
+  try {
+    const metadata = await stat(path);
+    if (!metadata.isFile() || metadata.size < 1 || metadata.size > 10_737_418_240) {
+      throw new CliUsageError();
+    }
+    return {
+      body: Readable.toWeb(createReadStream(path)) as ReadableStream<Uint8Array>,
+      contentLength: metadata.size,
+    };
+  } catch (error) {
+    if (error instanceof CliUsageError) throw error;
     throw new CliUsageError();
   }
 }

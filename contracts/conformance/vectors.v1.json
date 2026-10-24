@@ -1,7 +1,7 @@
 {
   "schema_id": "almira.public.api-conformance-vectors.v1",
   "format_version": 1,
-  "openapi": "0.1.0-dev.54",
+  "openapi": "0.1.0-dev.55",
   "schema_vectors": [
     {
       "name": "additional_environment_is_managed_by_default",

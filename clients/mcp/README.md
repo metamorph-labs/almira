@@ -52,6 +52,9 @@ environment revision and replay identity, and a partial transition is refused at
 
 Portability tools start credential-free FileService-bound imports, start safe retained-generation
 exports, and inspect durable job progress. Imports accept no provider credential or storage target.
+After `almira_collection_import_start`, use `almira_portability_import_upload` for each manifest
+object. The MCP process streams `input_path` directly through Almira's resumable multipart path;
+file bytes and one-use provider grants never enter model context.
 `almira_portability_export_download` consumes the completed export's one-use bearer inside the MCP
 process, streams and verifies it into a new `output_path`, refuses overwrite, and returns only the
 path, byte count and SHA-256 receipt. Neither the bearer nor file bytes enter model context.

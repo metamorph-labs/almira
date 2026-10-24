@@ -181,7 +181,10 @@ collection reports `migrating`.
 `import start --input FILE` accepts the exact credential-free import request: current collection
 revision, opaque FileService source binding, and at most 100 safe manifest entries. Provider
 credentials, bucket names, endpoints, target coordinates, and download bearers do not belong in
-that file. `export start` snapshots only retained generations and derivatives that are currently
+that file. For every manifest entry, run
+`import upload --portability-job UUID --source-object UUID --content PATH`; the CLI streams the
+existing local file with its exact size, never places provider grants in output, and supports exact
+retry with the same operation ID. `export start` snapshots only retained generations and derivatives that are currently
 available and safety-admitted. Follow either job with `portability list|get`. For a succeeded
 export, `export download --portability-job UUID --output PATH` obtains and consumes a fresh one-use
 descriptor internally, streams into a mode-0600 temporary file, verifies size and SHA-256, and

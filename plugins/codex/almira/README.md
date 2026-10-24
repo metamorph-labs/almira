@@ -10,7 +10,8 @@ Metamorph workload evidence instead.
 
 The MCP server package is pinned in `.mcp.json`. One-use direct-transfer capabilities remain in the
 application or MCP process and are never returned in model context. Governed imports accept only
-opaque FileService bindings and safe manifests; portable-export downloads produce verified new
+opaque FileService bindings and safe manifests. Each declared local object is streamed with the
+import-upload tool, without returning bytes or provider grants to model context. Portable-export downloads produce verified new
 local files without exposing signed URLs or overwriting existing paths.
 
 The management catalog includes collection protection, safe scan-case inspection, exact-generation

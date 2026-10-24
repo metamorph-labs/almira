@@ -510,6 +510,57 @@ test("portable import, export, status, and download use exact collection scope",
   ]);
 });
 
+test("portable import content streams exact bytes with its declared length and replay identity", async () => {
+  const sourceObjectId = "018f0000-0000-7000-8000-000000000023";
+  const calls = [];
+  const job = {
+    job_id: operationId,
+    environment_id: environmentId,
+    collection_instance_id: collectionInstanceId,
+    kind: "import",
+  };
+  const client = new AlmiraClient({
+    credential: "mm_pat_v1.test",
+    fetch: async (input, init) => {
+      calls.push({ input, init, bytes: new Uint8Array(await new Response(init.body).arrayBuffer()) });
+      return json(job);
+    },
+  });
+  const reference = {
+    tenantId,
+    projectId,
+    environmentId,
+    collectionInstanceId,
+    jobId: operationId,
+    sourceObjectId,
+  };
+  assert.deepEqual(
+    await client.putPortabilityImportContent(
+      reference,
+      new ReadableStream({ start(controller) { controller.enqueue(Uint8Array.of(1, 2, 3)); controller.close(); } }),
+      { operationId, contentLength: 3 },
+    ),
+    job,
+  );
+  const [call] = calls;
+  assert.equal(
+    call.input,
+    `/v1/projects/${projectId}/environments/${environmentId}/collections/${collectionInstanceId}` +
+      `/portability-jobs/${operationId}/objects/${sourceObjectId}/content`,
+  );
+  assert.equal(call.init.method, "PUT");
+  assert.equal(call.init.duplex, "half");
+  assert.equal(call.init.headers.get("content-type"), "application/octet-stream");
+  assert.equal(call.init.headers.get("content-length"), "3");
+  assert.equal(call.init.headers.get("idempotency-key"), operationId);
+  assert.deepEqual(call.bytes, Uint8Array.of(1, 2, 3));
+
+  await assert.rejects(
+    client.putPortabilityImportContent(reference, new ReadableStream(), { operationId }),
+    (error) => error instanceof AlmiraClientError && error.code === "ALMIRA_CLIENT_INPUT_INVALID",
+  );
+});
+
 test("management search sends one bounded collection request with optional subject context", async () => {
   let call;
   const client = new AlmiraClient({

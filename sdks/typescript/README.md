@@ -184,7 +184,12 @@ the signature and an explicit expected resource binding. Never treat a valid rec
 resource as proof for the current journey.
 
 `startCollectionImport` accepts only a FileService-issued opaque source binding and a bounded safe
-manifest; it does not accept source credentials or provider coordinates. `startCollectionExport`,
+manifest; it does not accept source credentials or provider coordinates. After the import job is
+created, call `putPortabilityImportContent` once per declared source-object UUID. Byte arrays and
+blobs infer their exact length; a `ReadableStream` requires `contentLength`, allowing the CLI and
+agents to stream large objects without buffering the complete file. Reuse the same operation ID
+and identical bytes after an ambiguous response; Almira verifies and skips durable completed
+parts. `startCollectionExport`,
 `listPortabilityJobs`, and `getPortabilityJob` expose durable transfer and verification progress.
 A succeeded export can issue a fresh one-use instruction through
 `createPortabilityExportDownload`. Pass that descriptor directly to `openPortableExport`, stream

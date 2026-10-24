@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -99,6 +99,7 @@ test("tool catalog is closed and marks destructive behavior accurately", async (
       "almira_policy_replace",
       "almira_policy_simulate",
       "almira_portability_export_download",
+      "almira_portability_import_upload",
       "almira_portability_job_get",
       "almira_portability_jobs_list",
       "almira_processing_job_cancel",
@@ -1019,12 +1020,18 @@ test("portability tools keep source credentials out and verify downloads before 
   const sourceObjectId = "018f0000-0000-7000-8000-000000000016";
   const operationId = "018f0000-0000-7000-8000-000000000007";
   const outputPath = join(directory, "portable.tar");
+  const inputPath = join(directory, "hello.txt");
+  const inputBytes = new TextEncoder().encode("hello");
+  await writeFile(inputPath, inputBytes);
   const bytes = new TextEncoder().encode("portable archive");
   const digest = `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
   const providerUrl = "https://objects.example/one-use?signature=sensitive";
   const requests = [];
   const connection = await connected(async (input, init) => {
-    requests.push({ input, init });
+    const requestBytes = init.body !== undefined && typeof init.body !== "string"
+      ? new Uint8Array(await new Response(init.body).arrayBuffer())
+      : undefined;
+    requests.push({ input, init, requestBytes });
     if (input === providerUrl) {
       return new Response(bytes, { headers: { "content-length": String(bytes.length) } });
     }
@@ -1077,6 +1084,17 @@ test("portability tools keep source credentials out and verify downloads before 
     name: "almira_collection_import_start",
     arguments: { ...scope, request: importRequest, operation_id: operationId },
   });
+  const uploaded = await connection.client.callTool({
+    name: "almira_portability_import_upload",
+    arguments: {
+      ...scope,
+      portability_job_id: jobId,
+      source_object_id: sourceObjectId,
+      input_path: inputPath,
+      operation_id: operationId,
+    },
+  });
+  assert.equal(uploaded.isError, undefined);
   await connection.client.callTool({
     name: "almira_collection_export_start",
     arguments: { ...scope, expected_collection_revision: 5, operation_id: operationId },
@@ -1115,18 +1133,33 @@ test("portability tools keep source credentials out and verify downloads before 
   assert.equal(requests.at(-1).init.headers.get("x-export-token"), "sensitive");
 
   const base = `https://almira.test/v1/projects/${projectId}/environments/${environmentId}/collections/${collectionId}`;
-  assert.deepEqual(requests.slice(0, 4).map(({ input, init }) => ({
+  assert.deepEqual(requests.slice(0, 5).map(({ input, init, requestBytes }) => ({
     input,
     method: init.method,
-    body: init.body === undefined ? undefined : JSON.parse(init.body),
+    body: typeof init.body === "string" ? JSON.parse(init.body) : undefined,
+    requestBytes,
+    contentLength: init.headers.get("content-length"),
   })), [
-    { input: `${base}/imports`, method: "POST", body: importRequest },
+    {
+      input: `${base}/imports`, method: "POST", body: importRequest,
+      requestBytes: undefined, contentLength: null,
+    },
+    {
+      input: `${base}/portability-jobs/${jobId}/objects/${sourceObjectId}/content`,
+      method: "PUT", body: undefined, requestBytes: inputBytes, contentLength: "5",
+    },
     {
       input: `${base}/exports`, method: "POST",
-      body: { expected_collection_revision: 5 },
+      body: { expected_collection_revision: 5 }, requestBytes: undefined, contentLength: null,
     },
-    { input: `${base}/portability-jobs?limit=25&kind=export`, method: "GET", body: undefined },
-    { input: `${base}/portability-jobs/${jobId}`, method: "GET", body: undefined },
+    {
+      input: `${base}/portability-jobs?limit=25&kind=export`, method: "GET",
+      body: undefined, requestBytes: undefined, contentLength: null,
+    },
+    {
+      input: `${base}/portability-jobs/${jobId}`, method: "GET",
+      body: undefined, requestBytes: undefined, contentLength: null,
+    },
   ]);
 
   const repeated = await connection.client.callTool({

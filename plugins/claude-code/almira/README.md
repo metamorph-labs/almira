@@ -12,6 +12,8 @@ For local development, load this directory with `claude --plugin-dir <path>`. Th
 is pinned in `.mcp.json`; Claude Code prompts before trusting project/plugin MCP configuration.
 
 Governed imports accept only opaque FileService source bindings and bounded safe manifests.
+Each declared local object is streamed with the import-upload tool, without returning bytes or
+provider grants to model context.
 Portable-export downloads consume their one-use bearer inside the MCP process and return a
 verified new local-file receipt; signed URLs, headers and bytes never enter model context, and an
 existing destination is never overwritten.

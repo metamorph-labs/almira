@@ -1,5 +1,9 @@
 export { AlmiraClient, createOperationId } from "./client.js";
-export type { AlmiraClientOptions } from "./client.js";
+export type {
+  AlmiraClientOptions,
+  PortableImportContent,
+  PortableImportContentOptions,
+} from "./client.js";
 export { AlmiraDataClient } from "./data-client.js";
 export type {
   AlmiraDataClientOptions,

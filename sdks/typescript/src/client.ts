@@ -72,6 +72,7 @@ import type {
   PortabilityJobPage,
   PortabilityJobPageOptions,
   PortabilityJobReference,
+  PortabilityImportContentReference,
   PortableDownloadDescriptor,
   PrivateFileResponse,
   ProcessingJobPage,
@@ -162,9 +163,17 @@ export interface AlmiraClientOptions {
 
 interface JsonRequestOptions {
   body?: unknown;
+  rawBody?: BodyInit;
+  duplex?: "half";
   headers?: Record<string, string>;
   method: "DELETE" | "GET" | "PATCH" | "POST" | "PUT";
   signal?: AbortSignal | undefined;
+}
+
+export type PortableImportContent = Blob | ArrayBuffer | ArrayBufferView | ReadableStream<Uint8Array>;
+
+export interface PortableImportContentOptions extends MutationOptions {
+  contentLength?: number;
 }
 
 export class AlmiraClient {
@@ -649,6 +658,32 @@ export class AlmiraClient {
       {
         method: "POST",
         headers: mutationHeaders(options.operationId),
+        signal: options.signal,
+      },
+      reference.tenantId,
+    );
+  }
+
+  async putPortabilityImportContent(
+    reference: PortabilityImportContentReference,
+    content: PortableImportContent,
+    options: PortableImportContentOptions,
+  ): Promise<PortabilityJob> {
+    const normalized = normalizePortableImportContent(content, options.contentLength);
+    return this.#json(
+      collectionPath(
+        reference,
+        `/portability-jobs/${uuid(reference.jobId)}/objects/${uuid(reference.sourceObjectId)}/content`,
+      ),
+      {
+        method: "PUT",
+        headers: {
+          ...mutationHeaders(options.operationId),
+          "content-length": String(normalized.contentLength),
+          "content-type": "application/octet-stream",
+        },
+        rawBody: normalized.body,
+        ...(normalized.streaming ? { duplex: "half" as const } : {}),
         signal: options.signal,
       },
       reference.tenantId,
@@ -1292,7 +1327,8 @@ export class AlmiraClient {
     const headers = new Headers(options.headers);
     if (!headers.has("accept")) headers.set("accept", "application/json");
     headers.set("x-almira-tenant-id", uuid(tenantId));
-    let body: string | undefined;
+    if (options.body !== undefined && options.rawBody !== undefined) invalidInput();
+    let body: BodyInit | undefined = options.rawBody;
     if (options.body !== undefined) {
       headers.set("content-type", "application/json");
       try {
@@ -1324,6 +1360,7 @@ export class AlmiraClient {
         method: options.method,
         headers,
         ...(body === undefined ? {} : { body }),
+        ...(options.duplex === undefined ? {} : { duplex: options.duplex }),
         credentials: this.#authentication === null ? "include" : "omit",
         redirect: "error",
         ...(options.signal === undefined ? {} : { signal: options.signal }),
@@ -1335,6 +1372,42 @@ export class AlmiraClient {
       throw new AlmiraClientError("ALMIRA_CLIENT_NETWORK");
     }
   }
+}
+
+function normalizePortableImportContent(
+  content: PortableImportContent,
+  declaredLength: number | undefined,
+): { body: BodyInit; contentLength: number; streaming: boolean } {
+  let body: BodyInit;
+  let measuredLength: number | undefined;
+  let streaming = false;
+  if (content instanceof Blob) {
+    body = content;
+    measuredLength = content.size;
+  } else if (content instanceof ArrayBuffer) {
+    const bytes = new Uint8Array(content);
+    body = bytes;
+    measuredLength = bytes.byteLength;
+  } else if (ArrayBuffer.isView(content)) {
+    const bytes = new Uint8Array(content.byteLength);
+    bytes.set(new Uint8Array(content.buffer, content.byteOffset, content.byteLength));
+    body = bytes;
+    measuredLength = bytes.byteLength;
+  } else if (content instanceof ReadableStream) {
+    body = content;
+    streaming = true;
+  } else {
+    return invalidInput();
+  }
+  const contentLength = declaredLength ?? measuredLength;
+  if (
+    contentLength === undefined ||
+    !Number.isSafeInteger(contentLength) ||
+    contentLength < 1 ||
+    contentLength > 10_737_418_240 ||
+    (measuredLength !== undefined && measuredLength !== contentLength)
+  ) invalidInput();
+  return { body, contentLength, streaming };
 }
 
 function evidenceProvider(evidence: string | EvidenceProvider): EvidenceProvider {
