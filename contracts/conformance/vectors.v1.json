@@ -1,7 +1,7 @@
 {
   "schema_id": "almira.public.api-conformance-vectors.v1",
   "format_version": 1,
-  "openapi": "0.1.0-dev.57",
+  "openapi": "0.1.0-dev.58",
   "schema_vectors": [
     {
       "name": "additional_environment_is_managed_by_default",
@@ -1201,6 +1201,88 @@
         "vector_indexing": true
       },
       "expected": "invalid"
+    },
+    {
+      "name": "extraction_policy_publishes_exact_v1_formats_and_ceilings",
+      "schema": "CollectionExtractionConfig",
+      "instance": {
+        "collection_instance_id": "018f0000-0000-7000-8000-000000000031",
+        "technical_metadata": true,
+        "content": true,
+        "ocr": true,
+        "transcription": true,
+        "vector_indexing": true,
+        "policy": {
+          "policy_version": 1,
+          "sensitive_embedded_fields": "excluded_from_ordinary_metadata",
+          "technical": {
+            "kind": "technical",
+            "all_verified_media_types": true,
+            "supported_media_types": [],
+            "maximum_input_bytes": 10737418240,
+            "output_bytes": 16384,
+            "wall_time_seconds": 30
+          },
+          "content": {
+            "kind": "content",
+            "all_verified_media_types": false,
+            "supported_media_types": [
+              "application/json",
+              "application/pdf",
+              "application/rtf",
+              "application/vnd.oasis.opendocument.text",
+              "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+              "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+              "application/xml",
+              "text/csv",
+              "text/html",
+              "text/markdown",
+              "text/plain",
+              "text/xml"
+            ],
+            "maximum_input_bytes": 104857600,
+            "output_bytes": 2097152,
+            "wall_time_seconds": 120
+          },
+          "ocr": {
+            "kind": "ocr",
+            "all_verified_media_types": false,
+            "supported_media_types": [
+              "application/pdf",
+              "image/jpeg",
+              "image/png",
+              "image/tiff",
+              "image/webp"
+            ],
+            "maximum_input_bytes": 104857600,
+            "output_bytes": 2097152,
+            "wall_time_seconds": 300
+          },
+          "transcription": {
+            "kind": "transcription",
+            "all_verified_media_types": false,
+            "supported_media_types": [
+              "audio/aac",
+              "audio/flac",
+              "audio/mp4",
+              "audio/mpeg",
+              "audio/ogg",
+              "audio/wav",
+              "audio/webm",
+              "video/mp4",
+              "video/quicktime",
+              "video/webm"
+            ],
+            "maximum_input_bytes": 2147483648,
+            "output_bytes": 2097152,
+            "wall_time_seconds": 600
+          }
+        },
+        "revision": 1,
+        "updated_at": "2026-10-24T00:00:00Z"
+      },
+      "expected": "valid"
     },
     {
       "name": "collection_media_presets_are_provider_neutral",

@@ -84,7 +84,9 @@ content-free administrative reviews are available across the SDK, CLI, MCP serve
 FileService remains the scan/quarantine authority; a review cannot release or override content and
 there is intentionally no release operation. Bounded customer metadata and exact structured
 filters are available across every surface; protected extracted text remains behind its distinct
-authorization.
+authorization. Every extraction configuration also publishes the exact V1 accepted media types,
+input/output ceilings and wall times; unsupported or oversized files are refused before processor
+dispatch.
 
 Governed collection imports use only an opaque FileService source binding and a bounded safe
 manifest—never cloud credentials, buckets, endpoints, or target coordinates. Portable exports

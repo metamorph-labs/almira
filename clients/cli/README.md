@@ -220,8 +220,9 @@ ambiguous result; no local byte transfer or provider credential is involved.
 
 Collection extraction controls use `extraction get|set`; safe technical extraction is mandatory,
 while content, OCR, transcription, and vector indexing are collection-level opt-ins. Vector
-indexing requires content extraction. Exact-generation safe status
-uses `extraction status`; separately protected text uses `extraction content`. Bounded customer
+indexing requires content extraction. The `extraction get` response publishes the exact versioned
+media-type allowlists, input/output ceilings and wall times used by each processor. Exact-generation
+safe status uses `extraction status`; separately protected text uses `extraction content`. Bounded customer
 tags and typed scalar fields use `metadata get|set`. `file list` also accepts exact tag, metadata,
 verified media type, size, creation-time and extraction-state filters; paired filter fields must
 be provided together.

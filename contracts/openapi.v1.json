@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Almira API",
-    "version": "0.1.0-dev.57",
+    "version": "0.1.0-dev.58",
     "description": "Provider-neutral application file storage management and data API."
   },
   "servers": [
@@ -5813,6 +5813,149 @@
           }
         }
       },
+      "ExtractionCapability": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "all_verified_media_types",
+          "supported_media_types",
+          "maximum_input_bytes",
+          "output_bytes",
+          "wall_time_seconds"
+        ],
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/ExtractionKind"
+          },
+          "all_verified_media_types": {
+            "type": "boolean"
+          },
+          "supported_media_types": {
+            "type": "array",
+            "maxItems": 16,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/components/schemas/MediaType"
+            }
+          },
+          "maximum_input_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10737418240
+          },
+          "output_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2097152
+          },
+          "wall_time_seconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 600
+          }
+        }
+      },
+      "ExtractionPolicy": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Exact product-owned V1 eligibility and execution ceilings. An empty supported_media_types list is valid only when all_verified_media_types is true.",
+        "const": {
+          "policy_version": 1,
+          "sensitive_embedded_fields": "excluded_from_ordinary_metadata",
+          "technical": {
+            "kind": "technical",
+            "all_verified_media_types": true,
+            "supported_media_types": [],
+            "maximum_input_bytes": 10737418240,
+            "output_bytes": 16384,
+            "wall_time_seconds": 30
+          },
+          "content": {
+            "kind": "content",
+            "all_verified_media_types": false,
+            "supported_media_types": [
+              "application/json",
+              "application/pdf",
+              "application/rtf",
+              "application/vnd.oasis.opendocument.text",
+              "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+              "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+              "application/xml",
+              "text/csv",
+              "text/html",
+              "text/markdown",
+              "text/plain",
+              "text/xml"
+            ],
+            "maximum_input_bytes": 104857600,
+            "output_bytes": 2097152,
+            "wall_time_seconds": 120
+          },
+          "ocr": {
+            "kind": "ocr",
+            "all_verified_media_types": false,
+            "supported_media_types": [
+              "application/pdf",
+              "image/jpeg",
+              "image/png",
+              "image/tiff",
+              "image/webp"
+            ],
+            "maximum_input_bytes": 104857600,
+            "output_bytes": 2097152,
+            "wall_time_seconds": 300
+          },
+          "transcription": {
+            "kind": "transcription",
+            "all_verified_media_types": false,
+            "supported_media_types": [
+              "audio/aac",
+              "audio/flac",
+              "audio/mp4",
+              "audio/mpeg",
+              "audio/ogg",
+              "audio/wav",
+              "audio/webm",
+              "video/mp4",
+              "video/quicktime",
+              "video/webm"
+            ],
+            "maximum_input_bytes": 2147483648,
+            "output_bytes": 2097152,
+            "wall_time_seconds": 600
+          }
+        },
+        "required": [
+          "policy_version",
+          "sensitive_embedded_fields",
+          "technical",
+          "content",
+          "ocr",
+          "transcription"
+        ],
+        "properties": {
+          "policy_version": {
+            "const": 1
+          },
+          "sensitive_embedded_fields": {
+            "const": "excluded_from_ordinary_metadata"
+          },
+          "technical": {
+            "$ref": "#/components/schemas/ExtractionCapability"
+          },
+          "content": {
+            "$ref": "#/components/schemas/ExtractionCapability"
+          },
+          "ocr": {
+            "$ref": "#/components/schemas/ExtractionCapability"
+          },
+          "transcription": {
+            "$ref": "#/components/schemas/ExtractionCapability"
+          }
+        }
+      },
       "GenerationExtraction": {
         "type": "object",
         "additionalProperties": false,
@@ -6007,6 +6150,7 @@
           "ocr",
           "transcription",
           "vector_indexing",
+          "policy",
           "revision",
           "updated_at"
         ],
@@ -6028,6 +6172,9 @@
           },
           "vector_indexing": {
             "type": "boolean"
+          },
+          "policy": {
+            "$ref": "#/components/schemas/ExtractionPolicy"
           },
           "revision": {
             "type": "integer",
@@ -8792,7 +8939,7 @@
             "const": "almira.verification.v1"
           },
           "contract_version": {
-            "const": "0.1.0-dev.57"
+            "const": "0.1.0-dev.58"
           },
           "verification_id": {
             "$ref": "#/components/schemas/UuidV7"

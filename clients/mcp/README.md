@@ -73,8 +73,10 @@ provider credentials through MCP.
 The catalog also exposes collection extraction controls, bounded customer tags and typed metadata,
 authoritative structured list filters, lexical/semantic/hybrid `almira_file_search`, and safe
 exact-generation extraction status. Semantic and hybrid retrieval require explicit collection-level
-content extraction and vector indexing. Search candidates are rechecked against current authority;
-Lodestone never grants access. Raw extracted
+content extraction and vector indexing. The collection extraction result includes the exact
+versioned media-type allowlists, input/output ceilings and wall times, so an agent can reject an
+unsupported integration before attempting work. Search candidates are rechecked against current
+authority; Lodestone never grants access. Raw extracted
 text is never returned by status or list tools; `almira_file_extracted_content_get` is a distinct
 read whose Metamorph token must carry the separate protected-content permission.
 

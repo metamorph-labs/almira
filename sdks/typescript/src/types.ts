@@ -180,10 +180,29 @@ export interface CollectionExtractionInput {
   vector_indexing?: boolean;
 }
 
+export interface ExtractionCapability {
+  kind: ExtractionKind;
+  all_verified_media_types: boolean;
+  supported_media_types: string[];
+  maximum_input_bytes: number;
+  output_bytes: number;
+  wall_time_seconds: number;
+}
+
+export interface ExtractionPolicy {
+  policy_version: 1;
+  sensitive_embedded_fields: "excluded_from_ordinary_metadata";
+  technical: ExtractionCapability;
+  content: ExtractionCapability;
+  ocr: ExtractionCapability;
+  transcription: ExtractionCapability;
+}
+
 export interface CollectionExtractionConfig extends CollectionExtractionInput {
   collection_instance_id: UuidV7;
   technical_metadata: true;
   vector_indexing: boolean;
+  policy: ExtractionPolicy;
   revision: number;
   updated_at: Timestamp;
 }
@@ -727,7 +746,7 @@ export interface VerificationCheck {
 
 export interface VerificationReceipt {
   receipt_version: "almira.verification.v1";
-  contract_version: "0.1.0-dev.57";
+  contract_version: "0.1.0-dev.58";
   verification_id: UuidV7;
   realm_id: UuidV7;
   tenant_id: UuidV7;

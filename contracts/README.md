@@ -29,6 +29,11 @@ environment-wide safe protection cases, exact-generation rescans, and immutable 
 reviews. Rescans gate delivery immediately, but FileService remains the verdict/quarantine owner.
 Reviews cannot release content or override that owner, and no public release operation exists.
 
+Collection extraction responses expose the exact versioned format and resource policy used by
+technical metadata, content extraction, OCR and transcription. Unsupported or oversized inputs
+are terminal refusals before processor dispatch, and sensitive embedded fields never enter
+ordinary metadata.
+
 The optional asymmetric local-issuer flow returns only public protocol/configuration material. A
 builder workload caches the signing configuration and signs canonical claims with its own
 protected Ed25519 key; Almira never accepts or returns that private key. A stale-token refusal is
