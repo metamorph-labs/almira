@@ -65,6 +65,7 @@ test("policy, delivery, share, and issuer methods use exact collection-scoped ro
       custom_hostname: "files.example.test",
     },
   }, mutation);
+  await client.createDeliveryPurge(collection, mutation);
   await client.createShare(collection, { entry_id: entryId, generation_id: generationId, lifetime_seconds: 600 }, mutation);
   await client.revokeShare({ ...collection, shareId }, mutation);
   await client.listLocalIssuers(collection);
@@ -77,6 +78,7 @@ test("policy, delivery, share, and issuer methods use exact collection-scoped ro
     ["POST", `${base}/policy/simulations`],
     ["GET", `${base}/delivery`],
     ["PUT", `${base}/delivery`],
+    ["POST", `${base}/delivery`],
     ["POST", `${base}/shares`],
     ["DELETE", `${base}/shares/${shareId}`],
     ["GET", `${base}/local-issuers`],

@@ -670,6 +670,47 @@ test("policy replacement accepts an exact JSON document and uses the collection 
   assert.deepEqual(JSON.parse(request.init.body), requestBody);
 });
 
+test("delivery purge queues one collection-wide invalidation with replay identity", async () => {
+  const collectionId = "018f0000-0000-7000-8000-000000000012";
+  const stream = io();
+  let request;
+  const exitCode = await runCli([
+    "delivery", "purge",
+    "--tenant", tenantId,
+    "--project", projectId,
+    "--environment", environmentId,
+    "--collection", collectionId,
+    "--operation-id", operationId,
+  ], {
+    environment,
+    io: stream.value,
+    fetch: async (url, init) => {
+      request = { url, init };
+      return json({
+        purge_id: operationId,
+        source: "manual_requested",
+        target_kind: "collection",
+        target_id: collectionId,
+        state: "pending",
+        attempt_count: 0,
+        last_error_code: null,
+        requested_at: "2026-10-24T00:00:00Z",
+        updated_at: "2026-10-24T00:00:00Z",
+        completed_at: null,
+      }, 202);
+    },
+  });
+  assert.equal(exitCode, 0, stream.output.stderr.join(""));
+  assert.equal(
+    request.url,
+    `https://almira.test/v1/projects/${projectId}/environments/${environmentId}/collections/${collectionId}/delivery`,
+  );
+  assert.equal(request.init.method, "POST");
+  assert.equal(request.init.headers.get("idempotency-key"), operationId);
+  assert.equal(request.init.body, undefined);
+  assert.equal(JSON.parse(stream.output.stdout.join("")).result.source, "manual_requested");
+});
+
 test("metadata and extraction commands expose exact scoped management operations", async (context) => {
   const directory = await mkdtemp(join(tmpdir(), "almira-metadata-"));
   context.after(() => rm(directory, { recursive: true, force: true }));

@@ -129,6 +129,7 @@ Commands:
   policy simulate         Evaluate an access decision from --input JSON
   delivery get            Read a collection CDN/delivery configuration
   delivery set            Replace CDN/delivery configuration from --input JSON
+  delivery purge          Queue a collection-wide CDN cache invalidation
   share create            Create a revocable share from --input JSON
   share revoke            Revoke a share
   issuer list             List registered local capability issuers
@@ -838,6 +839,13 @@ export async function runCli(arguments_: string[], dependencies: CliDependencies
         await readJson<ReplaceDeliveryConfigRequest>(required(values, "input"), dependencies.io.stdin),
         { operationId },
       );
+    } else if (noun === "delivery" && verb === "purge") {
+      operationId = mutationId(values);
+      mutation = true;
+      result = await client.createDeliveryPurge(
+        collectionReference(values, tenantId, projectId),
+        { operationId },
+      );
     } else if (noun === "share" && verb === "create") {
       operationId = mutationId(values);
       mutation = true;
@@ -1019,6 +1027,7 @@ const commandOptions = new Map<string, ReadonlySet<string>>([
   ["policy:simulate", collectionCommandOptions("input", "operation-id")],
   ["delivery:get", collectionCommandOptions()],
   ["delivery:set", collectionCommandOptions("input", "operation-id")],
+  ["delivery:purge", collectionCommandOptions("operation-id")],
   ["share:create", collectionCommandOptions("input", "operation-id")],
   ["share:revoke", collectionCommandOptions("share", "operation-id")],
   ["issuer:list", collectionCommandOptions()],
@@ -1034,7 +1043,7 @@ const mutationCommands = new Set([
   "storage:enroll", "storage:adopt", "storage:restore-managed", "config:apply", "collection:create", "lifecycle:set", "collection:migrate", "import:start", "export:start",
   "export:download", "extraction:set", "media:set", "protection:set", "scan:rescan", "scan:review",
   "job:retry", "job:cancel", "file:batch", "file:copy", "metadata:set", "file:rename",
-  "file:select-version", "file:delete", "file:restore", "policy:set", "policy:simulate", "delivery:set",
+  "file:select-version", "file:delete", "file:restore", "policy:set", "policy:simulate", "delivery:set", "delivery:purge",
   "share:create", "share:revoke", "issuer:register", "issuer:rotate", "issuer:revoke",
 ]);
 

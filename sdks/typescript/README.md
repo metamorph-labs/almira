@@ -254,6 +254,9 @@ Variant keys are opaque Almira names, not provider paths or URLs.
 the 20 newest provider-neutral cache-invalidation diagnostics. Each diagnostic exposes only its
 trigger, public state, attempt count, safe closed error and timestamps; provider resource IDs,
 credentials and raw provider receipts are never part of the management SDK.
+`createDeliveryPurge` enqueues one collection-wide invalidation with the caller's UUIDv7 operation
+ID. Reuse that ID after an ambiguous response to recover the same durable diagnostic; provider
+reconciliation remains asynchronous and visible through `getDeliveryConfig`.
 
 Application backends can pass a normalized `subject` with `listFiles`, `getFileMetadata`, and
 `readPrivateFile`; the SDK puts its canonical context on that same workload-authenticated call.

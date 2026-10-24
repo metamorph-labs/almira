@@ -727,7 +727,7 @@ export interface VerificationCheck {
 
 export interface VerificationReceipt {
   receipt_version: "almira.verification.v1";
-  contract_version: "0.1.0-dev.53";
+  contract_version: "0.1.0-dev.54";
   verification_id: UuidV7;
   realm_id: UuidV7;
   tenant_id: UuidV7;
@@ -1286,6 +1286,7 @@ export type DeliveryPurgeDiagnostic = DeliveryPurgeDiagnosticStatus & (
   | { source: "environment_lifecycle_changed"; target_kind: "environment"; target_id: UuidV7 }
   | {
       source:
+        | "manual_requested"
         | "collection_lifecycle_changed"
         | "collection_policy_changed"
         | "delivery_configuration_changed";

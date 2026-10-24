@@ -235,7 +235,7 @@ and use `--page-size`/`--cursor` for bounded continuation. The command accepts t
 media, size, time, extraction-state, and path-prefix filters as authoritative listing.
 
 Collection access, CDN delivery, shares, and local capability issuers use the same noun/verb
-shape: `policy get|set|simulate`, `delivery get|set`, `share create|revoke`, and
+shape: `policy get|set|simulate`, `delivery get|set|purge`, `share create|revoke`, and
 `issuer list|register|rotate|revoke|signing-config`. Structured request bodies are passed through
 `--input FILE` as exact JSON so shell quoting cannot silently change a policy or key ceiling.
 Mutations retain the same `--operation-id` replay contract; issuer revocation also requires the
@@ -247,6 +247,9 @@ the returned `routing_target`, ownership challenge and lifecycle state with `del
 never accepts CDN credentials or provider coordinates. `delivery get` also returns at most the 20
 newest cache invalidations with their trigger, state, attempts, safe error and timestamps; it never
 returns a provider resource ID or raw provider receipt.
+`delivery purge` enqueues a collection-wide invalidation and returns its durable diagnostic. Retain
+and reuse `--operation-id` after an ambiguous response; provider reconciliation remains
+asynchronous and visible through `delivery get`.
 
 Exit codes are stable: `0` success, `2` usage, `3` authentication/authorization, `4` not found,
 `5` conflict, `6` retryable service response, `7` other API response, `8` local/network failure,

@@ -33,6 +33,7 @@ import type {
   DirectUploadPart,
   DeliveryConfigDetails,
   DeliveryConfigOutcome,
+  DeliveryPurgeDiagnostic,
   EnvironmentList,
   EnvironmentMutationOutcome,
   EnvironmentReference,
@@ -1124,6 +1125,17 @@ export class AlmiraClient {
       method: "PUT",
       headers: mutationHeaders(options.operationId),
       body: request,
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async createDeliveryPurge(
+    reference: CollectionReference,
+    options: MutationOptions,
+  ): Promise<DeliveryPurgeDiagnostic> {
+    return this.#json(collectionPath(reference, "/delivery"), {
+      method: "POST",
+      headers: mutationHeaders(options.operationId),
       signal: options.signal,
     }, reference.tenantId);
   }

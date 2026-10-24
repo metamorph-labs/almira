@@ -409,7 +409,7 @@ export function createAlmiraMcpServer(
   client: AlmiraClient,
   dependencies: AlmiraMcpDependencies = {},
 ): McpServer {
-  const server = new McpServer({ name: "almira", version: "0.1.0-dev.53" });
+  const server = new McpServer({ name: "almira", version: "0.1.0-dev.54" });
 
   server.registerTool(
     "almira_project_bootstrap",
@@ -1881,6 +1881,24 @@ export function createAlmiraMcpServer(
       return execute(() => client.replaceDeliveryConfig(
         collectionReference(tenant_id, project_id, environment_id, collection_instance_id),
         { expected_revision, config },
+        { operationId: id },
+      ), id);
+    },
+  );
+
+  server.registerTool(
+    "almira_delivery_purge_create",
+    {
+      title: "Purge collection CDN cache",
+      description: "Queue one replay-safe collection-wide cache invalidation and return its durable diagnostic.",
+      inputSchema: z.object({ ...collectionScope, operation_id: operationId }).strict(),
+      outputSchema,
+      annotations: mutationAnnotations,
+    },
+    async ({ tenant_id, project_id, environment_id, collection_instance_id, operation_id }) => {
+      const id = operation_id ?? createOperationId();
+      return execute(() => client.createDeliveryPurge(
+        collectionReference(tenant_id, project_id, environment_id, collection_instance_id),
         { operationId: id },
       ), id);
     },

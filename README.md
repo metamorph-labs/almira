@@ -97,6 +97,11 @@ slice to external coding agents, leaves approvals with the MCP host and delibera
 one-use transfer capabilities and file bytes out of model context. Its export-download tool
 streams and verifies bytes into a new local file and refuses to overwrite an existing path.
 
+Collection CDN controls include provider-neutral configuration, custom-domain lifecycle,
+collection-wide replay-safe cache purge and bounded asynchronous diagnostics. The console, SDK,
+CLI, MCP server and coding-agent plugins all use the same public management operation; none exposes
+CDN credentials or raw provider receipts.
+
 The installable agent integrations are in [`plugins/codex`](plugins/codex) and
 [`plugins/claude-code`](plugins/claude-code). Both use the public MCP package and the same
 application-integration guidance; they do not gain embedded-agent privileges or create another

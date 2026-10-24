@@ -69,6 +69,7 @@ test("tool catalog is closed and marks destructive behavior accurately", async (
       "almira_configuration_apply",
       "almira_configuration_preview",
       "almira_delivery_get",
+      "almira_delivery_purge_create",
       "almira_delivery_replace",
       "almira_environment_create",
       "almira_environment_delete",
@@ -722,12 +723,22 @@ test("policy and CDN tools preserve exact collection scope and revision", async 
       },
     },
   });
+  await connection.client.callTool({
+    name: "almira_delivery_purge_create",
+    arguments: {
+      tenant_id: tenantId,
+      project_id: projectId,
+      environment_id: environmentId,
+      collection_instance_id: collectionId,
+      operation_id: operationId,
+    },
+  });
   const base = `https://almira.test/v1/projects/${projectId}/environments/${environmentId}/collections/${collectionId}`;
   assert.deepEqual(requests.map(({ input, init }) => ({
     input,
     method: init.method,
     operationId: init.headers.get("idempotency-key"),
-    body: JSON.parse(init.body),
+    body: init.body === undefined ? undefined : JSON.parse(init.body),
   })), [
     {
       input: `${base}/policy`, method: "PUT", operationId,
@@ -743,6 +754,10 @@ test("policy and CDN tools preserve exact collection scope and revision", async 
           custom_hostname: "files.example.test",
         },
       },
+    },
+    {
+      input: `${base}/delivery`, method: "POST", operationId,
+      body: undefined,
     },
   ]);
 });

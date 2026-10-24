@@ -1,7 +1,7 @@
 {
   "schema_id": "almira.public.api-conformance-vectors.v1",
   "format_version": 1,
-  "openapi": "0.1.0-dev.53",
+  "openapi": "0.1.0-dev.54",
   "schema_vectors": [
     {
       "name": "additional_environment_is_managed_by_default",
@@ -824,6 +824,40 @@
         }
       },
       "expected": "valid"
+    },
+    {
+      "name": "manual_delivery_purge_is_collection_scoped",
+      "schema": "DeliveryPurgeDiagnostic",
+      "instance": {
+        "purge_id": "018f0000-0000-7000-8000-000000000044",
+        "source": "manual_requested",
+        "target_kind": "collection",
+        "target_id": "018f0000-0000-7000-8000-000000000045",
+        "state": "pending",
+        "attempt_count": 0,
+        "last_error_code": null,
+        "requested_at": "2026-10-23T10:00:00.000000Z",
+        "updated_at": "2026-10-23T10:00:00.000000Z",
+        "completed_at": null
+      },
+      "expected": "valid"
+    },
+    {
+      "name": "manual_delivery_purge_cannot_substitute_target_scope",
+      "schema": "DeliveryPurgeDiagnostic",
+      "instance": {
+        "purge_id": "018f0000-0000-7000-8000-000000000046",
+        "source": "manual_requested",
+        "target_kind": "entry",
+        "target_id": "018f0000-0000-7000-8000-000000000047",
+        "state": "pending",
+        "attempt_count": 0,
+        "last_error_code": null,
+        "requested_at": "2026-10-23T10:00:00.000000Z",
+        "updated_at": "2026-10-23T10:00:00.000000Z",
+        "completed_at": null
+      },
+      "expected": "invalid"
     },
     {
       "name": "delivery_purge_source_cannot_substitute_target_scope",

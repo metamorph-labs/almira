@@ -100,6 +100,9 @@ agents must not configure Cloudflare or another CDN directly. A deployment witho
 refuses the custom hostname through the ordinary Almira operation. The same read returns at most
 the 20 newest provider-neutral invalidation diagnostics, so an agent can distinguish pending,
 completed and terminally failed purge work without provider credentials or a privileged endpoint.
+`almira_delivery_purge_create` enqueues a collection-wide invalidation with a reusable UUIDv7
+operation identity. It returns the durable pending or replayed diagnostic; the agent verifies
+eventual provider reconciliation through `almira_delivery_get`.
 
 `almira_storage_migration_start` changes an existing collection between advertised classes using
 its current revision and the exact opaque realization generation selected from fresh capabilities

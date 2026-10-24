@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Almira API",
-    "version": "0.1.0-dev.53",
+    "version": "0.1.0-dev.54",
     "description": "Provider-neutral application file storage management and data API."
   },
   "servers": [
@@ -3886,6 +3886,53 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createDeliveryPurge",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/CollectionInstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/OperationId"
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Collection-wide cache purge accepted or exactly replayed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryPurgeDiagnostic"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
           },
           "503": {
             "$ref": "#/components/responses/Unavailable"
@@ -8585,7 +8632,7 @@
             "const": "almira.verification.v1"
           },
           "contract_version": {
-            "const": "0.1.0-dev.53"
+            "const": "0.1.0-dev.54"
           },
           "verification_id": {
             "$ref": "#/components/schemas/UuidV7"
@@ -10221,6 +10268,7 @@
           "source": {
             "type": "string",
             "enum": [
+              "manual_requested",
               "entry_deleted",
               "entry_restricted",
               "entry_restored",
@@ -10383,6 +10431,7 @@
                 "properties": {
                   "source": {
                     "enum": [
+                      "manual_requested",
                       "collection_lifecycle_changed",
                       "collection_policy_changed",
                       "delivery_configuration_changed"
