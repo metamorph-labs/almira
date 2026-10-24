@@ -81,17 +81,26 @@ type SubjectBindingPageOptions struct {
 	Cursor string
 }
 
+type SubjectExportArtifact struct {
+	ArtifactID     string `json:"artifact_id"`
+	ManifestSHA256 string `json:"manifest_sha256"`
+	ContentSHA256  string `json:"content_sha256"`
+	SizeBytes      int64  `json:"size_bytes"`
+	ExpiresAt      string `json:"expires_at"`
+}
+
 type SubjectLifecycleOperation struct {
-	OperationID      string           `json:"operation_id"`
-	Kind             string           `json:"kind"`
-	State            string           `json:"state"`
-	Subject          SubjectReference `json:"subject"`
-	MatchedEntries   uint64           `json:"matched_entries"`
-	CompletedEntries uint64           `json:"completed_entries"`
-	PendingEntries   uint64           `json:"pending_entries"`
-	ManifestDigest   string           `json:"manifest_digest"`
-	CreatedAt        string           `json:"created_at"`
-	UpdatedAt        string           `json:"updated_at"`
+	OperationID      string                 `json:"operation_id"`
+	Kind             string                 `json:"kind"`
+	State            string                 `json:"state"`
+	Subject          SubjectReference       `json:"subject"`
+	MatchedEntries   uint64                 `json:"matched_entries"`
+	CompletedEntries uint64                 `json:"completed_entries"`
+	PendingEntries   uint64                 `json:"pending_entries"`
+	ManifestDigest   string                 `json:"manifest_digest"`
+	Artifact         *SubjectExportArtifact `json:"artifact"`
+	CreatedAt        string                 `json:"created_at"`
+	UpdatedAt        string                 `json:"updated_at"`
 }
 
 func (operation SubjectLifecycleOperation) String() string {
@@ -170,6 +179,23 @@ type DirectUploadHeader struct {
 	Name  string `json:"name"`
 	Value string `json:"value"`
 }
+
+type PortableDownloadDescriptor struct {
+	DescriptorID      string               `json:"descriptor_id"`
+	Method            string               `json:"method"`
+	URL               string               `json:"url"`
+	Headers           []DirectUploadHeader `json:"headers"`
+	ExpectedSizeBytes int64                `json:"expected_size_bytes"`
+	ContentSHA256     string               `json:"content_sha256"`
+	OneUse            bool                 `json:"one_use"`
+	ExpiresAt         string               `json:"expires_at"`
+}
+
+func (descriptor PortableDownloadDescriptor) String() string {
+	return "PortableDownloadDescriptor{DescriptorID:" + descriptor.DescriptorID + ", URL:[REDACTED], Headers:[REDACTED]}"
+}
+
+func (descriptor PortableDownloadDescriptor) GoString() string { return descriptor.String() }
 
 func (header DirectUploadHeader) String() string {
 	return "DirectUploadHeader{Name:" + header.Name + ", Value:[REDACTED]}"
@@ -552,6 +578,42 @@ func (c *ServerClient) ReadSubjectLifecycleOperation(
 	return page, nil
 }
 
+func (c *ServerClient) CreateSubjectExportDownload(
+	ctx context.Context,
+	reference SubjectProjectReference,
+	lifecycleOperationID string,
+	subject SubjectReference,
+	operationID string,
+) (PortableDownloadDescriptor, error) {
+	var zero PortableDownloadDescriptor
+	if !validSubjectReference(subject) {
+		return zero, invalidInput()
+	}
+	projectID, err := uuid(reference.ProjectID)
+	if err != nil {
+		return zero, err
+	}
+	lifecycleOperationID, err = uuid(lifecycleOperationID)
+	if err != nil {
+		return zero, err
+	}
+	body := struct {
+		Subject SubjectReference `json:"subject"`
+	}{Subject: subject}
+	descriptor, err := serverRequestJSON[PortableDownloadDescriptor](
+		c, ctx, http.MethodPost,
+		"/v1/projects/"+projectID+"/subject-lifecycle-operations/"+lifecycleOperationID+"/download",
+		reference.TenantID, operationID, body, http.StatusCreated,
+	)
+	if err != nil {
+		return zero, err
+	}
+	if !validPortableDownloadDescriptor(descriptor) {
+		return zero, invalidResponse()
+	}
+	return descriptor, nil
+}
+
 func (c *ServerClient) CreateCapabilityDataClient(
 	ctx context.Context,
 	reference CollectionReference,
@@ -731,14 +793,45 @@ func validSubjectLifecycleOperation(operation SubjectLifecycleOperation) bool {
 		(operation.State == "complete" || operation.State == "pending") &&
 		operation.CompletedEntries+operation.PendingEntries == operation.MatchedEntries &&
 		(operation.State == "complete") == (operation.PendingEntries == 0) &&
+		(operation.Kind == "export" && operation.State == "complete") == (operation.Artifact != nil) &&
+		(operation.Artifact == nil || validSubjectExportArtifact(*operation.Artifact)) &&
 		contentSHA256Pattern.MatchString(operation.ManifestDigest) &&
 		validTimestamp(operation.CreatedAt) && validTimestamp(operation.UpdatedAt)
+}
+
+func validSubjectExportArtifact(artifact SubjectExportArtifact) bool {
+	return uuidV7Pattern.MatchString(artifact.ArtifactID) &&
+		contentSHA256Pattern.MatchString(artifact.ManifestSHA256) &&
+		contentSHA256Pattern.MatchString(artifact.ContentSHA256) && artifact.SizeBytes > 0 &&
+		artifact.SizeBytes <= 9_007_199_254_740_991 && validTimestamp(artifact.ExpiresAt)
+}
+
+func validPortableDownloadDescriptor(descriptor PortableDownloadDescriptor) bool {
+	if !uuidV7Pattern.MatchString(descriptor.DescriptorID) || descriptor.Method != http.MethodGet ||
+		descriptor.ExpectedSizeBytes < 1 || descriptor.ExpectedSizeBytes > 9_007_199_254_740_991 ||
+		!contentSHA256Pattern.MatchString(descriptor.ContentSHA256) || !descriptor.OneUse ||
+		!validTimestamp(descriptor.ExpiresAt) || len(descriptor.Headers) < 1 || len(descriptor.Headers) > 16 {
+		return false
+	}
+	endpoint, err := url.Parse(descriptor.URL)
+	if err != nil || endpoint.Scheme != "https" || endpoint.Host == "" || endpoint.User != nil ||
+		endpoint.RawQuery != "" || endpoint.Fragment != "" {
+		return false
+	}
+	for _, header := range descriptor.Headers {
+		if !headerNamePattern.MatchString(header.Name) || len(header.Value) < 1 || len(header.Value) > 8192 ||
+			strings.ContainsAny(header.Value, "\r\n") {
+			return false
+		}
+	}
+	return true
 }
 
 func validSubjectLifecycleItem(item SubjectLifecycleItem) bool {
 	validDisposition := item.Disposition == "export_ready" || item.Disposition == "restricted" ||
 		item.Disposition == "already_restricted" || item.Disposition == "already_deleted" ||
-		item.Disposition == "deleted_pending_retention" || item.Disposition == "shared_resource_restricted" ||
+		item.Disposition == "deleted_pending_retention" || item.Disposition == "deleted" ||
+		item.Disposition == "shared_resource_restricted" || item.Disposition == "shared_resource_released" ||
 		item.Disposition == "export_pending_bundle" || item.Disposition == "export_pending_restriction" ||
 		item.Disposition == "export_pending_retention"
 	validContentPath := item.ContentPath == nil || strings.HasPrefix(*item.ContentPath, "/v1/projects/") && len(*item.ContentPath) <= 512

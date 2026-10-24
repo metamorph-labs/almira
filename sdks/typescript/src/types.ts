@@ -727,7 +727,7 @@ export interface VerificationCheck {
 
 export interface VerificationReceipt {
   receipt_version: "almira.verification.v1";
-  contract_version: "0.1.0-dev.55";
+  contract_version: "0.1.0-dev.57";
   verification_id: UuidV7;
   realm_id: UuidV7;
   tenant_id: UuidV7;
@@ -1120,10 +1120,20 @@ export type SubjectLifecycleItemDisposition =
   | "already_restricted"
   | "already_deleted"
   | "deleted_pending_retention"
+  | "deleted"
   | "shared_resource_restricted"
+  | "shared_resource_released"
   | "export_pending_bundle"
   | "export_pending_restriction"
   | "export_pending_retention";
+
+export interface SubjectExportArtifact {
+  artifact_id: UuidV7;
+  manifest_sha256: ContentSha256;
+  content_sha256: ContentSha256;
+  size_bytes: number;
+  expires_at: Timestamp;
+}
 
 export interface SubjectLifecycleOperation {
   operation_id: UuidV7;
@@ -1134,6 +1144,7 @@ export interface SubjectLifecycleOperation {
   completed_entries: number;
   pending_entries: number;
   manifest_digest: string;
+  artifact: SubjectExportArtifact | null;
   created_at: Timestamp;
   updated_at: Timestamp;
 }

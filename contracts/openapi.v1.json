@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Almira API",
-    "version": "0.1.0-dev.55",
+    "version": "0.1.0-dev.57",
     "description": "Provider-neutral application file storage management and data API."
   },
   "servers": [
@@ -407,6 +407,77 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/subject-lifecycle-operations/{operation_id}/download": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "post": {
+        "operationId": "createSubjectExportDownload",
+        "security": [
+          {
+            "customerWorkload": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "name": "operation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/UuidV7"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/OperationId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSubjectExportDownloadRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Fresh five-minute, one-use descriptor for the complete project-wide subject archive.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortableDownloadDescriptor"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
           },
           "503": {
             "$ref": "#/components/responses/Unavailable"
@@ -8721,7 +8792,7 @@
             "const": "almira.verification.v1"
           },
           "contract_version": {
-            "const": "0.1.0-dev.55"
+            "const": "0.1.0-dev.57"
           },
           "verification_id": {
             "$ref": "#/components/schemas/UuidV7"
@@ -11231,6 +11302,18 @@
           }
         }
       },
+      "CreateSubjectExportDownloadRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "subject"
+        ],
+        "properties": {
+          "subject": {
+            "$ref": "#/components/schemas/SubjectReference"
+          }
+        }
+      },
       "ReadSubjectLifecycleRequest": {
         "type": "object",
         "additionalProperties": false,
@@ -11269,6 +11352,7 @@
           "completed_entries",
           "pending_entries",
           "manifest_digest",
+          "artifact",
           "created_at",
           "updated_at"
         ],
@@ -11310,6 +11394,16 @@
             "type": "string",
             "pattern": "^sha256:[0-9a-f]{64}$"
           },
+          "artifact": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SubjectExportArtifact"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "created_at": {
             "$ref": "#/components/schemas/Timestamp"
           },
@@ -11328,6 +11422,36 @@
         "properties": {
           "operation": {
             "$ref": "#/components/schemas/SubjectLifecycleOperation"
+          }
+        }
+      },
+      "SubjectExportArtifact": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "artifact_id",
+          "manifest_sha256",
+          "content_sha256",
+          "size_bytes",
+          "expires_at"
+        ],
+        "properties": {
+          "artifact_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "manifest_sha256": {
+            "$ref": "#/components/schemas/ContentSha256"
+          },
+          "content_sha256": {
+            "$ref": "#/components/schemas/ContentSha256"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "expires_at": {
+            "$ref": "#/components/schemas/Timestamp"
           }
         }
       },
@@ -11369,7 +11493,9 @@
               "already_restricted",
               "already_deleted",
               "deleted_pending_retention",
+              "deleted",
               "shared_resource_restricted",
+              "shared_resource_released",
               "export_pending_bundle",
               "export_pending_restriction",
               "export_pending_retention"

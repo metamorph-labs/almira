@@ -553,18 +553,23 @@ async fn workload_subject_bindings_are_namespaced_and_operation_scoped() {
     let bind_response = format!(r#"{{"disposition":"applied","binding":{binding}}}"#);
     let list_response = format!(r#"{{"items":[{binding}],"next_cursor":null}}"#);
     let lifecycle = format!(
-        r#"{{"operation_id":"{REQUEST}","kind":"delete","state":"pending","subject":{{"namespace":"auth0:primary","subject_id":"opaque|user-42"}},"matched_entries":1,"completed_entries":0,"pending_entries":1,"manifest_digest":"sha256:{}","created_at":"2026-10-17T12:00:00Z","updated_at":"2026-10-17T12:00:00Z"}}"#,
+        r#"{{"operation_id":"{REQUEST}","kind":"delete","state":"pending","subject":{{"namespace":"auth0:primary","subject_id":"opaque|user-42"}},"matched_entries":1,"completed_entries":0,"pending_entries":1,"manifest_digest":"sha256:{}","artifact":null,"created_at":"2026-10-17T12:00:00Z","updated_at":"2026-10-17T12:00:00Z"}}"#,
         "a".repeat(64)
     );
     let (base_url, requests) = serve(
-        4,
+        5,
         Arc::new(move |request| {
             let lifecycle_search = request
                 .target
                 .ends_with("/subject-lifecycle-operations/search");
             let lifecycle_start = request.target.ends_with("/subject-lifecycle-operations");
+            let subject_download = request
+                .target
+                .ends_with(&format!("/subject-lifecycle-operations/{REQUEST}/download"));
             Response {
-                status: if lifecycle_start {
+                status: if subject_download {
+                    "201 Created"
+                } else if lifecycle_start {
                     "202 Accepted"
                 } else if request.target.ends_with("/subject-bindings") {
                     "201 Created"
@@ -573,7 +578,12 @@ async fn workload_subject_bindings_are_namespaced_and_operation_scoped() {
                 },
                 content_type: "application/json",
                 headers: vec![],
-                body: if lifecycle_search {
+                body: if subject_download {
+                    format!(
+                        r#"{{"descriptor_id":"{REQUEST}","method":"GET","url":"https://almira.test/v1/subject-export-downloads/{REQUEST}","headers":[{{"name":"authorization","value":"AlmiraTransfer redacted"}}],"expected_size_bytes":3072,"content_sha256":"sha256:{}","one_use":true,"expires_at":"2026-10-17T12:05:00Z"}}"#,
+                        "b".repeat(64)
+                    )
+                } else if lifecycle_search {
                     format!(r#"{{"operation":{lifecycle},"items":[],"next_cursor":null}}"#)
                 } else if lifecycle_start {
                     format!(r#"{{"operation":{lifecycle}}}"#)
@@ -645,16 +655,31 @@ async fn workload_subject_bindings_are_namespaced_and_operation_scoped() {
         )
         .await
         .unwrap();
+    let descriptor = server
+        .create_subject_export_download(
+            &SubjectProjectReference {
+                tenant_id: TENANT.into(),
+                project_id: PROJECT.into(),
+            },
+            REQUEST,
+            &subject,
+            REQUEST,
+        )
+        .await
+        .unwrap();
     assert_eq!(outcome.binding.entry_id, ENTRY);
     assert_eq!(page.items.len(), 1);
     assert_eq!(lifecycle.operation.state, "pending");
     assert_eq!(manifest.operation.operation_id, REQUEST);
+    assert_eq!(descriptor.expected_size_bytes, 3072);
+    assert!(!format!("{descriptor:?}").contains("AlmiraTransfer"));
     assert!(!format!("{subject:?}").contains("opaque|user-42"));
 
     let bind = requests.recv().unwrap();
     let lifecycle_start = requests.recv().unwrap();
     let lifecycle_read = requests.recv().unwrap();
     let list = requests.recv().unwrap();
+    let download = requests.recv().unwrap();
     assert!(bind.target.ends_with(&format!(
         "/collections/{COLLECTION}/files/{ENTRY}/subject-bindings"
     )));
@@ -675,6 +700,10 @@ async fn workload_subject_bindings_are_namespaced_and_operation_scoped() {
         Some(REQUEST)
     );
     assert!(!lifecycle_read.headers.contains_key("idempotency-key"));
+    assert_eq!(
+        download.headers.get("idempotency-key").map(String::as_str),
+        Some(REQUEST)
+    );
     assert_eq!(
         serde_json::from_str::<Value>(&bind.body).unwrap(),
         serde_json::json!({"namespace": "auth0:primary", "subject_id": "opaque|user-42"})

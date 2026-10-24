@@ -54,7 +54,9 @@ end-user identifier with retained files and discover those bindings for privacy 
 workload evidence, not browser capabilities; the subject is lifecycle metadata and never becomes
 an Almira authorization identity. Opaque subject identifiers are redacted from `Debug` output. Use
 `start_subject_lifecycle_operation` and `read_subject_lifecycle_operation` for idempotent
-restrict/export/delete requests and their immutable paged manifests.
+restrict/export/delete requests and their immutable paged manifests. A completed export can issue
+a fresh five-minute, one-use descriptor through `create_subject_export_download`; the descriptor's
+URL and headers remain redacted from `Debug` output.
 
 `verify_webhook_signature` verifies APP-01's common HMAC-SHA256 signature over the exact raw body
 before JSON parsing. Supply the five original `Metamorph-Webhook-*` header values and a bounded

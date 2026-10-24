@@ -6,6 +6,7 @@ const dataContractPath = "contracts/data-openapi.v1.json";
 const workloadOperations = new Set([
   "bindSubject",
   "createCapabilitySession",
+  "createSubjectExportDownload",
   "createUpload",
   "createUploadPart",
   "finalizeUpload",

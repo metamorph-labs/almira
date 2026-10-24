@@ -799,6 +799,28 @@ export class AlmiraClient {
     }, reference.tenantId);
   }
 
+  async createSubjectExportDownload(
+    reference: ProjectReference,
+    lifecycleOperationId: UuidV7,
+    subject: SubjectReference,
+    options: MutationOptions,
+  ): Promise<PortableDownloadDescriptor> {
+    validateSubjectReference(subject);
+    return this.#json(
+      projectPath(
+        reference,
+        `/subject-lifecycle-operations/${uuid(lifecycleOperationId)}/download`,
+      ),
+      {
+        method: "POST",
+        headers: mutationHeaders(options.operationId),
+        body: { subject },
+        signal: options.signal,
+      },
+      reference.tenantId,
+    );
+  }
+
   async finalizeUpload(
     reference: CollectionReference & { transferSessionId: UuidV7 },
     request: FinalizeUploadRequest,

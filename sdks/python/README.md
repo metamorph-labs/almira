@@ -54,7 +54,9 @@ lifecycle associations under workload evidence. They support the builder's priva
 subjects are lifecycle metadata, never Almira authorization identities, and opaque identifiers are
 redacted from SDK representations. `start_subject_lifecycle_operation` and
 `read_subject_lifecycle_operation` provide idempotent restrict/export/delete operations and paged
-complete/pending manifests; provider URLs and credentials never appear in those manifests.
+complete/pending manifests. A completed export exposes an immutable archive commitment;
+`create_subject_export_download` returns a fresh five-minute, one-use descriptor while redacting
+its URL and headers from representations. Provider credentials never appear in the manifest.
 
 Call `verify_webhook_signature` over the exact raw request body and the five
 `Metamorph-Webhook-*` headers before parsing an APP-01 webhook. It verifies the common

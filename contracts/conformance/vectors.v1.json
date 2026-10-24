@@ -1,7 +1,7 @@
 {
   "schema_id": "almira.public.api-conformance-vectors.v1",
   "format_version": 1,
-  "openapi": "0.1.0-dev.55",
+  "openapi": "0.1.0-dev.57",
   "schema_vectors": [
     {
       "name": "additional_environment_is_managed_by_default",
@@ -1699,6 +1699,29 @@
         "delete_shared": true
       },
       "expected": "invalid"
+    },
+    {
+      "name": "subject_export_download_requires_the_exact_opaque_subject",
+      "schema": "CreateSubjectExportDownloadRequest",
+      "instance": {
+        "subject": {
+          "namespace": "auth0:primary",
+          "subject_id": "opaque|user-42"
+        }
+      },
+      "expected": "valid"
+    },
+    {
+      "name": "subject_export_artifact_is_a_bounded_immutable_commitment",
+      "schema": "SubjectExportArtifact",
+      "instance": {
+        "artifact_id": "018f0000-0000-7000-8000-000000000100",
+        "manifest_sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "content_sha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "size_bytes": 1024,
+        "expires_at": "2027-01-01T00:00:00Z"
+      },
+      "expected": "valid"
     },
     {
       "name": "subject_export_manifest_never_contains_provider_urls",

@@ -1,6 +1,6 @@
 {
   "name": "almira",
-  "version": "0.1.0-dev.55",
+  "version": "0.1.0-dev.57",
   "description": "Configure and integrate Almira application file storage with scoped Metamorph access.",
   "author": {
     "name": "Metamorph Labs",

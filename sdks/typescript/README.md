@@ -270,9 +270,10 @@ Use `bindSubject` to persist a namespaced opaque builder-user-to-file lifecycle 
 workload-only operations support the builder's privacy workflows; the subject remains lifecycle
 metadata and never becomes an Almira authorization identity. Use
 `startSubjectLifecycleOperation` for `restrict`, `export`, or `delete`, then page its exact durable
-manifest with `readSubjectLifecycleOperation`. Export packaging, shared files and retention
-windows remain explicitly pending until their owner work is durably complete; provider URLs never
-appear.
+manifest with `readSubjectLifecycleOperation`. A completed export carries its immutable archive
+commitment; call `createSubjectExportDownload` for a fresh five-minute, one-use descriptor and pass
+it to `openPortableExport`. Shared files, retention windows and physical deletion stay pending
+until their owner evidence is terminal. Provider URLs never enter the lifecycle manifest.
 For browser and other end-user data paths, use the deliberately separate `AlmiraDataClient`. It
 accepts only `alm_cap_v1` or `alm_local_v1` capabilities, never PATs, SAKs, workload sessions, or
 product cookies. Browser runtimes supply `Origin`; non-browser runtimes pass the canonical origin

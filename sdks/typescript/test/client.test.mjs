@@ -651,12 +651,24 @@ test("workload-only subject bindings stay distinct from authorization identity",
         completed_entries: 0,
         pending_entries: 1,
         manifest_digest: `sha256:${"a".repeat(64)}`,
+        artifact: null,
         created_at: "2026-10-17T12:00:00Z",
         updated_at: "2026-10-17T12:00:00Z",
       };
-      return calls.length === 3
-        ? json({ operation: lifecycle }, { status: 202 })
-        : json({ operation: lifecycle, items: [], next_cursor: null });
+      if (calls.length === 3) return json({ operation: lifecycle }, { status: 202 });
+      if (calls.length === 4) {
+        return json({ operation: lifecycle, items: [], next_cursor: null });
+      }
+      return json({
+        descriptor_id: operationId,
+        method: "GET",
+        url: `https://almira.test/v1/subject-export-downloads/${operationId}`,
+        headers: [{ name: "Authorization", value: "AlmiraTransfer redacted" }],
+        expected_size_bytes: 3072,
+        content_sha256: `sha256:${"b".repeat(64)}`,
+        one_use: true,
+        expires_at: "2026-10-17T12:05:00Z",
+      }, { status: 201 });
     },
   });
   const collection = { tenantId, projectId, environmentId, collectionInstanceId };
@@ -672,6 +684,12 @@ test("workload-only subject bindings stay distinct from authorization identity",
     { tenantId, projectId },
     operationId,
     { limit: 25, cursor: "manifest-next" },
+  );
+  await client.createSubjectExportDownload(
+    { tenantId, projectId },
+    operationId,
+    subject,
+    { operationId },
   );
   assert.deepEqual(calls.map(({ input, init }) => ({
     input,
@@ -702,6 +720,12 @@ test("workload-only subject bindings stay distinct from authorization identity",
       authorization: "MetamorphWorkload workload_session",
       operation: null,
       body: { operation_id: operationId, limit: 25, cursor: "manifest-next" },
+    },
+    {
+      input: `/v1/projects/${projectId}/subject-lifecycle-operations/${operationId}/download`,
+      authorization: "MetamorphWorkload workload_session",
+      operation: operationId,
+      body: { subject },
     },
   ]);
   await assert.rejects(

@@ -95,6 +95,29 @@ pub struct SubjectBindingPageOptions {
 
 #[derive(Clone, Eq, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct SubjectExportArtifact {
+    pub artifact_id: String,
+    pub manifest_sha256: String,
+    pub content_sha256: String,
+    pub size_bytes: u64,
+    pub expires_at: String,
+}
+
+impl Debug for SubjectExportArtifact {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("SubjectExportArtifact")
+            .field("artifact_id", &self.artifact_id)
+            .field("manifest_sha256", &self.manifest_sha256)
+            .field("content_sha256", &self.content_sha256)
+            .field("size_bytes", &self.size_bytes)
+            .field("expires_at", &self.expires_at)
+            .finish()
+    }
+}
+
+#[derive(Clone, Eq, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct SubjectLifecycleOperation {
     pub operation_id: String,
     pub kind: String,
@@ -104,6 +127,7 @@ pub struct SubjectLifecycleOperation {
     pub completed_entries: u64,
     pub pending_entries: u64,
     pub manifest_digest: String,
+    pub artifact: Option<SubjectExportArtifact>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -120,6 +144,7 @@ impl Debug for SubjectLifecycleOperation {
             .field("completed_entries", &self.completed_entries)
             .field("pending_entries", &self.pending_entries)
             .field("manifest_digest", &self.manifest_digest)
+            .field("artifact", &self.artifact)
             .field("created_at", &self.created_at)
             .field("updated_at", &self.updated_at)
             .finish()
@@ -243,6 +268,35 @@ pub struct CreateMultipartPartGrantRequest {
 pub struct DirectUploadHeader {
     pub name: String,
     pub value: String,
+}
+
+#[derive(Clone, Eq, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PortableDownloadDescriptor {
+    pub descriptor_id: String,
+    pub method: String,
+    pub url: String,
+    pub headers: Vec<DirectUploadHeader>,
+    pub expected_size_bytes: u64,
+    pub content_sha256: String,
+    pub one_use: bool,
+    pub expires_at: String,
+}
+
+impl Debug for PortableDownloadDescriptor {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("PortableDownloadDescriptor")
+            .field("descriptor_id", &self.descriptor_id)
+            .field("method", &self.method)
+            .field("url", &"[REDACTED]")
+            .field("headers", &"[REDACTED]")
+            .field("expected_size_bytes", &self.expected_size_bytes)
+            .field("content_sha256", &self.content_sha256)
+            .field("one_use", &self.one_use)
+            .field("expires_at", &self.expires_at)
+            .finish()
+    }
 }
 
 impl Debug for DirectUploadHeader {
@@ -719,6 +773,44 @@ impl ServerClient {
         Ok(page)
     }
 
+    pub async fn create_subject_export_download(
+        &self,
+        reference: &SubjectProjectReference,
+        lifecycle_operation_id: &str,
+        subject: &SubjectReference,
+        operation_id: &str,
+    ) -> Result<PortableDownloadDescriptor, Error> {
+        if !valid_uuid_v7(&reference.project_id)
+            || !valid_uuid_v7(lifecycle_operation_id)
+            || !valid_subject_reference(subject)
+        {
+            return Err(invalid_input());
+        }
+        #[derive(Serialize)]
+        #[serde(deny_unknown_fields)]
+        struct Request<'a> {
+            subject: &'a SubjectReference,
+        }
+        let path = format!(
+            "/v1/projects/{}/subject-lifecycle-operations/{lifecycle_operation_id}/download",
+            reference.project_id
+        );
+        let descriptor: PortableDownloadDescriptor = self
+            .request_json(
+                Method::POST,
+                &path,
+                &reference.tenant_id,
+                Some(operation_id),
+                Some(&Request { subject }),
+                StatusCode::CREATED,
+            )
+            .await?;
+        if !valid_portable_download_descriptor(&descriptor) {
+            return Err(invalid_response());
+        }
+        Ok(descriptor)
+    }
+
     pub async fn create_capability_data_client(
         &self,
         reference: &CollectionReference,
@@ -1109,9 +1201,41 @@ fn valid_subject_lifecycle_operation(operation: &SubjectLifecycleOperation) -> b
             .checked_add(operation.pending_entries)
             == Some(operation.matched_entries)
         && (operation.state == "complete") == (operation.pending_entries == 0)
+        && (operation.kind == "export" && operation.state == "complete")
+            == operation.artifact.is_some()
+        && operation
+            .artifact
+            .as_ref()
+            .is_none_or(valid_subject_export_artifact)
         && valid_content_sha256(&operation.manifest_digest)
         && valid_timestamp(&operation.created_at)
         && valid_timestamp(&operation.updated_at)
+}
+
+fn valid_subject_export_artifact(artifact: &SubjectExportArtifact) -> bool {
+    valid_uuid_v7(&artifact.artifact_id)
+        && valid_content_sha256(&artifact.manifest_sha256)
+        && valid_content_sha256(&artifact.content_sha256)
+        && (1..=9_007_199_254_740_991).contains(&artifact.size_bytes)
+        && valid_timestamp(&artifact.expires_at)
+}
+
+fn valid_portable_download_descriptor(descriptor: &PortableDownloadDescriptor) -> bool {
+    valid_uuid_v7(&descriptor.descriptor_id)
+        && descriptor.method == "GET"
+        && (1..=9_007_199_254_740_991).contains(&descriptor.expected_size_bytes)
+        && valid_content_sha256(&descriptor.content_sha256)
+        && descriptor.one_use
+        && valid_timestamp(&descriptor.expires_at)
+        && (1..=16).contains(&descriptor.headers.len())
+        && valid_transfer_url(&descriptor.url)
+        && Url::parse(&descriptor.url)
+            .is_ok_and(|url| url.query().is_none() && url.fragment().is_none())
+        && descriptor.headers.iter().all(|header| {
+            valid_header_name(&header.name)
+                && (1..=8192).contains(&header.value.len())
+                && !header.value.contains(['\r', '\n'])
+        })
 }
 
 fn valid_subject_lifecycle_item(item: &SubjectLifecycleItem) -> bool {
@@ -1127,7 +1251,9 @@ fn valid_subject_lifecycle_item(item: &SubjectLifecycleItem) -> bool {
                 | "already_restricted"
                 | "already_deleted"
                 | "deleted_pending_retention"
+                | "deleted"
                 | "shared_resource_restricted"
+                | "shared_resource_released"
                 | "export_pending_bundle"
                 | "export_pending_restriction"
                 | "export_pending_retention"

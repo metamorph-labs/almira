@@ -81,6 +81,15 @@ class SubjectBindingPage:
 
 
 @dataclass(frozen=True, slots=True)
+class SubjectExportArtifact:
+    artifact_id: str
+    manifest_sha256: str
+    content_sha256: str
+    size_bytes: int
+    expires_at: str
+
+
+@dataclass(frozen=True, slots=True)
 class SubjectLifecycleOperation:
     operation_id: str
     kind: str
@@ -90,6 +99,7 @@ class SubjectLifecycleOperation:
     completed_entries: int
     pending_entries: int
     manifest_digest: str
+    artifact: SubjectExportArtifact | None
     created_at: str
     updated_at: str
 
@@ -166,6 +176,18 @@ class CreateMultipartPartGrantRequest:
 class DirectUploadHeader:
     name: str
     value: str = field(repr=False)
+
+
+@dataclass(frozen=True, slots=True)
+class PortableDownloadDescriptor:
+    descriptor_id: str
+    method: str
+    url: str = field(repr=False)
+    headers: tuple[DirectUploadHeader, ...] = field(repr=False)
+    expected_size_bytes: int = 0
+    content_sha256: str = ""
+    one_use: bool = True
+    expires_at: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -444,6 +466,26 @@ class AlmiraServerClient:
             200,
         )
         return _subject_lifecycle_page(value)
+
+    def create_subject_export_download(
+        self,
+        reference: SubjectProjectReference,
+        lifecycle_operation_id: str,
+        subject: SubjectReference,
+        *,
+        operation_id: str,
+    ) -> PortableDownloadDescriptor:
+        if not isinstance(reference, SubjectProjectReference):
+            _invalid_input()
+        value = self._json(
+            "POST",
+            f"/v1/projects/{_uuid(reference.project_id)}/subject-lifecycle-operations/{_uuid(lifecycle_operation_id)}/download",
+            reference.tenant_id,
+            operation_id,
+            {"subject": _subject_payload(subject)},
+            201,
+        )
+        return _portable_download_descriptor(value)
 
     def create_capability_data_client(
         self,
@@ -728,12 +770,13 @@ def _subject_binding_page(value: object) -> SubjectBindingPage:
 def _subject_lifecycle_operation(value: object) -> SubjectLifecycleOperation:
     expected = {
         "operation_id", "kind", "state", "subject", "matched_entries",
-        "completed_entries", "pending_entries", "manifest_digest", "created_at", "updated_at",
+        "completed_entries", "pending_entries", "manifest_digest", "artifact", "created_at", "updated_at",
     }
     if not isinstance(value, dict) or set(value) != expected:
         _invalid_response()
     raw_subject = value["subject"]
     counts = (value["matched_entries"], value["completed_entries"], value["pending_entries"])
+    artifact = None if value.get("artifact") is None else _subject_export_artifact(value["artifact"])
     if (
         not isinstance(value["operation_id"], str)
         or UUID_V7.fullmatch(value["operation_id"]) is None
@@ -749,6 +792,7 @@ def _subject_lifecycle_operation(value: object) -> SubjectLifecycleOperation:
         or (value["state"] == "complete") != (counts[2] == 0)
         or not isinstance(value["manifest_digest"], str)
         or CONTENT_SHA256.fullmatch(value["manifest_digest"]) is None
+        or (value["kind"] == "export" and value["state"] == "complete") != (artifact is not None)
         or not isinstance(value["created_at"], str)
         or not _timestamp(value["created_at"])
         or not isinstance(value["updated_at"], str)
@@ -764,8 +808,93 @@ def _subject_lifecycle_operation(value: object) -> SubjectLifecycleOperation:
         counts[1],
         counts[2],
         value["manifest_digest"],
+        artifact,
         value["created_at"],
         value["updated_at"],
+    )
+
+
+def _subject_export_artifact(value: object) -> SubjectExportArtifact:
+    expected = {"artifact_id", "manifest_sha256", "content_sha256", "size_bytes", "expires_at"}
+    if (
+        not isinstance(value, dict)
+        or set(value) != expected
+        or not isinstance(value["artifact_id"], str)
+        or UUID_V7.fullmatch(value["artifact_id"]) is None
+        or not isinstance(value["manifest_sha256"], str)
+        or CONTENT_SHA256.fullmatch(value["manifest_sha256"]) is None
+        or not isinstance(value["content_sha256"], str)
+        or CONTENT_SHA256.fullmatch(value["content_sha256"]) is None
+        or isinstance(value["size_bytes"], bool)
+        or not isinstance(value["size_bytes"], int)
+        or not 1 <= value["size_bytes"] <= 9_007_199_254_740_991
+        or not isinstance(value["expires_at"], str)
+        or not _timestamp(value["expires_at"])
+    ):
+        _invalid_response()
+    return SubjectExportArtifact(
+        value["artifact_id"],
+        value["manifest_sha256"],
+        value["content_sha256"],
+        value["size_bytes"],
+        value["expires_at"],
+    )
+
+
+def _portable_download_descriptor(value: object) -> PortableDownloadDescriptor:
+    expected = {
+        "descriptor_id", "method", "url", "headers", "expected_size_bytes",
+        "content_sha256", "one_use", "expires_at",
+    }
+    if not isinstance(value, dict) or set(value) != expected:
+        _invalid_response()
+    split = urlsplit(value["url"]) if isinstance(value["url"], str) else None
+    raw_headers = value["headers"]
+    if (
+        not isinstance(value["descriptor_id"], str)
+        or UUID_V7.fullmatch(value["descriptor_id"]) is None
+        or value["method"] != "GET"
+        or split is None
+        or split.scheme != "https"
+        or not split.netloc
+        or split.username is not None
+        or split.password is not None
+        or split.query
+        or split.fragment
+        or not isinstance(raw_headers, list)
+        or not 1 <= len(raw_headers) <= 16
+        or isinstance(value["expected_size_bytes"], bool)
+        or not isinstance(value["expected_size_bytes"], int)
+        or not 1 <= value["expected_size_bytes"] <= 9_007_199_254_740_991
+        or not isinstance(value["content_sha256"], str)
+        or CONTENT_SHA256.fullmatch(value["content_sha256"]) is None
+        or value["one_use"] is not True
+        or not isinstance(value["expires_at"], str)
+        or not _timestamp(value["expires_at"])
+    ):
+        _invalid_response()
+    headers = []
+    for header in raw_headers:
+        if (
+            not isinstance(header, dict)
+            or set(header) != {"name", "value"}
+            or not isinstance(header["name"], str)
+            or HEADER_NAME.fullmatch(header["name"]) is None
+            or not isinstance(header["value"], str)
+            or not 1 <= len(header["value"]) <= 8_192
+            or any(character in header["value"] for character in "\r\n")
+        ):
+            _invalid_response()
+        headers.append(DirectUploadHeader(header["name"], header["value"]))
+    return PortableDownloadDescriptor(
+        value["descriptor_id"],
+        value["method"],
+        value["url"],
+        tuple(headers),
+        value["expected_size_bytes"],
+        value["content_sha256"],
+        value["one_use"],
+        value["expires_at"],
     )
 
 
@@ -782,7 +911,8 @@ def _subject_lifecycle_item(value: object) -> SubjectLifecycleItem:
     }
     dispositions = {
         "export_ready", "restricted", "already_restricted", "already_deleted",
-        "deleted_pending_retention", "shared_resource_restricted",
+        "deleted_pending_retention", "deleted", "shared_resource_restricted",
+        "shared_resource_released",
         "export_pending_bundle", "export_pending_restriction", "export_pending_retention",
     }
     if not isinstance(value, dict) or set(value) != expected:

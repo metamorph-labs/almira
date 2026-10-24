@@ -443,7 +443,7 @@ func TestWorkloadSubjectBindingsAreNamespacedAndOperationScoped(t *testing.T) {
 		status := http.StatusOK
 		body := `{"items":[` + binding + `],"next_cursor":null}`
 		lifecycle := fmt.Sprintf(
-			`{"operation_id":"%s","kind":"delete","state":"pending","subject":{"namespace":"auth0:primary","subject_id":"opaque|user-42"},"matched_entries":1,"completed_entries":0,"pending_entries":1,"manifest_digest":"sha256:%s","created_at":"2026-10-17T12:00:00Z","updated_at":"2026-10-17T12:00:00Z"}`,
+			`{"operation_id":"%s","kind":"delete","state":"pending","subject":{"namespace":"auth0:primary","subject_id":"opaque|user-42"},"matched_entries":1,"completed_entries":0,"pending_entries":1,"manifest_digest":"sha256:%s","artifact":null,"created_at":"2026-10-17T12:00:00Z","updated_at":"2026-10-17T12:00:00Z"}`,
 			requestID, strings.Repeat("a", 64),
 		)
 		if strings.HasSuffix(request.URL.Path, "/files/"+entryID+"/subject-bindings") {
@@ -454,6 +454,9 @@ func TestWorkloadSubjectBindingsAreNamespacedAndOperationScoped(t *testing.T) {
 			body = `{"operation":` + lifecycle + `}`
 		} else if strings.HasSuffix(request.URL.Path, "/subject-lifecycle-operations/search") {
 			body = `{"operation":` + lifecycle + `,"items":[],"next_cursor":null}`
+		} else if strings.HasSuffix(request.URL.Path, "/subject-lifecycle-operations/"+requestID+"/download") {
+			status = http.StatusCreated
+			body = fmt.Sprintf(`{"descriptor_id":"%s","method":"GET","url":"https://almira.test/v1/subject-export-downloads/%s","headers":[{"name":"authorization","value":"AlmiraTransfer redacted"}],"expected_size_bytes":3072,"content_sha256":"sha256:%s","one_use":true,"expires_at":"2026-10-17T12:05:00Z"}`, requestID, requestID, strings.Repeat("b", 64))
 		}
 		return &http.Response{
 			StatusCode: status,
@@ -495,19 +498,31 @@ func TestWorkloadSubjectBindingsAreNamespacedAndOperationScoped(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	descriptor, err := server.CreateSubjectExportDownload(
+		context.Background(), SubjectProjectReference{TenantID: tenantID, ProjectID: projectID},
+		requestID, subject, requestID,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if outcome.Binding.EntryID != entryID || len(page.Items) != 1 || strings.Contains(fmt.Sprintf("%#v", subject), subject.SubjectID) {
 		t.Fatalf("subject binding response or redaction drifted: %#v %#v", outcome, page)
 	}
 	if lifecycle.Operation.State != "pending" || manifest.Operation.OperationID != requestID {
 		t.Fatalf("subject lifecycle response drifted: %#v %#v", lifecycle, manifest)
 	}
-	if len(calls) != 4 || calls[0].header.Get("Idempotency-Key") != requestID ||
+	if descriptor.ExpectedSizeBytes != 3072 || strings.Contains(fmt.Sprintf("%#v", descriptor), "AlmiraTransfer") {
+		t.Fatalf("subject export descriptor drifted: %#v", descriptor)
+	}
+	if len(calls) != 5 || calls[0].header.Get("Idempotency-Key") != requestID ||
 		calls[1].header.Get("Idempotency-Key") != "" ||
 		calls[2].header.Get("Idempotency-Key") != requestID ||
 		calls[3].header.Get("Idempotency-Key") != "" ||
+		calls[4].header.Get("Idempotency-Key") != requestID ||
 		calls[0].header.Get("Authorization") != "MetamorphWorkload workload_session" ||
 		calls[1].path != "/v1/projects/"+projectID+"/subject-bindings/search" ||
-		calls[3].path != "/v1/projects/"+projectID+"/subject-lifecycle-operations/search" {
+		calls[3].path != "/v1/projects/"+projectID+"/subject-lifecycle-operations/search" ||
+		calls[4].path != "/v1/projects/"+projectID+"/subject-lifecycle-operations/"+requestID+"/download" {
 		t.Fatalf("subject binding request drifted: %#v", calls)
 	}
 }

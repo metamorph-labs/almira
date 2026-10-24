@@ -28,9 +28,11 @@ from .server import (
     DirectUploadPartCompletion,
     FinalizeUploadRequest,
     FileGeneration,
+    PortableDownloadDescriptor,
     SubjectBinding,
     SubjectBindingOutcome,
     SubjectBindingPage,
+    SubjectExportArtifact,
     SubjectLifecycleItem,
     SubjectLifecycleOperation,
     SubjectLifecycleOutcome,
@@ -67,9 +69,11 @@ __all__ = [
     "DirectUploadPartCompletion",
     "FinalizeUploadRequest",
     "FileGeneration",
+    "PortableDownloadDescriptor",
     "SubjectBinding",
     "SubjectBindingOutcome",
     "SubjectBindingPage",
+    "SubjectExportArtifact",
     "SubjectLifecycleItem",
     "SubjectLifecycleOperation",
     "SubjectLifecycleOutcome",
@@ -85,4 +89,4 @@ __all__ = [
 ]
 
 __version__ = "0.1.0.dev44"
-__contract_version__ = "0.1.0-dev.55"
+__contract_version__ = "0.1.0-dev.57"

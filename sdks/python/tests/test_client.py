@@ -443,6 +443,7 @@ class AlmiraPythonSdkTest(unittest.TestCase):
                 "completed_entries": 0,
                 "pending_entries": 1,
                 "manifest_digest": f"sha256:{'a' * 64}",
+                "artifact": None,
                 "created_at": "2026-10-17T12:00:00Z",
                 "updated_at": "2026-10-17T12:00:00Z",
             }
@@ -450,6 +451,17 @@ class AlmiraPythonSdkTest(unittest.TestCase):
                 return response({"operation": lifecycle}, 202)
             if url.endswith("/subject-lifecycle-operations/search"):
                 return response({"operation": lifecycle, "items": [], "next_cursor": None})
+            if url.endswith(f"/subject-lifecycle-operations/{REQUEST}/download"):
+                return response({
+                    "descriptor_id": REQUEST,
+                    "method": "GET",
+                    "url": f"https://almira.test/v1/subject-export-downloads/{REQUEST}",
+                    "headers": [{"name": "authorization", "value": "AlmiraTransfer redacted"}],
+                    "expected_size_bytes": 3072,
+                    "content_sha256": f"sha256:{'b' * 64}",
+                    "one_use": True,
+                    "expires_at": "2026-10-17T12:05:00Z",
+                }, 201)
             return response({"items": [binding], "next_cursor": None})
 
         server = AlmiraServerClient(
@@ -478,15 +490,24 @@ class AlmiraPythonSdkTest(unittest.TestCase):
             limit=25,
             cursor="manifest-next",
         )
+        descriptor = server.create_subject_export_download(
+            SubjectProjectReference(TENANT, PROJECT),
+            REQUEST,
+            subject,
+            operation_id=REQUEST,
+        )
         self.assertEqual(outcome.binding.entry_id, ENTRY)
         self.assertEqual(len(page.items), 1)
         self.assertEqual(lifecycle.operation.state, "pending")
         self.assertEqual(manifest.operation.operation_id, REQUEST)
+        self.assertEqual(descriptor.expected_size_bytes, 3072)
+        self.assertNotIn("AlmiraTransfer", repr(descriptor))
         self.assertNotIn("opaque|user-42", repr(subject))
         self.assertEqual(calls[0][2]["idempotency-key"], REQUEST)
         self.assertNotIn("idempotency-key", calls[1][2])
         self.assertEqual(calls[2][2]["idempotency-key"], REQUEST)
         self.assertNotIn("idempotency-key", calls[3][2])
+        self.assertEqual(calls[4][2]["idempotency-key"], REQUEST)
         self.assertEqual(
             [json.loads(call[3] or b"{}") for call in calls],
             [
@@ -505,6 +526,7 @@ class AlmiraPythonSdkTest(unittest.TestCase):
                     "limit": 25,
                     "cursor": "manifest-next",
                 },
+                {"subject": {"namespace": "auth0:primary", "subject_id": "opaque|user-42"}},
             ],
         )
 
