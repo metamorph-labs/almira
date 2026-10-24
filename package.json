@@ -14,7 +14,8 @@
   },
   "scripts": {
     "build": "pnpm --filter @metamorph-labs/almira-sdk build && pnpm --filter @metamorph-labs/almira-cli build && pnpm --filter @metamorph-labs/almira-mcp build && pnpm --filter @metamorph-labs/almira-example-node-upload build",
-    "check": "pnpm check:foundation && pnpm check:plugins && pnpm check:wiring && pnpm contracts:verify && pnpm build && pnpm test:contracts && pnpm test:wiring && pnpm test:sdk && pnpm test:python && pnpm test:go && pnpm test:rust && pnpm test:cli && pnpm test:mcp && pnpm test:examples",
+    "check": "pnpm check:foundation && pnpm check:advisories && pnpm check:plugins && pnpm check:wiring && pnpm contracts:verify && pnpm build && pnpm test:contracts && pnpm test:wiring && pnpm test:sdk && pnpm test:python && pnpm test:go && pnpm test:rust && pnpm test:cli && pnpm test:mcp && pnpm test:examples",
+    "check:advisories": "cargo deny --manifest-path sdks/rust/Cargo.toml check advisories && pnpm audit --audit-level low",
     "check:foundation": "node scripts/check-foundation.mjs",
     "check:plugins": "node scripts/check-plugins.mjs",
     "check:wiring": "node scripts/check-wiring.mjs",

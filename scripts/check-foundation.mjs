@@ -5,6 +5,7 @@ const required = [
   "AGENTS.md",
   "CODE_OF_CONDUCT.md",
   "CONTRIBUTING.md",
+  "deny.toml",
   "LICENSE",
   "NOTICE",
   "README.md",
@@ -25,6 +26,20 @@ if (packageManifest.engines?.node !== "24.19.0") {
 }
 if (packageManifest.license !== "Apache-2.0") {
   throw new Error("the public workspace must use Apache-2.0");
+}
+if (
+  packageManifest.scripts?.["check:advisories"] !==
+    "cargo deny --manifest-path sdks/rust/Cargo.toml check advisories && pnpm audit --audit-level low" ||
+  !packageManifest.scripts?.check?.includes("pnpm check:advisories")
+) {
+  throw new Error("pnpm check must fail closed on RustSec and npm advisories");
+}
+const denyPolicy = await readFile("deny.toml", "utf8");
+if (
+  denyPolicy !==
+  '[graph]\nall-features = true\n\n[advisories]\nversion = 2\nyanked = "deny"\nunmaintained = "workspace"\nignore = []\n'
+) {
+  throw new Error("deny.toml must retain the reviewed all-feature advisory policy without waivers");
 }
 
 const toolchain = await readFile("rust-toolchain.toml", "utf8");
