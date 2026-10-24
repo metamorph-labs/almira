@@ -48,8 +48,8 @@ short-lived workload evidence through the standard Fetch API. Its separate `Almi
 accepts only end-user capability tokens and exposes capability-backed metadata, immutable CDN
 generation reads, and share reads without admitting management credentials. The server-side
 capability helper exchanges current workload evidence for that isolated data client in one call.
-Run `pnpm check` for the complete local repository gate, including no-waiver RustSec and npm
-advisory checks over the locked client dependency graphs.
+Run `pnpm check` for the complete local repository gate. It requires `cargo-deny 0.20.x` and
+includes no-waiver RustSec and npm advisory checks over the locked client dependency graphs.
 
 The Python 3.11+ application data SDK is in [`sdks/python`](sdks/python). It covers the promoted
 capability-only data-plane contract exactly, streams immutable generation and derivative responses,
