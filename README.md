@@ -105,6 +105,14 @@ collection-wide replay-safe cache purge and bounded asynchronous diagnostics. Th
 CLI, MCP server and coding-agent plugins all use the same public management operation; none exposes
 CDN credentials or raw provider receipts.
 
+Reviewed environment compliance profiles use the same management plane. The TypeScript SDK, CLI,
+MCP server and coding-agent plugins can list, preview, activate and remove the initial
+GDPR-supporting and HIPAA-eligible storage profiles. Preview exposes exact blockers, enforced
+effects, customer responsibilities and prerequisite freshness; activation is revision-bound and
+replay-safe. A profile covers only that Almira storage environment and is never application or
+organization certification. Before external review, owner-fact materialization and signed catalog
+admission, the operations fail closed as unavailable.
+
 The installable agent integrations are in [`plugins/codex`](plugins/codex) and
 [`plugins/claude-code`](plugins/claude-code). Both use the public MCP package and the same
 application-integration guidance; they do not gain embedded-agent privileges or create another

@@ -24,6 +24,10 @@ import {
   type CreateProtectionReviewRequest,
   type FileBatchRequest,
   type CopyFileRequest,
+  type ComplianceProfileActivationRequest,
+  type ComplianceProfileId,
+  type ComplianceProfilePreviewRequest,
+  type ComplianceProfileRemovalRequest,
   type RegisterLocalIssuerRequest,
   type ReplaceAccessPolicyRequest,
   type ReplaceCollectionExtractionRequest,
@@ -78,6 +82,10 @@ Commands:
   environment delete     Mark an additional environment for deletion
   origin get              Read an environment's browser-origin policy
   origin set              Replace an environment's browser-origin policy
+  compliance list         List reviewed compliance profiles and active bindings
+  compliance preview      Resolve readiness and effects from --input JSON
+  compliance activate     Activate one reviewed profile from --input JSON
+  compliance remove       Remove one active profile binding from --input JSON
   storage capabilities    Discover storage realizations available to an environment
   storage enroll          Enroll a credential-free customer storage target from --input JSON
   storage enrollments     List durable customer storage enrollment receipts
@@ -153,6 +161,7 @@ Common identifiers:
   --migration UUID        Almira storage-migration UUIDv7
   --enrollment UUID       Customer storage enrollment operation UUIDv7
   --portability-job UUID  Almira import/export job UUIDv7
+  --profile ID            almira.storage.gdpr or almira.storage.hipaa_eligible
   --source-object UUID    Source-object UUIDv7 declared by an import manifest
   --entry UUID            Almira file-entry UUIDv7
   --generation UUID       Almira immutable generation UUIDv7
@@ -219,6 +228,7 @@ const options = {
   "path-prefix": { type: "string" },
   path: { type: "string" },
   project: { type: "string" },
+  profile: { type: "string" },
   "portability-job": { type: "string" },
   revision: { type: "string" },
   "realization-generation": { type: "string" },
@@ -344,6 +354,32 @@ export async function runCli(arguments_: string[], dependencies: CliDependencies
           expected_revision: positiveInteger(values, "revision"),
           origins: stringValues(values, "origin"),
         },
+        { operationId },
+      );
+    } else if (noun === "compliance" && verb === "list") {
+      result = await client.listComplianceProfiles(environmentReference(values, tenantId, projectId));
+    } else if (noun === "compliance" && verb === "preview") {
+      result = await client.previewComplianceProfile(
+        environmentReference(values, tenantId, projectId),
+        complianceProfileId(values),
+        await readJson<ComplianceProfilePreviewRequest>(required(values, "input"), dependencies.io.stdin),
+      );
+    } else if (noun === "compliance" && verb === "activate") {
+      operationId = mutationId(values);
+      mutation = true;
+      result = await client.activateComplianceProfile(
+        environmentReference(values, tenantId, projectId),
+        complianceProfileId(values),
+        await readJson<ComplianceProfileActivationRequest>(required(values, "input"), dependencies.io.stdin),
+        { operationId },
+      );
+    } else if (noun === "compliance" && verb === "remove") {
+      operationId = mutationId(values);
+      mutation = true;
+      result = await client.removeComplianceProfile(
+        environmentReference(values, tenantId, projectId),
+        complianceProfileId(values),
+        await readJson<ComplianceProfileRemovalRequest>(required(values, "input"), dependencies.io.stdin),
         { operationId },
       );
     } else if (noun === "storage" && verb === "capabilities") {
@@ -986,6 +1022,10 @@ const commandOptions = new Map<string, ReadonlySet<string>>([
   ["environment:delete", new Set(["base-url", "environment", "operation-id", "project", "revision", "tenant"])],
   ["origin:get", new Set(["base-url", "environment", "project", "tenant"])],
   ["origin:set", new Set(["base-url", "environment", "operation-id", "origin", "project", "revision", "tenant"])],
+  ["compliance:list", new Set(["base-url", "environment", "project", "tenant"])],
+  ["compliance:preview", new Set(["base-url", "environment", "input", "profile", "project", "tenant"])],
+  ["compliance:activate", new Set(["base-url", "environment", "input", "operation-id", "profile", "project", "tenant"])],
+  ["compliance:remove", new Set(["base-url", "environment", "input", "operation-id", "profile", "project", "tenant"])],
   ["storage:capabilities", new Set(["base-url", "environment", "project", "tenant"])],
   ["storage:enroll", new Set(["base-url", "input", "operation-id", "project", "tenant"])],
   ["storage:enrollments", new Set(["base-url", "project", "tenant"])],
@@ -1059,6 +1099,7 @@ const commandOptions = new Map<string, ReadonlySet<string>>([
 
 const mutationCommands = new Set([
   "project:bootstrap", "environment:create", "environment:update", "environment:delete", "origin:set",
+  "compliance:activate", "compliance:remove",
   "storage:enroll", "storage:adopt", "storage:restore-managed", "config:apply", "collection:create", "lifecycle:set", "collection:migrate", "import:start", "import:upload", "export:start",
   "export:download", "extraction:set", "media:set", "protection:set", "scan:rescan", "scan:review",
   "job:retry", "job:cancel", "file:batch", "file:copy", "metadata:set", "file:rename",
@@ -1176,11 +1217,21 @@ function mutationId(values: Values): string {
   return stringValue(values, "operation-id") ?? createOperationId();
 }
 
+function complianceProfileId(values: Values): ComplianceProfileId {
+  const value = required(values, "profile");
+  if (value !== "almira.storage.gdpr" && value !== "almira.storage.hipaa_eligible") {
+    throw new CliUsageError();
+  }
+  return value;
+}
+
+function environmentReference(values: Values, tenantId: string, projectId: string) {
+  return { tenantId, projectId, environmentId: required(values, "environment") };
+}
+
 function collectionReference(values: Values, tenantId: string, projectId: string) {
   return {
-    tenantId,
-    projectId,
-    environmentId: required(values, "environment"),
+    ...environmentReference(values, tenantId, projectId),
     collectionInstanceId: required(values, "collection"),
   };
 }

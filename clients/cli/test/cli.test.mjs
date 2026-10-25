@@ -1202,6 +1202,52 @@ test("credentials are not accepted as command-line options", async () => {
   assert.doesNotMatch(stream.output.stderr.join(""), /secret/u);
 });
 
+test("compliance commands keep preview read-only and bind profile mutations to replay IDs", async () => {
+  const calls = [];
+  const declaration = {
+    customer_declaration: {
+      data_category_ids: ["personal.contact"],
+      purpose_ids: ["customer.support"],
+    },
+  };
+  const commands = [
+    ["compliance", "list"],
+    ["compliance", "preview", "--profile", "almira.storage.gdpr", "--input", "-"],
+    ["compliance", "activate", "--profile", "almira.storage.gdpr", "--input", "-", "--operation-id", operationId],
+    ["compliance", "remove", "--profile", "almira.storage.gdpr", "--input", "-", "--operation-id", operationId],
+  ];
+  const bodies = [undefined, declaration, { expected_environment_revision: 4, ...declaration }, {
+    expected_binding_revision: 2,
+    reason: "Application purpose changed",
+  }];
+  for (let index = 0; index < commands.length; index += 1) {
+    const stream = io();
+    const exitCode = await runCli([
+      ...commands[index], "--tenant", tenantId, "--project", projectId, "--environment", environmentId,
+    ], {
+      environment,
+      io: { ...stream.value, ...(bodies[index] === undefined ? {} : { stdin: Readable.from([JSON.stringify(bodies[index])]) }) },
+      fetch: async (input, init) => {
+        calls.push({ input, init });
+        return json(init.method === "GET" ? { profiles: [] } : { disposition: "applied", binding: {} });
+      },
+    });
+    assert.equal(exitCode, 0, stream.output.stderr.join(""));
+  }
+  const base = `https://almira.test/v1/projects/${projectId}/environments/${environmentId}/compliance-profiles`;
+  assert.deepEqual(calls.map(({ input, init }) => ({
+    input,
+    method: init.method,
+    operationId: init.headers.get("idempotency-key"),
+    body: init.body === undefined ? undefined : JSON.parse(init.body),
+  })), [
+    { input: base, method: "GET", operationId: null, body: undefined },
+    { input: `${base}/almira.storage.gdpr/preview`, method: "POST", operationId: null, body: declaration },
+    { input: `${base}/almira.storage.gdpr`, method: "PUT", operationId, body: bodies[2] },
+    { input: `${base}/almira.storage.gdpr`, method: "DELETE", operationId, body: bodies[3] },
+  ]);
+});
+
 test("options from another command are rejected instead of ignored", async () => {
   const stream = io();
   const exitCode = await runCli(

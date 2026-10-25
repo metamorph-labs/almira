@@ -1,15 +1,15 @@
 {
   "formatVersion": 1,
   "product": "almira",
-  "contractVersion": "0.1.0-dev.58",
+  "contractVersion": "0.1.0-dev.59",
   "source": {
     "repository": "metamorph-labs/almira-core",
     "algorithm": "sha256",
-    "digest": "69ca2679b0c22123b5df71b752fd9e9fa9648ed19a5fdf3e8a3f057cfc573876"
+    "digest": "db49e1a540f056857f9813a35254c228a383086607075924e8124007a4ec0f2e"
   },
   "bundle": {
     "algorithm": "sha256",
-    "digest": "69ca2679b0c22123b5df71b752fd9e9fa9648ed19a5fdf3e8a3f057cfc573876"
+    "digest": "db49e1a540f056857f9813a35254c228a383086607075924e8124007a4ec0f2e"
   },
   "files": [
     {
@@ -44,18 +44,18 @@
     },
     {
       "path": "conformance/vectors.v1.json",
-      "size": 71645,
-      "digest": "442c0f223eb5c58c47374245bf8d4a035b3f3c954a4816a0c67e4e39f37f15e7"
+      "size": 74721,
+      "digest": "4b4c61d84930cf9179fcac6781f8f35ca58ba810e321b3749dc8f2276e8ec39b"
     },
     {
       "path": "data-openapi.v1.json",
       "size": 23277,
-      "digest": "c6a09c34d253369606fe313ffe53728bb976bf3cd84a129898251027dcfa546f"
+      "digest": "f4348961c32b03c2c4a49df06c102503bea04e07c949276fb684b3ad51b005f4"
     },
     {
       "path": "errors.v1.json",
-      "size": 23688,
-      "digest": "609d78299279c90edeaa0f754e3dae0f3767687577b6d6e4c78f6cb67c561432"
+      "size": 25041,
+      "digest": "02b9975a1df1daae2b53e882afea08a919b99d585d6589b5a513038259bf7542"
     },
     {
       "path": "events/catalog.schema.json",
@@ -84,8 +84,8 @@
     },
     {
       "path": "openapi.v1.json",
-      "size": 316794,
-      "digest": "6a4db0c1167b630b8c6c6266bfa2b87b289f345c6d6df41f802fe5d37d59015a"
+      "size": 336396,
+      "digest": "6058030b15494ab20deba9ef6d3b75a50f2bb9bc4d643bff18f84cb1b536bfc9"
     },
     {
       "path": "README.md",
@@ -95,7 +95,7 @@
     {
       "path": "release.json",
       "size": 70,
-      "digest": "e81fac983a2b7e14e5f9e4caeff34bd86615cb463eb32aca4183a55925ca720b"
+      "digest": "f6206619f904ea7646f5d13be66fcc238ca776857a8b337f85934a53408ec772"
     }
   ]
 }

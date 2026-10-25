@@ -63,6 +63,18 @@ const environmentDisplayName = z.string().refine((value) =>
   value === value.trim() &&
   !/[\u0000-\u001f\u007f]/u.test(value),
 );
+const complianceProfileId = z.enum(["almira.storage.gdpr", "almira.storage.hipaa_eligible"]);
+const catalogIdentifier = z.string().min(1).max(128)
+  .regex(/^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$/u);
+const sortedCatalogIdentifiers = z.array(catalogIdentifier).min(1).max(64).refine(
+  (values) => new Set(values).size === values.length &&
+    values.every((value, index) => index === 0 || values[index - 1] < value),
+  { message: "catalog identifiers must be strictly increasing" },
+);
+const complianceCustomerDeclaration = z.object({
+  data_category_ids: sortedCatalogIdentifiers,
+  purpose_ids: sortedCatalogIdentifiers,
+}).strict();
 const imagePreset = z.object({
   widths: z.array(z.number().int().min(1).max(8192)).min(1).max(8)
     .refine((values) => values.every((value, index) => index === 0 || values[index - 1] < value), {
@@ -409,7 +421,7 @@ export function createAlmiraMcpServer(
   client: AlmiraClient,
   dependencies: AlmiraMcpDependencies = {},
 ): McpServer {
-  const server = new McpServer({ name: "almira", version: "0.1.0-dev.58" });
+  const server = new McpServer({ name: "almira", version: "0.1.0-dev.59" });
 
   server.registerTool(
     "almira_project_bootstrap",
@@ -606,6 +618,98 @@ export function createAlmiraMcpServer(
           ),
         id,
       );
+    },
+  );
+
+  server.registerTool(
+    "almira_compliance_profile_list",
+    {
+      title: "List compliance profiles",
+      description: "List reviewed environment compliance profiles, their enforced constraints, and any active bindings. Profiles are engineering aids, not certification.",
+      inputSchema: z.object({ ...scope, environment_id: uuid }).strict(),
+      outputSchema,
+      annotations: readAnnotations,
+    },
+    async ({ tenant_id, project_id, environment_id }) => execute(() =>
+      client.listComplianceProfiles({ tenantId: tenant_id, projectId: project_id, environmentId: environment_id })),
+  );
+
+  server.registerTool(
+    "almira_compliance_profile_preview",
+    {
+      title: "Preview compliance profile",
+      description: "Resolve current owner prerequisites, blockers, enforced effects, and customer responsibilities without changing the environment. This does not certify an application or organization.",
+      inputSchema: z.object({
+        ...scope,
+        environment_id: uuid,
+        profile_id: complianceProfileId,
+        customer_declaration: complianceCustomerDeclaration.nullable().optional(),
+      }).strict(),
+      outputSchema,
+      annotations: readAnnotations,
+    },
+    async ({ tenant_id, project_id, environment_id, profile_id, customer_declaration }) => execute(() =>
+      client.previewComplianceProfile(
+        { tenantId: tenant_id, projectId: project_id, environmentId: environment_id },
+        profile_id,
+        { ...(customer_declaration === undefined ? {} : { customer_declaration }) },
+      )),
+  );
+
+  server.registerTool(
+    "almira_compliance_profile_activate",
+    {
+      title: "Activate compliance profile",
+      description: "Activate one ready reviewed profile with optimistic environment revision and replay identity. This enforces Almira constraints but does not certify an application or organization.",
+      inputSchema: z.object({
+        ...scope,
+        environment_id: uuid,
+        profile_id: complianceProfileId,
+        expected_environment_revision: z.number().int().min(1),
+        customer_declaration: complianceCustomerDeclaration.nullable().optional(),
+        operation_id: operationId,
+      }).strict(),
+      outputSchema,
+      annotations: mutationAnnotations,
+    },
+    async ({ tenant_id, project_id, environment_id, profile_id, expected_environment_revision, customer_declaration, operation_id }) => {
+      const id = operation_id ?? createOperationId();
+      return execute(() => client.activateComplianceProfile(
+        { tenantId: tenant_id, projectId: project_id, environmentId: environment_id },
+        profile_id,
+        {
+          expected_environment_revision,
+          ...(customer_declaration === undefined ? {} : { customer_declaration }),
+        },
+        { operationId: id },
+      ), id);
+    },
+  );
+
+  server.registerTool(
+    "almira_compliance_profile_remove",
+    {
+      title: "Remove compliance profile",
+      description: "Remove one active environment compliance binding with optimistic binding revision and an auditable reason.",
+      inputSchema: z.object({
+        ...scope,
+        environment_id: uuid,
+        profile_id: complianceProfileId,
+        expected_binding_revision: z.number().int().min(1),
+        reason: z.string().min(1).max(512).refine((value) => value === value.trim()),
+        operation_id: operationId,
+      }).strict(),
+      outputSchema,
+      annotations: deleteAnnotations,
+    },
+    async ({ tenant_id, project_id, environment_id, profile_id, expected_binding_revision, reason, operation_id }) => {
+      const id = operation_id ?? createOperationId();
+      return execute(() => client.removeComplianceProfile(
+        { tenantId: tenant_id, projectId: project_id, environmentId: environment_id },
+        profile_id,
+        { expected_binding_revision, reason },
+        { operationId: id },
+      ), id);
     },
   );
 

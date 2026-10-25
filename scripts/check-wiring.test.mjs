@@ -15,10 +15,10 @@ test("extracts only canonical contract operations and client calls", () => {
 test("the promoted public caller graph is completely wired", async () => {
   const inputs = await repositoryInputs();
   assert.deepEqual(validatePublicWiring(inputs), {
-    managementOperations: 79,
+    managementOperations: 83,
     dataOperations: 7,
     workloadOperations: 10,
-    externalAgentOperations: 66,
+    externalAgentOperations: 70,
     publicLanguages: 4,
     plugins: 2,
   });

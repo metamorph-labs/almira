@@ -93,6 +93,101 @@ export interface ReplaceBrowserOriginsOutcome {
   policy: BrowserOriginPolicy;
 }
 
+export type ComplianceProfileId = "almira.storage.gdpr" | "almira.storage.hipaa_eligible";
+
+export interface ComplianceCatalogIdentity {
+  catalog_epoch: string;
+  release_id: string;
+  bundle_digest: ContentSha256;
+}
+
+export interface ComplianceProfileConstraints {
+  public_egress_allowed: boolean;
+  content_processing_allowed: boolean;
+  malware_scan_required: boolean;
+  explicit_retention_required: boolean;
+}
+
+export interface ComplianceCustomerDeclaration {
+  data_category_ids: string[];
+  purpose_ids: string[];
+}
+
+export interface ComplianceProfileBinding {
+  binding_id: UuidV7;
+  environment_id: UuidV7;
+  profile_id: ComplianceProfileId;
+  profile_version: number;
+  profile_source_digest: ContentSha256;
+  catalog_epoch: string;
+  catalog_release_id: string;
+  catalog_bundle_digest: ContentSha256;
+  control_release_id: string;
+  shared_responsibility_version: number;
+  constraints: ComplianceProfileConstraints;
+  customer_declaration_digest: ContentSha256 | null;
+  prerequisite_fact_digest: ContentSha256;
+  prerequisite_source_revision: string;
+  prerequisites_valid_until: Timestamp;
+  state: "active" | "removed";
+  revision: number;
+  activated_at: Timestamp;
+  removed_at: Timestamp | null;
+  removal_reason: string | null;
+}
+
+export interface ComplianceProfileDefinition {
+  profile_id: ComplianceProfileId;
+  version: number;
+  purpose_localization_key: string;
+  non_certifying_disclaimer_localization_key: string;
+  constraints: ComplianceProfileConstraints;
+  customer_responsibilities: string[];
+  active_binding: ComplianceProfileBinding | null;
+}
+
+export interface ComplianceProfileList {
+  environment_id: UuidV7;
+  environment_revision: number;
+  configuration_revision: string;
+  catalog_identity: ComplianceCatalogIdentity;
+  control_release_id: string;
+  profiles: ComplianceProfileDefinition[];
+  non_certification_notice: string;
+}
+
+export interface ComplianceProfilePreviewRequest {
+  customer_declaration?: ComplianceCustomerDeclaration | null;
+}
+
+export interface ComplianceProfileActivationRequest {
+  expected_environment_revision: number;
+  customer_declaration?: ComplianceCustomerDeclaration | null;
+}
+
+export interface ComplianceProfileRemovalRequest {
+  expected_binding_revision: number;
+  reason: string;
+}
+
+export interface ComplianceProfilePreview {
+  environment_id: UuidV7;
+  environment_revision: number;
+  configuration_revision: string;
+  profile: ComplianceProfileDefinition;
+  ready: boolean;
+  blockers: string[];
+  effects: string[];
+  prerequisite_fact_digest: ContentSha256 | null;
+  prerequisites_valid_until: Timestamp | null;
+  non_certification_notice: string;
+}
+
+export interface ComplianceProfileMutationOutcome {
+  disposition: "applied" | "exact_replay";
+  binding: ComplianceProfileBinding;
+}
+
 export type StorageProviderFamily = "aws_s3" | "gcs" | "azure_blob";
 export type StorageTransferCapability =
   | "direct_upload"
@@ -746,7 +841,7 @@ export interface VerificationCheck {
 
 export interface VerificationReceipt {
   receipt_version: "almira.verification.v1";
-  contract_version: "0.1.0-dev.58";
+  contract_version: "0.1.0-dev.59";
   verification_id: UuidV7;
   realm_id: UuidV7;
   tenant_id: UuidV7;

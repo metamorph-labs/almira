@@ -149,6 +149,61 @@
       "retryable": true
     },
     {
+      "code": "ALMIRA_COMPLIANCE_PROFILE_AUTHORIZATION_MISMATCH",
+      "http_status": 403,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_COMPLIANCE_PROFILE_INPUT_INVALID",
+      "http_status": 400,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_COMPLIANCE_PROFILE_NOT_ACTIVE",
+      "http_status": 409,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_COMPLIANCE_PROFILE_NOT_AVAILABLE",
+      "http_status": 503,
+      "retryable": true
+    },
+    {
+      "code": "ALMIRA_COMPLIANCE_PROFILE_NOT_FOUND",
+      "http_status": 404,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_COMPLIANCE_PROFILE_OPERATION_CONFLICT",
+      "http_status": 409,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_COMPLIANCE_PROFILE_OUTCOME_UNKNOWN",
+      "http_status": 503,
+      "retryable": true
+    },
+    {
+      "code": "ALMIRA_COMPLIANCE_PROFILE_PREREQUISITE_INVALID",
+      "http_status": 409,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_COMPLIANCE_PROFILE_PREREQUISITE_NOT_MET",
+      "http_status": 409,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_COMPLIANCE_PROFILE_REVISION_CONFLICT",
+      "http_status": 409,
+      "retryable": false
+    },
+    {
+      "code": "ALMIRA_COMPLIANCE_PROFILE_UNAVAILABLE",
+      "http_status": 503,
+      "retryable": true
+    },
+    {
       "code": "ALMIRA_DELIVERY_ACCESS_REFUSED",
       "http_status": 403,
       "retryable": false

@@ -180,6 +180,57 @@ test("storage capability discovery is one exact environment-scoped read", async 
   assert.equal(call.init.headers.get("x-almira-tenant-id"), tenantId);
 });
 
+test("compliance profile methods preserve preview, approval, replay, and removal boundaries", async () => {
+  const calls = [];
+  const client = new AlmiraClient({
+    credential: "mm_pat_v1.test",
+    fetch: async (input, init) => {
+      calls.push({ input, init });
+      return json(init.method === "GET" ? { profiles: [] } : { disposition: "applied", binding: {} });
+    },
+  });
+  const reference = { tenantId, projectId, environmentId };
+  const profileId = "almira.storage.gdpr";
+  const declaration = {
+    data_category_ids: ["personal.contact"],
+    purpose_ids: ["customer.support"],
+  };
+
+  await client.listComplianceProfiles(reference);
+  await client.previewComplianceProfile(reference, profileId, { customer_declaration: declaration });
+  await client.activateComplianceProfile(
+    reference,
+    profileId,
+    { expected_environment_revision: 4, customer_declaration: declaration },
+    { operationId },
+  );
+  await client.removeComplianceProfile(
+    reference,
+    profileId,
+    { expected_binding_revision: 2, reason: "Application purpose changed" },
+    { operationId },
+  );
+
+  const base = `/v1/projects/${projectId}/environments/${environmentId}/compliance-profiles`;
+  assert.deepEqual(calls.map(({ input, init }) => ({
+    input,
+    method: init.method,
+    operationId: init.headers.get("idempotency-key"),
+    body: init.body === undefined ? undefined : JSON.parse(init.body),
+  })), [
+    { input: base, method: "GET", operationId: null, body: undefined },
+    { input: `${base}/${profileId}/preview`, method: "POST", operationId: null, body: { customer_declaration: declaration } },
+    { input: `${base}/${profileId}`, method: "PUT", operationId, body: { expected_environment_revision: 4, customer_declaration: declaration } },
+    { input: `${base}/${profileId}`, method: "DELETE", operationId, body: { expected_binding_revision: 2, reason: "Application purpose changed" } },
+  ]);
+
+  await assert.rejects(
+    client.previewComplianceProfile(reference, "unreviewed.profile", {}),
+    (error) => error instanceof AlmiraClientError && error.code === "ALMIRA_CLIENT_INPUT_INVALID",
+  );
+  assert.equal(calls.length, 4);
+});
+
 test("verification receipt and public key discovery use their distinct credential boundaries", async () => {
   const calls = [];
   const receipt = { receipt: {}, algorithm: "ed25519", signature: "A".repeat(86) };

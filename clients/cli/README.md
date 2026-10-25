@@ -245,6 +245,15 @@ shape: `policy get|set|simulate`, `delivery get|set|purge`, `share create|revoke
 Mutations retain the same `--operation-id` replay contract; issuer revocation also requires the
 current `--revision`.
 
+Environment compliance profiles use `compliance list|preview|activate|remove`. Supply
+`--environment` for every command and `--profile almira.storage.gdpr` or
+`--profile almira.storage.hipaa_eligible` for all but `list`. Preview, activation and removal read
+their exact public request bodies from `--input`; mutations also accept a retained
+`--operation-id`. Always preview first and report its blockers, effects, customer responsibilities
+and non-certification notice. A profile applies only to the selected Almira storage environment and
+does not certify the builder's application or organization. Before reviewed signed-catalog
+admission, these commands correctly return the stable unavailable error.
+
 For `delivery set`, the exact JSON includes nullable `custom_hostname`. Use `null` for Almira's
 managed hostname or a lowercase DNS hostname for a deployment-supported custom domain, then read
 the returned `routing_target`, ownership challenge and lifecycle state with `delivery get`. The CLI

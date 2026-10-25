@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Almira API",
-    "version": "0.1.0-dev.58",
+    "version": "0.1.0-dev.59",
     "description": "Provider-neutral application file storage management and data API."
   },
   "servers": [
@@ -901,6 +901,233 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/EnvironmentMutationOutcome"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/environments/{environment_id}/compliance-profiles": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "get": {
+        "operationId": "listComplianceProfiles",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reviewed compliance profiles applicable to the environment, including any active binding and the non-certification notice.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComplianceProfileList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/environments/{environment_id}/compliance-profiles/{profile_id}/preview": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "post": {
+        "operationId": "previewComplianceProfile",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/ProfileId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ComplianceProfilePreviewInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Current readiness, blockers, effects and shared responsibilities without activating the profile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComplianceProfilePreview"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/environments/{environment_id}/compliance-profiles/{profile_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TenantId"
+        }
+      ],
+      "put": {
+        "operationId": "activateComplianceProfile",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/ProfileId"
+          },
+          {
+            "$ref": "#/components/parameters/OperationId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ComplianceProfileActivationInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Profile activated from fresh platform-owned prerequisite facts, or exactly replayed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComplianceProfileMutationOutcome"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "removeComplianceProfile",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectId"
+          },
+          {
+            "$ref": "#/components/parameters/EnvironmentId"
+          },
+          {
+            "$ref": "#/components/parameters/ProfileId"
+          },
+          {
+            "$ref": "#/components/parameters/OperationId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ComplianceProfileRemovalInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Profile binding removed, or exactly replayed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComplianceProfileMutationOutcome"
                 }
               }
             }
@@ -4885,6 +5112,14 @@
           "$ref": "#/components/schemas/UuidV7"
         }
       },
+      "ProfileId": {
+        "name": "profile_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/ComplianceProfileId"
+        }
+      },
       "IfMatchRevision": {
         "name": "If-Match",
         "in": "header",
@@ -4994,6 +5229,465 @@
       "Timestamp": {
         "type": "string",
         "format": "date-time"
+      },
+      "PositiveDecimalString": {
+        "type": "string",
+        "pattern": "^[1-9][0-9]*$"
+      },
+      "Digest": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "CatalogIdentifier": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128,
+        "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$"
+      },
+      "ComplianceProfileId": {
+        "type": "string",
+        "enum": [
+          "almira.storage.gdpr",
+          "almira.storage.hipaa_eligible"
+        ]
+      },
+      "ComplianceCatalogIdentity": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "catalog_epoch",
+          "release_id",
+          "bundle_digest"
+        ],
+        "properties": {
+          "catalog_epoch": {
+            "$ref": "#/components/schemas/PositiveDecimalString"
+          },
+          "release_id": {
+            "$ref": "#/components/schemas/CatalogIdentifier"
+          },
+          "bundle_digest": {
+            "$ref": "#/components/schemas/Digest"
+          }
+        }
+      },
+      "ComplianceProfileConstraints": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "public_egress_allowed",
+          "content_processing_allowed",
+          "malware_scan_required",
+          "explicit_retention_required"
+        ],
+        "properties": {
+          "public_egress_allowed": {
+            "type": "boolean"
+          },
+          "content_processing_allowed": {
+            "type": "boolean"
+          },
+          "malware_scan_required": {
+            "type": "boolean"
+          },
+          "explicit_retention_required": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ComplianceCustomerDeclaration": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data_category_ids",
+          "purpose_ids"
+        ],
+        "properties": {
+          "data_category_ids": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 64,
+            "uniqueItems": true,
+            "x-almira-strictly-increasing": true,
+            "items": {
+              "$ref": "#/components/schemas/CatalogIdentifier"
+            }
+          },
+          "purpose_ids": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 64,
+            "uniqueItems": true,
+            "x-almira-strictly-increasing": true,
+            "items": {
+              "$ref": "#/components/schemas/CatalogIdentifier"
+            }
+          }
+        }
+      },
+      "ComplianceProfileBinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "binding_id",
+          "environment_id",
+          "profile_id",
+          "profile_version",
+          "profile_source_digest",
+          "catalog_epoch",
+          "catalog_release_id",
+          "catalog_bundle_digest",
+          "control_release_id",
+          "shared_responsibility_version",
+          "constraints",
+          "customer_declaration_digest",
+          "prerequisite_fact_digest",
+          "prerequisite_source_revision",
+          "prerequisites_valid_until",
+          "state",
+          "revision",
+          "activated_at",
+          "removed_at",
+          "removal_reason"
+        ],
+        "properties": {
+          "binding_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "environment_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "profile_id": {
+            "$ref": "#/components/schemas/ComplianceProfileId"
+          },
+          "profile_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "profile_source_digest": {
+            "$ref": "#/components/schemas/Digest"
+          },
+          "catalog_epoch": {
+            "$ref": "#/components/schemas/PositiveDecimalString"
+          },
+          "catalog_release_id": {
+            "$ref": "#/components/schemas/CatalogIdentifier"
+          },
+          "catalog_bundle_digest": {
+            "$ref": "#/components/schemas/Digest"
+          },
+          "control_release_id": {
+            "$ref": "#/components/schemas/CatalogIdentifier"
+          },
+          "shared_responsibility_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "constraints": {
+            "$ref": "#/components/schemas/ComplianceProfileConstraints"
+          },
+          "customer_declaration_digest": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Digest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "prerequisite_fact_digest": {
+            "$ref": "#/components/schemas/Digest"
+          },
+          "prerequisite_source_revision": {
+            "$ref": "#/components/schemas/PositiveDecimalString"
+          },
+          "prerequisites_valid_until": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "active",
+              "removed"
+            ]
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "activated_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "removed_at": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Timestamp"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "removal_reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 512
+          }
+        }
+      },
+      "ComplianceProfileDefinition": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "profile_id",
+          "version",
+          "purpose_localization_key",
+          "non_certifying_disclaimer_localization_key",
+          "constraints",
+          "customer_responsibilities",
+          "active_binding"
+        ],
+        "properties": {
+          "profile_id": {
+            "$ref": "#/components/schemas/ComplianceProfileId"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "purpose_localization_key": {
+            "$ref": "#/components/schemas/CatalogIdentifier"
+          },
+          "non_certifying_disclaimer_localization_key": {
+            "$ref": "#/components/schemas/CatalogIdentifier"
+          },
+          "constraints": {
+            "$ref": "#/components/schemas/ComplianceProfileConstraints"
+          },
+          "customer_responsibilities": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 32,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/components/schemas/CatalogIdentifier"
+            }
+          },
+          "active_binding": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ComplianceProfileBinding"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "ComplianceProfileList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "environment_id",
+          "environment_revision",
+          "configuration_revision",
+          "catalog_identity",
+          "control_release_id",
+          "profiles",
+          "non_certification_notice"
+        ],
+        "properties": {
+          "environment_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "environment_revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "configuration_revision": {
+            "$ref": "#/components/schemas/PositiveDecimalString"
+          },
+          "catalog_identity": {
+            "$ref": "#/components/schemas/ComplianceCatalogIdentity"
+          },
+          "control_release_id": {
+            "$ref": "#/components/schemas/CatalogIdentifier"
+          },
+          "profiles": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 2,
+            "x-almira-unique-by": "profile_id",
+            "items": {
+              "$ref": "#/components/schemas/ComplianceProfileDefinition"
+            }
+          },
+          "non_certification_notice": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          }
+        }
+      },
+      "ComplianceProfilePreviewInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "customer_declaration": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ComplianceCustomerDeclaration"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "ComplianceProfileActivationInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "expected_environment_revision"
+        ],
+        "properties": {
+          "expected_environment_revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "customer_declaration": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ComplianceCustomerDeclaration"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "ComplianceProfileRemovalInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "expected_binding_revision",
+          "reason"
+        ],
+        "properties": {
+          "expected_binding_revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512,
+            "x-almira-trimmed": true
+          }
+        }
+      },
+      "ComplianceProfilePreview": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "environment_id",
+          "environment_revision",
+          "configuration_revision",
+          "profile",
+          "ready",
+          "blockers",
+          "effects",
+          "prerequisite_fact_digest",
+          "prerequisites_valid_until",
+          "non_certification_notice"
+        ],
+        "properties": {
+          "environment_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "environment_revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "configuration_revision": {
+            "$ref": "#/components/schemas/PositiveDecimalString"
+          },
+          "profile": {
+            "$ref": "#/components/schemas/ComplianceProfileDefinition"
+          },
+          "ready": {
+            "type": "boolean"
+          },
+          "blockers": {
+            "type": "array",
+            "maxItems": 16,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/components/schemas/CatalogIdentifier"
+            }
+          },
+          "effects": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 16,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/components/schemas/CatalogIdentifier"
+            }
+          },
+          "prerequisite_fact_digest": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Digest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "prerequisites_valid_until": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Timestamp"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "non_certification_notice": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          }
+        }
+      },
+      "ComplianceProfileMutationOutcome": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "disposition",
+          "binding"
+        ],
+        "properties": {
+          "disposition": {
+            "type": "string",
+            "enum": [
+              "applied",
+              "exact_replay"
+            ]
+          },
+          "binding": {
+            "$ref": "#/components/schemas/ComplianceProfileBinding"
+          }
+        }
       },
       "Error": {
         "type": "object",
@@ -8939,7 +9633,7 @@
             "const": "almira.verification.v1"
           },
           "contract_version": {
-            "const": "0.1.0-dev.58"
+            "const": "0.1.0-dev.59"
           },
           "verification_id": {
             "$ref": "#/components/schemas/UuidV7"
@@ -10442,7 +11136,11 @@
                 "const": "public"
               },
               "cache_preset": {
-                "const": "revalidate"
+                "type": "string",
+                "enum": [
+                  "immutable_generation",
+                  "revalidate"
+                ]
               },
               "logical_aliases": {
                 "const": false

@@ -1,7 +1,7 @@
 {
   "schema_id": "almira.public.api-conformance-vectors.v1",
   "format_version": 1,
-  "openapi": "0.1.0-dev.58",
+  "openapi": "0.1.0-dev.59",
   "schema_vectors": [
     {
       "name": "additional_environment_is_managed_by_default",
@@ -877,7 +877,7 @@
       "expected": "invalid"
     },
     {
-      "name": "unwired_immutable_cache_refused",
+      "name": "edge_authorized_immutable_cache",
       "schema": "DeliveryConfigInput",
       "instance": {
         "mode": "public",
@@ -886,7 +886,7 @@
         "direct_provider_private_downloads": false,
         "custom_hostname": null
       },
-      "expected": "invalid"
+      "expected": "valid"
     },
     {
       "name": "immutable_generation_share",
@@ -1845,9 +1845,103 @@
         }
       },
       "expected": "invalid"
+    },
+    {
+      "name": "gdpr_profile_preview_accepts_canonical_customer_declaration",
+      "schema": "ComplianceProfilePreviewInput",
+      "instance": {
+        "customer_declaration": {
+          "data_category_ids": [
+            "account_data",
+            "profile_data"
+          ],
+          "purpose_ids": [
+            "account_fulfilment",
+            "service_delivery"
+          ]
+        }
+      },
+      "expected": "valid"
+    },
+    {
+      "name": "compliance_customer_declaration_refuses_noncanonical_order",
+      "schema": "ComplianceProfilePreviewInput",
+      "instance": {
+        "customer_declaration": {
+          "data_category_ids": [
+            "profile_data",
+            "account_data"
+          ],
+          "purpose_ids": [
+            "service_delivery"
+          ]
+        }
+      },
+      "expected": "invalid"
+    },
+    {
+      "name": "compliance_profile_activation_is_environment_revision_bound",
+      "schema": "ComplianceProfileActivationInput",
+      "instance": {
+        "expected_environment_revision": 4,
+        "customer_declaration": null
+      },
+      "expected": "valid"
+    },
+    {
+      "name": "compliance_profile_activation_refuses_provider_coordinates",
+      "schema": "ComplianceProfileActivationInput",
+      "instance": {
+        "expected_environment_revision": 4,
+        "customer_declaration": null,
+        "provider_id": "aws"
+      },
+      "expected": "invalid"
+    },
+    {
+      "name": "compliance_profile_removal_requires_audit_reason",
+      "schema": "ComplianceProfileRemovalInput",
+      "instance": {
+        "expected_binding_revision": 1,
+        "reason": "No longer required"
+      },
+      "expected": "valid"
+    },
+    {
+      "name": "compliance_profile_removal_refuses_blank_reason",
+      "schema": "ComplianceProfileRemovalInput",
+      "instance": {
+        "expected_binding_revision": 1,
+        "reason": ""
+      },
+      "expected": "invalid"
     }
   ],
   "error_vectors": [
+    {
+      "name": "compliance_profile_is_unavailable_without_reviewed_admission",
+      "condition": "the signed CMP catalog does not admit the exact Almira profile and reviewed contribution",
+      "code": "ALMIRA_COMPLIANCE_PROFILE_NOT_AVAILABLE",
+      "http_status": 503
+    },
+    {
+      "name": "compliance_profile_refuses_unmet_platform_prerequisite",
+      "condition": "Governance or Billing returns a current authoritative fact whose outcome does not satisfy the selected profile",
+      "code": "ALMIRA_COMPLIANCE_PROFILE_PREREQUISITE_NOT_MET",
+      "http_status": 409
+    },
+    {
+      "name": "compliance_profile_refuses_substituted_platform_fact",
+      "condition": "an eligibility fact is stale, malformed, owner-mismatched, request-mismatched, or digest-substituted",
+      "code": "ALMIRA_COMPLIANCE_PROFILE_PREREQUISITE_INVALID",
+      "http_status": 409
+    },
+    {
+      "name": "compliance_profile_activation_is_revision_safe",
+      "condition": "the environment changes after preview and before activation",
+      "code": "ALMIRA_COMPLIANCE_PROFILE_REVISION_CONFLICT",
+      "http_status": 409
+    },
     {
       "name": "commercial_admission_refuses_new_chargeable_work",
       "condition": "Billing's current project-rooted plan or spending guard refuses the classified operation",

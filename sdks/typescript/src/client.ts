@@ -18,6 +18,13 @@ import type {
   CollectionProtectionConfig,
   CollectionPage,
   CollectionReference,
+  ComplianceProfileActivationRequest,
+  ComplianceProfileId,
+  ComplianceProfileList,
+  ComplianceProfileMutationOutcome,
+  ComplianceProfilePreview,
+  ComplianceProfilePreviewRequest,
+  ComplianceProfileRemovalRequest,
   CreateCollectionOutcome,
   CreateCollectionRequest,
   CreateMultipartPartGrantRequest,
@@ -298,6 +305,57 @@ export class AlmiraClient {
   ): Promise<ReplaceBrowserOriginsOutcome> {
     return this.#json(environmentPath(reference, "/browser-origins"), {
       method: "PUT",
+      headers: mutationHeaders(options.operationId),
+      body: request,
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async listComplianceProfiles(
+    reference: EnvironmentReference,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<ComplianceProfileList> {
+    return this.#json(environmentPath(reference, "/compliance-profiles"), {
+      method: "GET",
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async previewComplianceProfile(
+    reference: EnvironmentReference,
+    profileId: ComplianceProfileId,
+    request: ComplianceProfilePreviewRequest,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<ComplianceProfilePreview> {
+    return this.#json(complianceProfilePath(reference, profileId, "/preview"), {
+      method: "POST",
+      body: request,
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async activateComplianceProfile(
+    reference: EnvironmentReference,
+    profileId: ComplianceProfileId,
+    request: ComplianceProfileActivationRequest,
+    options: MutationOptions,
+  ): Promise<ComplianceProfileMutationOutcome> {
+    return this.#json(complianceProfilePath(reference, profileId), {
+      method: "PUT",
+      headers: mutationHeaders(options.operationId),
+      body: request,
+      signal: options.signal,
+    }, reference.tenantId);
+  }
+
+  async removeComplianceProfile(
+    reference: EnvironmentReference,
+    profileId: ComplianceProfileId,
+    request: ComplianceProfileRemovalRequest,
+    options: MutationOptions,
+  ): Promise<ComplianceProfileMutationOutcome> {
+    return this.#json(complianceProfilePath(reference, profileId), {
+      method: "DELETE",
       headers: mutationHeaders(options.operationId),
       body: request,
       signal: options.signal,
@@ -1504,6 +1562,17 @@ function projectPath(reference: ProjectReference, suffix = ""): string {
 
 function environmentPath(reference: EnvironmentReference, suffix = ""): string {
   return `${projectPath(reference, "/environments")}/${uuid(reference.environmentId)}${suffix}`;
+}
+
+function complianceProfilePath(
+  reference: EnvironmentReference,
+  profileId: ComplianceProfileId,
+  suffix = "",
+): string {
+  if (profileId !== "almira.storage.gdpr" && profileId !== "almira.storage.hipaa_eligible") {
+    invalidInput();
+  }
+  return `${environmentPath(reference, "/compliance-profiles")}/${profileId}${suffix}`;
 }
 
 function collectionPath(reference: CollectionReference, suffix = ""): string {

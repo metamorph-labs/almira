@@ -66,6 +66,10 @@ test("tool catalog is closed and marks destructive behavior accurately", async (
       "almira_collection_media_replace",
       "almira_collection_protection_get",
       "almira_collection_protection_replace",
+      "almira_compliance_profile_activate",
+      "almira_compliance_profile_list",
+      "almira_compliance_profile_preview",
+      "almira_compliance_profile_remove",
       "almira_configuration_apply",
       "almira_configuration_preview",
       "almira_delivery_get",
@@ -143,9 +147,74 @@ test("tool catalog is closed and marks destructive behavior accurately", async (
     false,
   );
   assert.equal(
+    response.tools.find((tool) => tool.name === "almira_compliance_profile_preview").annotations.readOnlyHint,
+    true,
+  );
+  assert.equal(
+    response.tools.find((tool) => tool.name === "almira_compliance_profile_remove").annotations.destructiveHint,
+    true,
+  );
+  assert.equal(
     response.tools.find((tool) => tool.name === "almira_share_revoke").annotations.destructiveHint,
     true,
   );
+});
+
+test("compliance tools expose preview and approved mutations without adding an approval authority", async (context) => {
+  const environmentId = "018f0000-0000-7000-8000-000000000004";
+  const operationId = "018f0000-0000-7000-8000-000000000007";
+  const requests = [];
+  const connection = await connected(async (input, init) => {
+    requests.push({ input, init });
+    return json(init.method === "GET" ? { profiles: [] } : { disposition: "applied", binding: {} });
+  });
+  context.after(async () => {
+    await connection.client.close();
+    await connection.server.close();
+  });
+  const scope = { tenant_id: tenantId, project_id: projectId, environment_id: environmentId };
+  const customer_declaration = {
+    data_category_ids: ["personal.contact"],
+    purpose_ids: ["customer.support"],
+  };
+  await connection.client.callTool({ name: "almira_compliance_profile_list", arguments: scope });
+  await connection.client.callTool({
+    name: "almira_compliance_profile_preview",
+    arguments: { ...scope, profile_id: "almira.storage.gdpr", customer_declaration },
+  });
+  await connection.client.callTool({
+    name: "almira_compliance_profile_activate",
+    arguments: {
+      ...scope,
+      profile_id: "almira.storage.gdpr",
+      expected_environment_revision: 4,
+      customer_declaration,
+      operation_id: operationId,
+    },
+  });
+  await connection.client.callTool({
+    name: "almira_compliance_profile_remove",
+    arguments: {
+      ...scope,
+      profile_id: "almira.storage.gdpr",
+      expected_binding_revision: 2,
+      reason: "Application purpose changed",
+      operation_id: operationId,
+    },
+  });
+
+  const base = `https://almira.test/v1/projects/${projectId}/environments/${environmentId}/compliance-profiles`;
+  assert.deepEqual(requests.map(({ input, init }) => ({
+    input,
+    method: init.method,
+    operationId: init.headers.get("idempotency-key"),
+    body: init.body === undefined ? undefined : JSON.parse(init.body),
+  })), [
+    { input: base, method: "GET", operationId: null, body: undefined },
+    { input: `${base}/almira.storage.gdpr/preview`, method: "POST", operationId: null, body: { customer_declaration } },
+    { input: `${base}/almira.storage.gdpr`, method: "PUT", operationId, body: { expected_environment_revision: 4, customer_declaration } },
+    { input: `${base}/almira.storage.gdpr`, method: "DELETE", operationId, body: { expected_binding_revision: 2, reason: "Application purpose changed" } },
+  ]);
 });
 
 test("metadata and extraction tools keep safe status separate from protected content", async (context) => {
