@@ -7,7 +7,9 @@ generation, derivative and share reads streaming.
 ```rust,no_run
 use metamorph_almira::{Client, ClientOptions, ReadOptions};
 
-# fn current_capability() -> String { unimplemented!() }
+# fn current_capability() -> String {
+#     std::env::var("ALMIRA_CAPABILITY").expect("ALMIRA_CAPABILITY must be set")
+# }
 # fn consume(_: Vec<u8>) {}
 # async fn example(generation: metamorph_almira::ImmutableGenerationReference) -> Result<(), metamorph_almira::Error> {
 let client = Client::new(
