@@ -1,3 +1,8 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/brand/almira-horizontal-on-dark.svg">
+  <img alt="Almira" src="assets/brand/almira-horizontal-on-light.svg" width="203">
+</picture>
+
 # Almira
 
 This is the public developer repository for Almira, Metamorph's application file-storage and media
