@@ -54,7 +54,8 @@ accepts only end-user capability tokens and exposes capability-backed metadata, 
 generation reads, and share reads without admitting management credentials. The server-side
 capability helper exchanges current workload evidence for that isolated data client in one call.
 Run `pnpm check` for the complete local repository gate. It requires `cargo-deny 0.20.x` and
-includes no-waiver RustSec and npm advisory checks over the locked client dependency graphs.
+the native toolchains documented in [`CONTRIBUTING.md`](CONTRIBUTING.md), and includes no-waiver
+RustSec and npm advisory checks over the locked client dependency graphs.
 
 The Python 3.11+ application data SDK is in [`sdks/python`](sdks/python). It covers the promoted
 capability-only data-plane contract exactly, streams immutable generation and derivative responses,
@@ -74,6 +75,32 @@ types, per-request capability refresh, bounded JSON/error handling and owned str
 its distinct server client performs the same bounded workload exchange, and its dependency graph is
 locked and checked with formatting, tests and strict Clippy. Typed server upload creation and
 finalization retain the same one-use descriptor boundary.
+
+The Java 17+ SDK is in [`sdks/java`](sdks/java), with an idiomatic Kotlin facade in
+[`sdks/kotlin`](sdks/kotlin). Both publish the complete capability-data and builder-workload
+surfaces, direct transfer and webhook verification. Kotlin delegates to the Java wire core rather
+than maintaining a second transport implementation. Neither artifact contains management APIs.
+
+The .NET 8+ SDK is in [`sdks/dotnet`](sdks/dotnet). It provides asynchronous `HttpClient`-based
+data and server clients, disposable streaming responses, seekable direct transfer and exact
+APP-01 webhook verification without admitting PAT/SAK management credentials.
+
+The Swift 6 package is in [`sdks/swift`](sdks/swift). Its mobile-safe `Almira` module contains only
+capability data access and file-backed direct transfer; the separate `AlmiraServer` module contains
+the short-lived workload and webhook surface for trusted server processes.
+
+The PHP 8.2+ and Ruby 3.2+ SDKs are in [`sdks/php`](sdks/php) and [`sdks/ruby`](sdks/ruby). Both
+use closeable file-backed binary responses, resolve capabilities for each retry and expose separate
+workload clients plus direct-transfer and webhook helpers. They contain no management operations.
+
+The Dart and Flutter SDK is in [`sdks/dart`](sdks/dart). Its default library is capability-only
+and streams binary responses and direct uploads; the separate `almira_server.dart` library is an
+explicit trusted-server import for workload exchange and webhook verification.
+
+All eleven language SDKs cover the same seven promoted capability-data operations. Every
+server-capable package also covers the same ten short-lived workload/upload/privacy operations.
+Project and product management remains intentionally centralized in the TypeScript management
+client, CLI, MCP server and coding-agent plugins.
 
 The first management commands are in [`clients/cli`](clients/cli). The CLI uses predictable
 noun/verb commands, JSON-only stdout, stable exit codes and environment-backed credentials; it

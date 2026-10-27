@@ -1,0 +1,17 @@
+{
+  "name": "metamorph/almira",
+  "description": "Capability-only application SDK for Almira",
+  "type": "library",
+  "license": "Apache-2.0",
+  "require": {
+    "php": ">=8.2",
+    "ext-curl": "*",
+    "ext-json": "*"
+  },
+  "autoload": {
+    "files": ["src/Almira.php"]
+  },
+  "scripts": {
+    "test": "php tests/client_test.php"
+  }
+}

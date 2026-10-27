@@ -13,6 +13,13 @@ const required = [
   "package.json",
   "pnpm-workspace.yaml",
   "rust-toolchain.toml",
+  "sdks/java/build.gradle.kts",
+  "sdks/kotlin/build.gradle.kts",
+  "sdks/dotnet/Metamorph.Almira/Metamorph.Almira.csproj",
+  "sdks/swift/Package.swift",
+  "sdks/php/composer.json",
+  "sdks/dart/pubspec.yaml",
+  "sdks/ruby/almira.gemspec",
 ];
 
 await Promise.all(required.map((path) => access(path)));

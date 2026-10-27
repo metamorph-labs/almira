@@ -11,3 +11,11 @@ __pycache__/
 *.egg-info/
 build/
 *.log
+.gradle/
+.build/
+.dart_tool/
+pubspec.lock
+bin/
+obj/
+vendor/
+*.gem

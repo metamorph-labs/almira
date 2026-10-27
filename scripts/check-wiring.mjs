@@ -61,6 +61,27 @@ export function validatePublicWiring(inputs) {
   assertMethods(inputs.goServer, applicationOperations, "go", "Go server SDK");
   assertMethods(inputs.rustServer, applicationOperations, "rust", "Rust server SDK");
 
+  const addedClients = [
+    ["Java", "java", inputs.javaData, inputs.javaServer],
+    ["Kotlin", "kotlin", inputs.kotlinData, inputs.kotlinServer],
+    [".NET", "dotnet", inputs.dotnetData, inputs.dotnetServer],
+    ["Swift", "swift", inputs.swiftData, inputs.swiftServer],
+    ["PHP", "php", inputs.phpData, inputs.phpServer],
+    ["Dart", "dart", inputs.dartData, inputs.dartServer],
+    ["Ruby", "ruby", inputs.rubyData, inputs.rubyServer],
+  ];
+  const managementOnly = management.filter((name) => !workloadOperations.has(name));
+  for (const [label, language, dataSource, serverSource] of addedClients) {
+    assertMethods(dataSource, data, language, `${label} data SDK`);
+    assertMethods(serverSource, applicationOperations, language, `${label} server SDK`);
+    const combined = `${dataSource}\n${serverSource}`;
+    assertNoMethods(combined, managementOnly, language, `${label} application SDK`);
+    assertMethods(combined, ["uploadDirect", "verifyWebhookSignature"], language, `${label} application helpers`);
+    if (!combined.includes(inputs.release.contractVersion)) {
+      throw new Error(`${label} SDK contract version drifted from the promoted release`);
+    }
+  }
+
   const externalAgentOperations = new Set(
     management.filter((name) => !sdkOnlyManagementOperations.has(name)),
   );
@@ -97,7 +118,7 @@ export function validatePublicWiring(inputs) {
     dataOperations: data.length,
     workloadOperations: applicationOperations.length,
     externalAgentOperations: externalAgentOperations.size,
-    publicLanguages: 4,
+    publicLanguages: 11,
     plugins: inputs.plugins.length,
   };
 }
@@ -107,11 +128,21 @@ function assertMethods(source, names, language, label) {
   if (missing.length !== 0) throw new Error(`${label} is missing ${missing.sort().join(", ")}`);
 }
 
+function assertNoMethods(source, names, language, label) {
+  const present = names.filter((name) => methodPattern(name, language).test(source));
+  if (present.length !== 0) throw new Error(`${label} contains management methods ${present.sort().join(", ")}`);
+}
+
 function methodPattern(name, language) {
   if (language === "typescript") return new RegExp(`\\basync\\s+${name}\\s*\\(`, "u");
   if (language === "python") return new RegExp(`\\bdef\\s+${camelToSnake(name)}\\s*\\(`, "u");
   if (language === "go") return new RegExp(`\\b${upperFirst(name)}\\s*\\(`, "u");
   if (language === "rust") return new RegExp(`\\bfn\\s+${camelToSnake(name)}\\s*\\(`, "u");
+  if (["java", "kotlin", "swift", "php", "dart"].includes(language)) {
+    return new RegExp(`\\b${name}\\s*\\(`, "u");
+  }
+  if (language === "dotnet") return new RegExp(`\\b${upperFirst(name)}(?:Async)?\\s*\\(`, "u");
+  if (language === "ruby") return new RegExp(`\\bdef\\s+${camelToSnake(name)}\\s*\\(`, "u");
   throw new Error(`unknown language ${language}`);
 }
 
@@ -158,6 +189,23 @@ async function main() {
     codexPlugin,
     claudePlugin,
     example,
+    javaData,
+    javaServer,
+    javaTransfer,
+    javaWebhook,
+    javaWire,
+    kotlin,
+    dotnetData,
+    dotnetServer,
+    dotnetTransfer,
+    dotnetWebhook,
+    swiftData,
+    swiftServer,
+    swiftTransfer,
+    php,
+    dartData,
+    dartServer,
+    ruby,
   ] = await Promise.all([
     read(managementContractPath).then(JSON.parse),
     read(dataContractPath).then(JSON.parse),
@@ -176,6 +224,23 @@ async function main() {
     read("plugins/codex/almira/.mcp.json"),
     read("plugins/claude-code/almira/.mcp.json"),
     read("examples/node-upload/src/upload.ts"),
+    read("sdks/java/src/main/java/com/metamorph/almira/AlmiraDataClient.java"),
+    read("sdks/java/src/main/java/com/metamorph/almira/AlmiraServerClient.java"),
+    read("sdks/java/src/main/java/com/metamorph/almira/DirectTransfer.java"),
+    read("sdks/java/src/main/java/com/metamorph/almira/WebhookVerifier.java"),
+    read("sdks/java/src/main/java/com/metamorph/almira/Wire.java"),
+    read("sdks/kotlin/src/main/kotlin/com/metamorph/almira/kotlin/Almira.kt"),
+    read("sdks/dotnet/Metamorph.Almira/Almira.cs"),
+    read("sdks/dotnet/Metamorph.Almira/AlmiraServerClient.cs"),
+    read("sdks/dotnet/Metamorph.Almira/DirectTransfer.cs"),
+    read("sdks/dotnet/Metamorph.Almira/WebhookVerifier.cs"),
+    read("sdks/swift/Sources/Almira/Almira.swift"),
+    read("sdks/swift/Sources/AlmiraServer/AlmiraServerClient.swift"),
+    read("sdks/swift/Sources/Almira/DirectTransfer.swift"),
+    read("sdks/php/src/Almira.php"),
+    read("sdks/dart/lib/almira.dart"),
+    read("sdks/dart/lib/almira_server.dart"),
+    read("sdks/ruby/lib/almira.rb"),
   ]);
   const result = validatePublicWiring({
     managementContract,
@@ -194,6 +259,20 @@ async function main() {
     release,
     plugins: [codexPlugin, claudePlugin],
     example,
+    javaData: `${javaData}\n${javaTransfer}\n${javaWire}`,
+    javaServer: `${javaServer}\n${javaWebhook}`,
+    kotlinData: kotlin,
+    kotlinServer: kotlin,
+    dotnetData: `${dotnetData}\n${dotnetTransfer}`,
+    dotnetServer: `${dotnetServer}\n${dotnetWebhook}`,
+    swiftData: `${swiftData}\n${swiftTransfer}`,
+    swiftServer,
+    phpData: php,
+    phpServer: php,
+    dartData,
+    dartServer,
+    rubyData: ruby,
+    rubyServer: ruby,
   });
   console.log(
     `Almira public wiring is closed: ${result.managementOperations} management operations, ` +
