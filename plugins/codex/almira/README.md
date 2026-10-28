@@ -1,12 +1,13 @@
 # Almira for Codex
 
-This plugin gives Codex the Almira management MCP server and the `build-with-almira` integration
-skill. It is for coding agents working on a user's application; it does not add an application
-builder or deployment agent.
+This plugin gives Codex the product-neutral Metamorph bootstrap MCP, the Almira management MCP, and
+the `build-with-almira` integration skill. It is for coding agents working on a user's application;
+it does not add an application builder or deployment agent.
 
-Set `ALMIRA_BASE_URL` and a scoped `METAMORPH_TOKEN` in the Codex host environment before enabling
-the plugin. The token may be a PAT or SAK for setup work. Application runtimes use short-lived
-Metamorph workload evidence instead.
+Set `METAMORPH_BASE_URL`, `ALMIRA_BASE_URL`, and a scoped `METAMORPH_TOKEN` in the Codex host
+environment before enabling the plugin. The Metamorph MCP performs device-bound sign-in, Tenancy
+project discovery/creation, and Identity customer-workload provisioning. The token may be a PAT or
+SAK for Almira setup work. Application runtimes use short-lived Metamorph workload evidence instead.
 
 The MCP server package is pinned in `.mcp.json`. One-use direct-transfer capabilities remain in the
 application or MCP process and are never returned in model context. Governed imports accept only

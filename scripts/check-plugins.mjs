@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 
 const releasePackage = JSON.parse(await readFile("clients/mcp/package.json", "utf8"));
 const packageSpec = `${releasePackage.name}@${releasePackage.version}`;
+const metamorphPackageSpec = "@metamorph-labs/metamorph-tools@0.1.0-dev.0";
 
 const codexRoot = "plugins/codex/almira";
 const claudeRoot = "plugins/claude-code/almira";
@@ -21,10 +22,16 @@ for (const manifest of [codexManifest, claudeManifest]) {
 
 assert.deepEqual(codexMcp.mcpServers?.almira?.args, ["--yes", packageSpec]);
 assert.deepEqual(codexMcp.mcpServers?.almira?.env_vars, ["ALMIRA_BASE_URL", "METAMORPH_TOKEN"]);
+assert.deepEqual(codexMcp.mcpServers?.metamorph?.args, ["--yes", metamorphPackageSpec]);
+assert.deepEqual(codexMcp.mcpServers?.metamorph?.env_vars, ["METAMORPH_BASE_URL"]);
 assert.deepEqual(claudeMcp.mcpServers?.almira?.args, ["--yes", packageSpec]);
 assert.deepEqual(claudeMcp.mcpServers?.almira?.env, {
   ALMIRA_BASE_URL: "${ALMIRA_BASE_URL}",
   METAMORPH_TOKEN: "${METAMORPH_TOKEN}",
+});
+assert.deepEqual(claudeMcp.mcpServers?.metamorph?.args, ["--yes", metamorphPackageSpec]);
+assert.deepEqual(claudeMcp.mcpServers?.metamorph?.env, {
+  METAMORPH_BASE_URL: "${METAMORPH_BASE_URL}",
 });
 
 const codexSkill = await readFile(`${codexRoot}/skills/build-with-almira/SKILL.md`, "utf8");

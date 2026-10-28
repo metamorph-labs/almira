@@ -19,7 +19,11 @@ Configure the process without command-line secrets:
 
 Every tool takes both `tenant_id` and `project_id`. Bootstrap additionally takes the exact Tenancy
 `project.get` result as `tenancy_project`; Almira reauthorizes that snapshot and does not create a
-parallel project model. The management tools bootstrap a project and inspect, create, rename or
+parallel project model. The bundled agent plugins compose this owner boundary with the
+product-neutral `@metamorph-labs/metamorph-tools` MCP: it performs native sign-in, discovers or
+creates the Tenancy project, supplies the exact `project.get` response, and provisions the
+Identity-owned customer-workload binding. Almira never assumes either authority. The management
+tools bootstrap a project and inspect, create, rename or
 delete additional environments, discover their current provider-neutral storage capabilities,
 manage browser origins and collections, and inspect file metadata. One-use upload
 descriptors and file bytes are deliberately not

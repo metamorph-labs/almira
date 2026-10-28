@@ -10,6 +10,16 @@
         "ALMIRA_BASE_URL",
         "METAMORPH_TOKEN"
       ]
+    },
+    "metamorph": {
+      "command": "npx",
+      "args": [
+        "--yes",
+        "@metamorph-labs/metamorph-tools@0.1.0-dev.0"
+      ],
+      "env_vars": [
+        "METAMORPH_BASE_URL"
+      ]
     }
   }
 }
