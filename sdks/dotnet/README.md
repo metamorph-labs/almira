@@ -9,4 +9,7 @@ Binary responses remain streaming and disposable. Capability providers are resol
 attempt, share reads forward no credential, redirects are disabled, JSON/error bodies are bounded,
 and APP-01 webhook verification operates on exact raw bytes.
 
+`VerificationReceiptVerifier.Verify` validates the closed receipt shape, canonical JSON, Ed25519
+signature and an optional `VerificationReceiptExpectation` using an explicitly trusted key set.
+
 Run `dotnet test sdks/dotnet/Metamorph.Almira.Tests` from the repository root.

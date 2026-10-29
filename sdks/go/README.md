@@ -58,4 +58,8 @@ identifiers, attempt bound and five-minute clock window. Persist the returned de
 attempt to reject replays. Signature verification authenticates APP-01 delivery; it grants no
 Almira file authority.
 
+`VerifyVerificationReceipt` validates Almira's closed V1 receipt, canonical JSON and Ed25519
+signature against a trusted key set. Pass `VerificationReceiptExpectation` so a valid signature
+for another resource is still refused.
+
 Run `go test ./...` in this directory, or `pnpm check` at the public repository root.

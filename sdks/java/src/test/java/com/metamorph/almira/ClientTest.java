@@ -1,6 +1,7 @@
 package com.metamorph.almira;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
@@ -14,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.io.TempDir;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -75,6 +77,89 @@ final class ClientTest {
         assertEquals(2, verified.attempt());
         headers.put("metamorph-webhook-signature", "v1=AHaG4k_rjkr4itoseS10o0_znK6FR9aoArs7pPV2klI");
         assertNull(WebhookVerifier.verifyWebhookSignature("topsecret".getBytes(StandardCharsets.UTF_8), body, headers, Instant.parse("2026-10-17T12:00:30Z"), Duration.ofMinutes(5)));
+    }
+
+    @Test void verifiesTheCommonBehaviorReceiptVectorAndRejectsSubstitution() throws Exception {
+        var vector = JSON.readTree(Files.readString(Path.of("..", "..", "conformance", "application-sdk.v1.json")));
+        var receipt = vector.path("behavior_receipt");
+        var expected = receipt.path("expected");
+        var expectation = new VerificationReceiptVerifier.Expectation(
+            expected.path("verification_id").asText(), expected.path("tenant_id").asText(),
+            expected.path("project_id").asText(), expected.path("environment_id").asText(),
+            expected.path("collection_instance_id").asText(), expected.path("entry_id").asText(),
+            expected.path("generation_id").asText(), expected.path("expected_size_bytes").asLong(),
+            expected.path("content_sha256").asText()
+        );
+        assertTrue(VerificationReceiptVerifier.verify(receipt.path("signed"), receipt.path("key_set"), expectation));
+        var substitution = new VerificationReceiptVerifier.Expectation(
+            expectation.verificationId(), expectation.tenantId(), expectation.projectId(), expectation.environmentId(),
+            expectation.collectionInstanceId(), expectation.entryId(), receipt.path("substitution").path("generation_id").asText(),
+            expectation.expectedSizeBytes(), expectation.contentSha256()
+        );
+        assertFalse(VerificationReceiptVerifier.verify(receipt.path("signed"), receipt.path("key_set"), substitution));
+        var tampered = receipt.path("signed").deepCopy();
+        ((ObjectNode) tampered.path("receipt")).put("generation_id", substitution.generationId());
+        assertFalse(VerificationReceiptVerifier.verify(tampered, receipt.path("key_set"), null));
+    }
+
+    @Test void commonManagedDevelopmentPositiveRefusalRetryAndCleanupJourney() throws Exception {
+        var journey = JSON.readTree(Files.readString(Path.of("..", "..", "conformance", "application-sdk.v1.json")))
+            .path("managed_development");
+        var ids = journey.path("reference");
+        var reference = new AlmiraDataClient.FileReference(
+            ids.path("tenant_id").asText(), ids.path("project_id").asText(),
+            ids.path("environment_id").asText(), ids.path("collection_instance_id").asText(),
+            ids.path("entry_id").asText()
+        );
+        var authorities = new ArrayList<String>();
+        Wire.Transport positiveTransport = (method, uri, headers, body) -> {
+            authorities.add(headers.get("authorization"));
+            return jsonResponse(200, journey.path("positive").path("response"), Map.of());
+        };
+        var positive = new AlmiraDataClient(
+            journey.path("base_url").asText(), () -> journey.path("positive").path("capability").asText(),
+            journey.path("origin").asText(), positiveTransport
+        );
+        assertEquals(ids.path("entry_id").asText(), positive.getFileMetadataWithCapability(reference).path("entry_id").asText());
+        assertEquals(List.of("Bearer " + journey.path("positive").path("capability").asText()), authorities);
+
+        var refusalCalls = new AtomicInteger();
+        var refused = new AlmiraDataClient(
+            journey.path("base_url").asText(), () -> journey.path("refusal").path("credential").asText(), null,
+            (method, uri, headers, body) -> { refusalCalls.incrementAndGet(); return jsonResponse(200, journey.path("positive").path("response"), Map.of()); }
+        );
+        var refusal = assertThrows(ClientException.class, () -> refused.getFileMetadataWithCapability(reference));
+        assertEquals(journey.path("refusal").path("client_code").asText(), refusal.code());
+        assertEquals(0, refusalCalls.get());
+
+        var credentialAttempt = new AtomicInteger();
+        var transportAttempt = new AtomicInteger();
+        authorities.clear();
+        Wire.Transport retryTransport = (method, uri, headers, body) -> {
+            authorities.add(headers.get("authorization"));
+            if (transportAttempt.getAndIncrement() == 0) {
+                return jsonResponse(journey.path("retry").path("first_status").asInt(), journey.path("retry").path("first_error"), Map.of("retry-after", "0"));
+            }
+            return jsonResponse(journey.path("retry").path("final_status").asInt(), journey.path("positive").path("response"), Map.of());
+        };
+        var retrying = new AlmiraDataClient(
+            journey.path("base_url").asText(),
+            () -> journey.path("retry").path("capabilities").path(credentialAttempt.getAndIncrement()).asText(),
+            null, retryTransport, new AlmiraDataClient.RetryPolicy(2, Duration.ZERO, Duration.ZERO)
+        );
+        assertEquals(ids.path("entry_id").asText(), retrying.getFileMetadataWithCapability(reference).path("entry_id").asText());
+        assertEquals(List.of(
+            "Bearer " + journey.path("retry").path("capabilities").path(0).asText(),
+            "Bearer " + journey.path("retry").path("capabilities").path(1).asText()
+        ), authorities);
+        assertFalse(journey.path("cleanup").path("applicable").asBoolean());
+        assertEquals("read_only_journey", journey.path("cleanup").path("reason").asText());
+    }
+
+    private static Wire.Response jsonResponse(int status, com.fasterxml.jackson.databind.JsonNode body, Map<String, String> headers) throws Exception {
+        var responseHeaders = new LinkedHashMap<>(headers);
+        responseHeaders.put("content-type", "application/json");
+        return new Wire.Response(status, responseHeaders, new ByteArrayInputStream(JSON.writeValueAsBytes(body)));
     }
 
     private record Call(String method, URI uri, Map<String, String> headers, byte[] body) {}

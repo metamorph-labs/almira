@@ -65,4 +65,8 @@ before JSON parsing. Supply the five original `Metamorph-Webhook-*` header value
 clock sample; persist the returned delivery ID and attempt to reject replays. A verified delivery
 authenticates APP-01 only and never grants file-read authority.
 
+Use `verify_verification_receipt` with a trusted `VerificationPublicKeySet` and an explicit
+`VerificationReceiptExpectation`. It validates the closed V1 shape, canonical JSON, Ed25519
+signature and exact resource binding.
+
 Run `cargo test` in this directory, or `pnpm check` at the public repository root.

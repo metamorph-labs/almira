@@ -19,3 +19,4 @@ bin/
 obj/
 vendor/
 *.gem
+examples/frameworks/flutter/almira.json

@@ -34,3 +34,13 @@ SDKs, CLI, MCP server, plugins, examples and the tooling needed to build and tes
 Run `pnpm check` for the current repository gate. As clients are introduced, run the narrow package
 tests first and the full public conformance gate before publishing support.
 
+## Current development phase
+
+The current phase is implementation and automated testing until the user explicitly advances it.
+Do not request or perform release-candidate construction, distribution/release builds, contract or
+package publication, immutable release artifacts, tags, Manual Journey, Smoke or Qualification in
+this phase. Static harness and ordinary package-build checks are allowed. A missing release artifact
+or Qualification receipt is not an implementation blocker. If an owner repository must change,
+request only the smallest tested product-neutral code, contract or managed-development-state
+correction and defer release binding. An explicit user request for one particular release is a
+narrow exception, not a general phase transition.

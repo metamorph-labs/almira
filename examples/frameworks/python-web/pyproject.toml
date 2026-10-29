@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "almira-python-framework-examples"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = [
+  "Django==6.1.2",
+  "fastapi==0.162.0",
+  "uvicorn==0.54.0",
+]
+
+[tool.setuptools]
+py-modules = ["fastapi_app"]
+packages = ["django_app"]

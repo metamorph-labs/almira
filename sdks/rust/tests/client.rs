@@ -242,6 +242,132 @@ async fn exact_routes_filters_streaming_and_credential_free_share() {
 }
 
 #[tokio::test]
+async fn common_managed_development_positive_refusal_retry_and_cleanup_journey() {
+    let common: Value =
+        serde_json::from_str(include_str!("../../../conformance/application-sdk.v1.json")).unwrap();
+    let journey = &common["managed_development"];
+    let response_body = serde_json::to_string(&journey["positive"]["response"]).unwrap();
+    let (base_url, requests) = serve(
+        1,
+        Arc::new(move |_| Response {
+            status: "200 OK",
+            content_type: "application/json",
+            headers: vec![],
+            body: response_body.clone(),
+        }),
+    );
+    let reference = FileReference {
+        collection: CollectionReference {
+            tenant_id: journey["reference"]["tenant_id"].as_str().unwrap().into(),
+            project_id: journey["reference"]["project_id"].as_str().unwrap().into(),
+            environment_id: journey["reference"]["environment_id"]
+                .as_str()
+                .unwrap()
+                .into(),
+            collection_instance_id: journey["reference"]["collection_instance_id"]
+                .as_str()
+                .unwrap()
+                .into(),
+        },
+        entry_id: journey["reference"]["entry_id"].as_str().unwrap().into(),
+    };
+    let positive = Client::new(
+        ClientOptions::new(&base_url)
+            .capability(journey["positive"]["capability"].as_str().unwrap())
+            .origin(journey["origin"].as_str().unwrap()),
+    )
+    .unwrap();
+    let entry = positive
+        .get_file_metadata_with_capability(&reference)
+        .await
+        .unwrap();
+    assert_eq!(entry.entry_id, reference.entry_id);
+    assert_eq!(
+        requests.recv().unwrap().headers["authorization"],
+        format!(
+            "Bearer {}",
+            journey["positive"]["capability"].as_str().unwrap()
+        ),
+    );
+
+    let refused = Client::new(
+        ClientOptions::new(journey["base_url"].as_str().unwrap())
+            .capability(journey["refusal"]["credential"].as_str().unwrap()),
+    )
+    .unwrap();
+    assert_client_code(
+        refused
+            .get_file_metadata_with_capability(&reference)
+            .await
+            .unwrap_err(),
+        journey["refusal"]["client_code"].as_str().unwrap(),
+    );
+
+    let server_attempt = Arc::new(AtomicUsize::new(0));
+    let server_counter = Arc::clone(&server_attempt);
+    let retry_body = serde_json::to_string(&journey["retry"]["first_error"]).unwrap();
+    let final_body = serde_json::to_string(&journey["positive"]["response"]).unwrap();
+    let (base_url, requests) = serve(
+        2,
+        Arc::new(move |_| {
+            if server_counter.fetch_add(1, Ordering::SeqCst) == 0 {
+                Response {
+                    status: "503 Service Unavailable",
+                    content_type: "application/json",
+                    headers: vec![("Retry-After", "0")],
+                    body: retry_body.clone(),
+                }
+            } else {
+                Response {
+                    status: "200 OK",
+                    content_type: "application/json",
+                    headers: vec![],
+                    body: final_body.clone(),
+                }
+            }
+        }),
+    );
+    let credentials = journey["retry"]["capabilities"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|value| value.as_str().unwrap().to_owned())
+        .collect::<Vec<_>>();
+    let credential_attempt = Arc::new(AtomicUsize::new(0));
+    let provider_attempt = Arc::clone(&credential_attempt);
+    let provider_credentials = credentials.clone();
+    let retrying = Client::new(
+        ClientOptions::new(&base_url)
+            .capability_provider(Arc::new(move || {
+                provider_credentials
+                    .get(provider_attempt.fetch_add(1, Ordering::SeqCst))
+                    .cloned()
+            }))
+            .retry(RetryPolicy::new(2, Duration::ZERO, Duration::ZERO)),
+    )
+    .unwrap();
+    assert_eq!(
+        retrying
+            .get_file_metadata_with_capability(&reference)
+            .await
+            .unwrap()
+            .entry_id,
+        reference.entry_id,
+    );
+    let observed = [requests.recv().unwrap(), requests.recv().unwrap()];
+    assert_eq!(
+        observed[0].headers["authorization"],
+        format!("Bearer {}", credentials[0])
+    );
+    assert_eq!(
+        observed[1].headers["authorization"],
+        format!("Bearer {}", credentials[1])
+    );
+    assert_eq!(journey["cleanup"]["applicable"], false);
+    assert_eq!(journey["cleanup"]["reason"], "read_only_journey");
+}
+
+#[tokio::test]
 async fn invalid_input_and_provider_failure_are_local_and_stable() {
     let client =
         Client::new(ClientOptions::new("https://almira.test").capability(CAPABILITY)).unwrap();

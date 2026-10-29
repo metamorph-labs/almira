@@ -1,0 +1,17 @@
+{
+  "name": "metamorph/almira-laravel-example",
+  "type": "project",
+  "license": "Apache-2.0",
+  "repositories": [
+    {
+      "type": "path",
+      "url": "../../../sdks/php",
+      "options": { "symlink": true }
+    }
+  ],
+  "require": {
+    "php": ">=8.3",
+    "laravel/framework": "13.39.0",
+    "metamorph/almira": "dev-main"
+  }
+}

@@ -625,7 +625,7 @@ export function createAlmiraMcpServer(
     "almira_compliance_profile_list",
     {
       title: "List compliance profiles",
-      description: "List reviewed environment compliance profiles, their enforced constraints, and any active bindings. Profiles are engineering aids, not certification.",
+      description: "List product-owned technical environment profiles, their enforced constraints, and any active bindings. Profiles are engineering aids, not certification or reviewed claim admission.",
       inputSchema: z.object({ ...scope, environment_id: uuid }).strict(),
       outputSchema,
       annotations: readAnnotations,
@@ -638,7 +638,7 @@ export function createAlmiraMcpServer(
     "almira_compliance_profile_preview",
     {
       title: "Preview compliance profile",
-      description: "Resolve current owner prerequisites, blockers, enforced effects, and customer responsibilities without changing the environment. This does not certify an application or organization.",
+      description: "Resolve current technical blockers, enforced effects, and customer responsibilities without changing the environment. This does not certify an application or organization.",
       inputSchema: z.object({
         ...scope,
         environment_id: uuid,
@@ -660,7 +660,7 @@ export function createAlmiraMcpServer(
     "almira_compliance_profile_activate",
     {
       title: "Activate compliance profile",
-      description: "Activate one ready reviewed profile with optimistic environment revision and replay identity. This enforces Almira constraints but does not certify an application or organization.",
+      description: "Activate one ready non-certifying technical profile with optimistic environment revision and replay identity. This enforces Almira constraints but does not admit a legal or regulatory claim.",
       inputSchema: z.object({
         ...scope,
         environment_id: uuid,

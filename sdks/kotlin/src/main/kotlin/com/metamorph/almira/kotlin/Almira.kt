@@ -2,6 +2,7 @@ package com.metamorph.almira.kotlin
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.metamorph.almira.WebhookVerifier
+import com.metamorph.almira.VerificationReceiptVerifier
 import java.time.Duration
 import java.time.Instant
 import java.nio.file.Path
@@ -138,6 +139,34 @@ fun verifyWebhookSignature(
     now: Instant = Instant.now(),
     tolerance: Duration = Duration.ofMinutes(5),
 ): WebhookVerifier.VerifiedWebhook? = WebhookVerifier.verifyWebhookSignature(secret, body, headers, now, tolerance)
+
+data class VerificationReceiptExpectation(
+    val verificationId: String? = null,
+    val tenantId: String,
+    val projectId: String,
+    val environmentId: String,
+    val collectionInstanceId: String,
+    val entryId: String,
+    val generationId: String,
+    val expectedSizeBytes: Long,
+    val contentSha256: String,
+)
+
+fun verifyVerificationReceipt(
+    signed: JsonNode,
+    keySet: JsonNode,
+    expected: VerificationReceiptExpectation? = null,
+): Boolean = VerificationReceiptVerifier.verify(
+    signed,
+    keySet,
+    expected?.let {
+        VerificationReceiptVerifier.Expectation(
+            it.verificationId, it.tenantId, it.projectId, it.environmentId,
+            it.collectionInstanceId, it.entryId, it.generationId,
+            it.expectedSizeBytes, it.contentSha256,
+        )
+    },
+)
 
 fun uploadDirect(
     descriptor: JsonNode,

@@ -6,7 +6,8 @@
   "require": {
     "php": ">=8.2",
     "ext-curl": "*",
-    "ext-json": "*"
+    "ext-json": "*",
+    "ext-sodium": "*"
   },
   "autoload": {
     "files": ["src/Almira.php"]

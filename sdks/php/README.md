@@ -9,4 +9,7 @@ Capabilities are resolved per attempt, share reads send no credential, redirects
 large binary bodies spool to a closeable stream instead of remaining in PHP memory, and APP-01
 webhook verification uses the exact raw body.
 
+`verifyVerificationReceipt` uses `ext-sodium` to validate the closed canonical receipt, its
+Ed25519 signature and an optional exact expected binding against a trusted key set.
+
 Run `composer --working-dir=sdks/php test` from the repository root.

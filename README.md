@@ -97,6 +97,13 @@ The Dart and Flutter SDK is in [`sdks/dart`](sdks/dart). Its default library is 
 and streams binary responses and direct uploads; the separate `almira_server.dart` library is an
 explicit trusted-server import for workload exchange and webhook verification.
 
+Every application SDK verifies the complete Ed25519-signed Almira behavior receipt with the same
+closed shape and exact resource-binding checks as TypeScript. Kotlin delegates to the Java
+verifier. The language suites consume the shared
+[`conformance/application-sdk.v1.json`](conformance/application-sdk.v1.json) vector for the signed
+receipt and for managed-development success, management-credential refusal, fresh-authority retry,
+and read-only cleanup semantics.
+
 All eleven language SDKs cover the same seven promoted capability-data operations. Every
 server-capable package also covers the same ten short-lived workload/upload/privacy operations.
 Project and product management remains intentionally centralized in the TypeScript management
@@ -137,13 +144,14 @@ collection-wide replay-safe cache purge and bounded asynchronous diagnostics. Th
 CLI, MCP server and coding-agent plugins all use the same public management operation; none exposes
 CDN credentials or raw provider receipts.
 
-Reviewed environment compliance profiles use the same management plane. The TypeScript SDK, CLI,
-MCP server and coding-agent plugins can list, preview, activate and remove the initial
-GDPR-supporting and HIPAA-eligible storage profiles. Preview exposes exact blockers, enforced
-effects, customer responsibilities and prerequisite freshness; activation is revision-bound and
-replay-safe. A profile covers only that Almira storage environment and is never application or
-organization certification. Before external review, owner-fact materialization and signed catalog
-admission, the operations fail closed as unavailable.
+Environment compliance engineering profiles use the same management plane. The TypeScript SDK,
+CLI, MCP server and coding-agent plugins can list, preview, activate and remove the initial
+GDPR-supporting and HIPAA-eligible storage profiles. Preview exposes exact technical blockers,
+enforced effects and customer responsibilities; activation is revision-bound and replay-safe. A
+profile covers only that Almira storage environment and is never application or organization
+certification. External review, owner-fact materialization, provider/deployment evidence and
+signed CMP catalog admission gate only publication or marketing of the corresponding claim; they
+do not prevent selecting or enforcing the non-certifying technical profile.
 
 The installable agent integrations are in [`plugins/codex`](plugins/codex) and
 [`plugins/claude-code`](plugins/claude-code). Both use the public MCP package and the same
@@ -154,3 +162,9 @@ approval layer.
 transfer, choose single-put or multipart from the returned descriptor, obtain each checksum-bound
 multipart part grant only when needed, PUT bytes without an Almira credential, and finalize the
 resulting generation.
+
+[`examples/frameworks`](examples/frameworks) adds executable Spring Boot, Ktor, ASP.NET, FastAPI,
+Django, Laravel, Rails, SwiftUI and Flutter integrations. Each example stays on the application
+surface, applies application authorization before backend access where applicable, accepts only a
+short-lived capability, and relies on the SDK's bounded retry behavior rather than adding a second
+transport or management client.

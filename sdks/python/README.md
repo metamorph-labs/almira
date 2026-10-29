@@ -69,6 +69,10 @@ builder application's backend obtains bounded capability sessions under its shor
 customer-workload identity; this data client does not create an authentication system for the
 application's users.
 
+Call `verify_verification_receipt` with Almira's trusted public key set and an explicit
+`VerificationReceiptExpectation` before accepting a signed behavior receipt. The helper validates
+the closed V1 shape, canonical JSON, Ed25519 signature and exact tested resource binding.
+
 Run the package tests from the public repository root:
 
 ```sh

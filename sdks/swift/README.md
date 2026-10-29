@@ -9,5 +9,8 @@ The Swift 6 package targets Apple application development against promoted Almir
 - Import `AlmiraServer` only in a trusted server process for workload-to-capability exchange,
   upload creation/finalization, subject lifecycle operations and APP-01 webhook verification.
 
+`verifyVerificationReceipt` is available from the mobile-safe `Almira` module. Supply a trusted key
+set and `VerificationReceiptExpectation`; malformed, tampered or differently bound receipts fail.
+
 Neither module contains management operations. Run `swift test --package-path sdks/swift` from the
 repository root.

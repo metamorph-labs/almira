@@ -393,6 +393,96 @@ function verifyWebhookSignature(string $secret, string $body, array $headers, ?\
     return hash_equals($expected, $matches[1]) ? new VerifiedWebhook($delivery, $event, (int)$attemptValue, $timestamp) : null;
 }
 
+/**
+ * Verifies the closed V1 receipt shape, optional exact resource binding and Ed25519 signature.
+ *
+ * @param array<string,mixed> $signed
+ * @param array<string,mixed> $keySet
+ * @param array<string,mixed>|null $expected
+ */
+function verifyVerificationReceipt(array $signed, array $keySet, ?array $expected = null): bool
+{
+    try {
+        if (!exact_keys($signed, ['algorithm', 'receipt', 'signature']) || $signed['algorithm'] !== 'ed25519'
+            || !is_array($signed['receipt']) || !valid_verification_receipt($signed['receipt'])
+            || !is_string($signed['signature']) || ($signature = decode_base64url($signed['signature'], 64)) === null
+            || !exact_keys($keySet, ['format_version', 'keys']) || $keySet['format_version'] !== 1
+            || !is_array($keySet['keys']) || count($keySet['keys']) < 1 || count($keySet['keys']) > 4
+            || $expected !== null && !matches_verification_expectation($signed['receipt'], $expected)) return false;
+        $matching = [];
+        foreach ($keySet['keys'] as $key) {
+            if (!is_array($key) || !exact_keys($key, ['algorithm', 'key_id', 'public_key'])
+                || $key['algorithm'] !== 'ed25519' || !is_string($key['key_id'])
+                || !preg_match('/^[a-z][a-z0-9._-]{0,63}$/D', $key['key_id']) || !is_string($key['public_key'])) return false;
+            if ($key['key_id'] === $signed['receipt']['signing_key_id']) $matching[] = $key['public_key'];
+        }
+        if (count($matching) !== 1 || ($publicKey = decode_base64url($matching[0], 32)) === null) return false;
+        $message = json_encode(canonical_json($signed['receipt']), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+        return sodium_crypto_sign_verify_detached($signature, $message, $publicKey);
+    } catch (\Throwable) {
+        return false;
+    }
+}
+
+/** @param array<string,mixed> $receipt */
+function valid_verification_receipt(array $receipt): bool
+{
+    $fields = ['checks', 'collection_instance_id', 'content_sha256', 'contract_version', 'entry_id',
+        'environment_id', 'expected_size_bytes', 'generation_id', 'project_id', 'realm_id',
+        'receipt_version', 'safety_state', 'signing_key_id', 'tenant_id', 'verification_id'];
+    if (!exact_keys($receipt, $fields) || $receipt['receipt_version'] !== 'almira.verification.v1'
+        || $receipt['contract_version'] !== CONTRACT_VERSION || !is_string($receipt['signing_key_id'])
+        || !preg_match('/^[a-z][a-z0-9._-]{0,63}$/D', $receipt['signing_key_id'])
+        || !is_string($receipt['content_sha256']) || !preg_match('/^sha256:[0-9a-f]{64}$/D', $receipt['content_sha256'])
+        || !is_int($receipt['expected_size_bytes']) || $receipt['expected_size_bytes'] < 1
+        || $receipt['expected_size_bytes'] > 8 * 1024 * 1024
+        || !in_array($receipt['safety_state'], ['not_required', 'clean'], true)) return false;
+    foreach (['verification_id', 'realm_id', 'tenant_id', 'project_id', 'environment_id',
+        'collection_instance_id', 'entry_id', 'generation_id'] as $field) {
+        if (!is_string($receipt[$field]) || !preg_match(UUID_V7, $receipt[$field])) return false;
+    }
+    $checks = ['finalization_idempotency', 'private_read_integrity', 'cross_scope_refusal', 'malware_safety'];
+    if (!is_array($receipt['checks']) || count($receipt['checks']) !== count($checks)) return false;
+    foreach ($checks as $index => $name) {
+        $check = $receipt['checks'][$index] ?? null;
+        if (!is_array($check) || !exact_keys($check, ['name', 'result'])
+            || $check['name'] !== $name || $check['result'] !== 'passed') return false;
+    }
+    return true;
+}
+
+/** @param array<string,mixed> $receipt @param array<string,mixed> $expected */
+function matches_verification_expectation(array $receipt, array $expected): bool
+{
+    $required = ['tenant_id', 'project_id', 'environment_id', 'collection_instance_id', 'entry_id',
+        'generation_id', 'expected_size_bytes', 'content_sha256'];
+    foreach ($required as $field) if (!array_key_exists($field, $expected) || $receipt[$field] !== $expected[$field]) return false;
+    return !array_key_exists('verification_id', $expected) || $receipt['verification_id'] === $expected['verification_id'];
+}
+
+/** @param array<mixed> $value @param list<string> $expected */
+function exact_keys(array $value, array $expected): bool
+{
+    $actual = array_keys($value); sort($actual); sort($expected); return $actual === $expected;
+}
+
+function canonical_json(mixed $value): mixed
+{
+    if (!is_array($value)) return $value;
+    if (array_is_list($value)) return array_map(__NAMESPACE__ . '\\canonical_json', $value);
+    ksort($value, SORT_STRING);
+    foreach ($value as $key => $child) $value[$key] = canonical_json($child);
+    return $value;
+}
+
+function decode_base64url(string $value, int $size): ?string
+{
+    if (str_contains($value, '=') || !preg_match('/^[A-Za-z0-9_-]+$/D', $value)) return null;
+    $decoded = base64_decode(strtr($value, '-_', '+/') . str_repeat('=', (4 - strlen($value) % 4) % 4), true);
+    return is_string($decoded) && strlen($decoded) === $size
+        && rtrim(strtr(base64_encode($decoded), '+/', '-_'), '=') === $value ? $decoded : null;
+}
+
 function input_error(): ClientException { return new ClientException('ALMIRA_CLIENT_INPUT_INVALID'); }
 function response_error(): ClientException { return new ClientException('ALMIRA_CLIENT_RESPONSE_INVALID'); }
 function uuid(string $value): string { if (!preg_match(UUID_V7, $value)) throw input_error(); return $value; }

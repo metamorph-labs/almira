@@ -251,8 +251,9 @@ Environment compliance profiles use `compliance list|preview|activate|remove`. S
 their exact public request bodies from `--input`; mutations also accept a retained
 `--operation-id`. Always preview first and report its blockers, effects, customer responsibilities
 and non-certification notice. A profile applies only to the selected Almira storage environment and
-does not certify the builder's application or organization. Before reviewed signed-catalog
-admission, these commands correctly return the stable unavailable error.
+does not certify the builder's application or organization. Technical profile selection and
+enforcement remain available before external claim review; reviewed signed-catalog admission and
+provider/owner evidence separately gate claim or evidence-report publication.
 
 For `delivery set`, the exact JSON includes nullable `custom_hostname`. Use `null` for Almira's
 managed hostname or a lowercase DNS hostname for a deployment-supported custom domain, then read

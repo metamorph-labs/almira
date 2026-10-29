@@ -1,0 +1,13 @@
+name: almira_flutter_example
+description: Managed-development Almira capability read in Flutter.
+publish_to: none
+version: 0.0.0
+environment:
+  sdk: ">=3.5.0 <4.0.0"
+dependencies:
+  flutter:
+    sdk: flutter
+  metamorph_almira:
+    path: ../../../sdks/dart
+flutter:
+  uses-material-design: true

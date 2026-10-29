@@ -109,7 +109,8 @@ Compliance management is exposed as `almira_compliance_profile_list`,
 and remove remain ordinary host-approved mutations with reusable operation IDs. Tools must surface
 the returned blockers, effects, customer responsibilities and non-certification notice. They must
 not claim application or organization certification, infer legal approval from a customer
-declaration, or bypass the stable unavailable result before reviewed catalog admission.
+declaration, or represent technical profile activation as reviewed claim admission. Reviewed CMP
+catalog, provider/deployment and owner evidence remain separate claim-publication gates.
 
 `almira_delivery_replace` accepts the collection's desired nullable `custom_hostname`. Read the
 returned `routing_target`, ownership challenge and lifecycle state with `almira_delivery_get`;

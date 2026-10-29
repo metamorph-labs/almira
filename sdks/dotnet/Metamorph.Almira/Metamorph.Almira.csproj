@@ -9,4 +9,7 @@
     <Version>0.1.0-dev.59</Version>
     <Description>Capability-only application SDK for Almira.</Description>
   </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Chaos.NaCl.Standard" Version="1.0.0" />
+  </ItemGroup>
 </Project>

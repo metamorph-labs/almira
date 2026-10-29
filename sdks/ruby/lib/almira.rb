@@ -347,6 +347,68 @@ module Almira
     nil
   end
 
+  # Verifies the closed V1 shape, exact expected binding and Ed25519 receipt signature.
+  def verify_verification_receipt(signed:, key_set:, expected: nil)
+    return false unless exact_keys?(signed, %w[algorithm receipt signature]) && signed["algorithm"] == "ed25519"
+    receipt = signed["receipt"]
+    return false unless valid_verification_receipt?(receipt) && signed["signature"].is_a?(String)
+    signature = decode_base64url(signed["signature"], 64)
+    return false unless signature && exact_keys?(key_set, %w[format_version keys]) && key_set["format_version"] == 1
+    keys = key_set["keys"]
+    return false unless keys.is_a?(Array) && (1..4).cover?(keys.length)
+    return false if expected && !matches_verification_expectation?(receipt, expected)
+    matching = keys.filter_map do |key|
+      return false unless exact_keys?(key, %w[algorithm key_id public_key]) && key["algorithm"] == "ed25519" &&
+        key["key_id"].is_a?(String) && key["key_id"].match?(/\A[a-z][a-z0-9._-]{0,63}\z/) && key["public_key"].is_a?(String)
+      key["public_key"] if key["key_id"] == receipt["signing_key_id"]
+    end
+    return false unless matching.length == 1 && (raw_key = decode_base64url(matching.first, 32))
+    der = ["302a300506032b6570032100"].pack("H*") + raw_key
+    OpenSSL::PKey.read(der).verify(nil, signature, JSON.generate(canonical_json(receipt)))
+  rescue ArgumentError, OpenSSL::PKey::PKeyError
+    false
+  end
+
+  def valid_verification_receipt?(receipt)
+    fields = %w[checks collection_instance_id content_sha256 contract_version entry_id environment_id
+                expected_size_bytes generation_id project_id realm_id receipt_version safety_state
+                signing_key_id tenant_id verification_id]
+    return false unless exact_keys?(receipt, fields) && receipt["receipt_version"] == "almira.verification.v1" &&
+      receipt["contract_version"] == CONTRACT_VERSION && receipt["signing_key_id"].is_a?(String) &&
+      receipt["signing_key_id"].match?(/\A[a-z][a-z0-9._-]{0,63}\z/) && receipt["content_sha256"].is_a?(String) &&
+      receipt["content_sha256"].match?(/\Asha256:[0-9a-f]{64}\z/) && receipt["expected_size_bytes"].is_a?(Integer) &&
+      (1..8 * 1024 * 1024).cover?(receipt["expected_size_bytes"]) && %w[not_required clean].include?(receipt["safety_state"])
+    return false unless %w[verification_id realm_id tenant_id project_id environment_id collection_instance_id entry_id generation_id]
+      .all? { |field| receipt[field].is_a?(String) && receipt[field].match?(UUID_V7) }
+    names = %w[finalization_idempotency private_read_integrity cross_scope_refusal malware_safety]
+    receipt["checks"].is_a?(Array) && receipt["checks"].length == names.length && names.each_with_index.all? do |name, index|
+      check = receipt["checks"][index]
+      exact_keys?(check, %w[name result]) && check["name"] == name && check["result"] == "passed"
+    end
+  end
+
+  def matches_verification_expectation?(receipt, expected)
+    required = %w[tenant_id project_id environment_id collection_instance_id entry_id generation_id expected_size_bytes content_sha256]
+    required.all? { |field| expected.key?(field) && receipt[field] == expected[field] } &&
+      (!expected.key?("verification_id") || receipt["verification_id"] == expected["verification_id"])
+  end
+
+  def exact_keys?(value, expected) = value.is_a?(Hash) && value.keys.sort == expected.sort
+
+  def canonical_json(value)
+    return value.map { |child| canonical_json(child) } if value.is_a?(Array)
+    return value.keys.sort.to_h { |key| [key, canonical_json(value[key])] } if value.is_a?(Hash)
+    value
+  end
+
+  def decode_base64url(value, size)
+    return nil unless value.is_a?(String) && value.match?(/\A[A-Za-z0-9_-]+\z/) && !value.include?("=")
+    decoded = Base64.urlsafe_decode64(value + "=" * ((4 - value.length % 4) % 4))
+    decoded.bytesize == size && Base64.urlsafe_encode64(decoded, padding: false) == value ? decoded : nil
+  rescue ArgumentError
+    nil
+  end
+
   def input_error = ClientError.new("ALMIRA_CLIENT_INPUT_INVALID")
   def response_error = ClientError.new("ALMIRA_CLIENT_RESPONSE_INVALID")
   def uuid(value) = value.is_a?(String) && value.match?(UUID_V7) ? value : raise(input_error)

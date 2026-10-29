@@ -9,5 +9,8 @@
   Dart processes. It provides short-lived workload exchange, upload ceremonies, builder-subject
   lifecycle operations and APP-01 webhook verification.
 
+The mobile-safe library exports `verifyVerificationReceipt`, which validates the closed canonical
+receipt, Ed25519 signature and optional exact expected binding against a trusted key set.
+
 Neither library contains management operations. Run `dart test sdks/dart` from the repository
 root.

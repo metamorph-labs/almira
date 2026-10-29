@@ -43,6 +43,23 @@ class UploadRecorder implements DirectUploadTransport {
       const UploadResponse(200, {'etag': '"v1"'});
 }
 
+class JourneyTransport implements AlmiraTransport {
+  JourneyTransport(this.responses);
+  final List<({int status, Object body, Map<String, String> headers})>
+      responses;
+  final authorities = <String?>[];
+  @override
+  Future<WireResponse> send(String method, Uri url, Map<String, String> headers,
+      Uint8List? body) async {
+    authorities.add(headers['authorization']);
+    final response = responses.removeAt(0);
+    return WireResponse(
+        status: response.status,
+        headers: {'content-type': 'application/json', ...response.headers},
+        body: Stream.value(utf8.encode(jsonEncode(response.body))));
+  }
+}
+
 void main() {
   test('data client scopes capability and keeps shares anonymous', () async {
     expect(
@@ -146,5 +163,96 @@ void main() {
             headers: headers,
             now: DateTime.parse('2026-10-17T12:00:30Z')),
         isNull);
+  });
+  test('verifies common behavior receipt and rejects substitution', () async {
+    final common = jsonDecode(
+        await File('../../conformance/application-sdk.v1.json')
+            .readAsString()) as Map<String, Object?>;
+    final vector = common['behavior_receipt'] as Map<String, Object?>;
+    final signed = vector['signed'] as Map<String, Object?>;
+    final keySet = vector['key_set'] as Map<String, Object?>;
+    final expected = vector['expected'] as Map<String, Object?>;
+    expect(await verifyVerificationReceipt(signed, keySet, expected: expected),
+        isTrue);
+    final substituted = Map<String, Object?>.of(expected)
+      ..addAll(vector['substitution'] as Map<String, Object?>);
+    expect(
+        await verifyVerificationReceipt(signed, keySet, expected: substituted),
+        isFalse);
+    final tampered = jsonDecode(jsonEncode(signed)) as Map<String, Object?>;
+    (tampered['receipt'] as Map<String, Object?>)['generation_id'] =
+        substituted['generation_id'];
+    expect(await verifyVerificationReceipt(tampered, keySet), isFalse);
+  });
+  test('common managed-development positive refusal retry and cleanup journey',
+      () async {
+    final common = jsonDecode(
+        await File('../../conformance/application-sdk.v1.json')
+            .readAsString()) as Map<String, Object?>;
+    final journey = common['managed_development'] as Map<String, Object?>;
+    final ids = journey['reference'] as Map<String, Object?>;
+    final positive = journey['positive'] as Map<String, Object?>;
+    final refusal = journey['refusal'] as Map<String, Object?>;
+    final retry = journey['retry'] as Map<String, Object?>;
+    final reference = FileReference(
+        tenantId: ids['tenant_id'] as String,
+        projectId: ids['project_id'] as String,
+        environmentId: ids['environment_id'] as String,
+        collectionInstanceId: ids['collection_instance_id'] as String,
+        entryId: ids['entry_id'] as String);
+    final positiveTransport = JourneyTransport(
+        [(status: 200, body: positive['response']!, headers: const {})]);
+    final positiveClient = AlmiraDataClient(
+        baseUrl: journey['base_url'] as String,
+        capability: () => positive['capability'] as String,
+        origin: journey['origin'] as String,
+        transport: positiveTransport);
+    final entry = await positiveClient.getFileMetadataWithCapability(reference)
+        as Map<String, Object?>;
+    expect(entry['entry_id'], ids['entry_id']);
+    expect(positiveTransport.authorities, ['Bearer ${positive['capability']}']);
+
+    final refusalTransport = JourneyTransport(
+        [(status: 200, body: positive['response']!, headers: const {})]);
+    final refused = AlmiraDataClient(
+        baseUrl: journey['base_url'] as String,
+        capability: () => refusal['credential'] as String,
+        transport: refusalTransport);
+    await expectLater(
+        refused.getFileMetadataWithCapability(reference),
+        throwsA(isA<AlmiraClientException>()
+            .having((error) => error.code, 'code', refusal['client_code'])));
+    expect(refusalTransport.authorities, isEmpty);
+
+    final capabilities =
+        (retry['capabilities'] as List<Object?>).cast<String>();
+    var capabilityAttempt = 0;
+    final retryTransport = JourneyTransport([
+      (
+        status: retry['first_status'] as int,
+        body: retry['first_error']!,
+        headers: {'retry-after': '${retry['retry_after_seconds']}'}
+      ),
+      (
+        status: retry['final_status'] as int,
+        body: positive['response']!,
+        headers: const {}
+      )
+    ]);
+    final retrying = AlmiraDataClient(
+        baseUrl: journey['base_url'] as String,
+        capability: () => capabilities[capabilityAttempt++],
+        transport: retryTransport,
+        retry: const RetryPolicy(
+            maxAttempts: 2,
+            baseDelay: Duration.zero,
+            maximumDelay: Duration.zero));
+    final retried = await retrying.getFileMetadataWithCapability(reference)
+        as Map<String, Object?>;
+    expect(retried['entry_id'], ids['entry_id']);
+    expect(retryTransport.authorities,
+        capabilities.map((value) => 'Bearer $value').toList());
+    expect(journey['cleanup'],
+        {'applicable': false, 'reason': 'read_only_journey'});
   });
 }

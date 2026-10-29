@@ -9,4 +9,7 @@ Binary responses use closeable temporary streams, capability providers resolve p
 reads send no credential, redirects are disabled, and APP-01 webhook verification accepts exact raw
 bytes.
 
+`Almira.verify_verification_receipt` validates the closed canonical receipt, Ed25519 signature and
+an optional exact expected binding against a trusted key set.
+
 Run `ruby sdks/ruby/test/client_test.rb` from the repository root.

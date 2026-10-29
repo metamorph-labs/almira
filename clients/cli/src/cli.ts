@@ -82,9 +82,9 @@ Commands:
   environment delete     Mark an additional environment for deletion
   origin get              Read an environment's browser-origin policy
   origin set              Replace an environment's browser-origin policy
-  compliance list         List reviewed compliance profiles and active bindings
+  compliance list         List technical compliance profiles and active bindings
   compliance preview      Resolve readiness and effects from --input JSON
-  compliance activate     Activate one reviewed profile from --input JSON
+  compliance activate     Activate one non-certifying technical profile from --input JSON
   compliance remove       Remove one active profile binding from --input JSON
   storage capabilities    Discover storage realizations available to an environment
   storage enroll          Enroll a credential-free customer storage target from --input JSON

@@ -29,6 +29,20 @@ class UploadTransport
   def put(_part, _source) = { status: 200, headers: { "etag" => '"v1"' } }
 end
 
+class JourneyTransport
+  attr_reader :calls
+  def initialize(responses) = (@responses = responses; @calls = [])
+  def send(method, url, headers, body)
+    @calls << { method:, url:, headers:, body: }
+    response = @responses.shift
+    Almira::HTTPResponse.new(
+      response.fetch(:status),
+      { "content-type" => "application/json" }.merge(response.fetch(:headers, {})),
+      MemoryBody.new(JSON.generate(response.fetch(:body)))
+    )
+  end
+end
+
 def expect(value, message)
   raise message unless value
 end
@@ -78,4 +92,45 @@ verified = Almira.verify_webhook_signature(secret: "topsecret", body: '{"event":
 expect(verified&.attempt == 2, "webhook vector rejected")
 webhook_headers["metamorph-webhook-signature"] = "v1=AHaG4k_rjkr4itoseS10o0_znK6FR9aoArs7pPV2klI"
 expect(Almira.verify_webhook_signature(secret: "topsecret", body: '{"event":"almira.file.available.v1"}', headers: webhook_headers, now: Time.iso8601("2026-10-17T12:00:30Z")).nil?, "tampered webhook accepted")
+common = JSON.parse(File.read(File.expand_path("../../../conformance/application-sdk.v1.json", __dir__)))
+receipt_vector = common["behavior_receipt"]
+expect(Almira.verify_verification_receipt(signed: receipt_vector["signed"], key_set: receipt_vector["key_set"], expected: receipt_vector["expected"]), "valid behavior receipt rejected")
+substituted = receipt_vector["expected"].merge("generation_id" => receipt_vector["substitution"]["generation_id"])
+expect(!Almira.verify_verification_receipt(signed: receipt_vector["signed"], key_set: receipt_vector["key_set"], expected: substituted), "resource substitution accepted")
+tampered_receipt = Marshal.load(Marshal.dump(receipt_vector["signed"]))
+tampered_receipt["receipt"]["generation_id"] = substituted["generation_id"]
+expect(!Almira.verify_verification_receipt(signed: tampered_receipt, key_set: receipt_vector["key_set"]), "tampered behavior receipt accepted")
+journey = common["managed_development"]
+ids = journey["reference"]
+file = Almira::FileReference.new(
+  tenant_id: ids["tenant_id"], project_id: ids["project_id"], environment_id: ids["environment_id"],
+  collection_instance_id: ids["collection_instance_id"], entry_id: ids["entry_id"]
+)
+positive_transport = JourneyTransport.new([{ status: 200, body: journey["positive"]["response"] }])
+positive = Almira::DataClient.new(
+  base_url: journey["base_url"], capability: -> { journey["positive"]["capability"] },
+  origin: journey["origin"], transport: positive_transport
+)
+expect(positive.get_file_metadata_with_capability(file)["entry_id"] == ids["entry_id"], "managed-development positive journey failed")
+expect(positive_transport.calls[0][:headers]["authorization"] == "Bearer #{journey["positive"]["capability"]}", "local capability not sent")
+refusal_transport = JourneyTransport.new([{ status: 200, body: journey["positive"]["response"] }])
+begin
+  Almira::DataClient.new(base_url: journey["base_url"], capability: -> { journey["refusal"]["credential"] }, transport: refusal_transport)
+    .get_file_metadata_with_capability(file)
+  raise "management credential accepted"
+rescue Almira::ClientError => error
+  expect(error.code == journey["refusal"]["client_code"] && refusal_transport.calls.empty?, "management credential refusal journey failed")
+end
+retry_transport = JourneyTransport.new([
+  { status: journey["retry"]["first_status"], body: journey["retry"]["first_error"], headers: { "retry-after" => "0" } },
+  { status: journey["retry"]["final_status"], body: journey["positive"]["response"] }
+])
+credential_attempt = 0
+retrying = Almira::DataClient.new(
+  base_url: journey["base_url"], capability: -> { value = journey["retry"]["capabilities"][credential_attempt]; credential_attempt += 1; value },
+  transport: retry_transport, retry_policy: Almira::RetryPolicy.new(max_attempts: 2, base_delay_seconds: 0, maximum_delay_seconds: 0)
+)
+expect(retrying.get_file_metadata_with_capability(file)["entry_id"] == ids["entry_id"], "managed-development retry journey failed")
+expect(retry_transport.calls.map { |call| call[:headers]["authorization"] } == journey["retry"]["capabilities"].map { |value| "Bearer #{value}" }, "retry did not refresh authority")
+expect(journey["cleanup"] == { "applicable" => false, "reason" => "read_only_journey" }, "read-only cleanup semantics drifted")
 puts "Ruby SDK tests passed"

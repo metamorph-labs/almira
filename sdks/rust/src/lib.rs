@@ -3,6 +3,7 @@ mod error;
 mod server;
 mod transfer;
 mod types;
+mod verification;
 mod webhook;
 
 pub use client::{Client, ClientOptions, RetryPolicy};
@@ -22,6 +23,10 @@ pub use transfer::{
     ReqwestDirectUploadTransport, TransferError, upload_direct_file, upload_direct_file_with,
 };
 pub use types::*;
+pub use verification::{
+    SignedVerificationReceipt, VerificationCheck, VerificationPublicKey, VerificationPublicKeySet,
+    VerificationReceipt, VerificationReceiptExpectation, verify_verification_receipt,
+};
 pub use webhook::{
     VerifiedWebhook, WebhookHeaders, WebhookVerificationOptions, verify_webhook_signature,
 };

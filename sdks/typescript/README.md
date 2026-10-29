@@ -125,15 +125,16 @@ Projects start with protected `development` and `production` environments and ma
 environments. Additional environments can be created, renamed and marked for deletion through the
 same scoped client; deleting either protected default is refused.
 
-`listComplianceProfiles` returns only externally reviewed profiles admitted in the deployment's
-signed CMP catalog. Use `previewComplianceProfile` before activation to resolve current platform
-prerequisites, incompatible settings, enforced effects and customer responsibilities. GDPR preview
-and activation accept sorted customer-provided data-category and purpose IDs; Almira does not treat
-those IDs as legal approval. `activateComplianceProfile` binds the current environment revision and
-an explicit operation ID, while `removeComplianceProfile` binds the current profile revision and an
-auditable reason. Exact retries reuse the operation ID. These profiles enforce and evidence only
-the named Almira storage environment; they do not certify an application or organization. An
-unadmitted profile remains unavailable even when current settings appear compatible.
+`listComplianceProfiles` returns Almira's product-owned technical profile candidates whether or not
+the deployment has admitted the corresponding external claim. Use `previewComplianceProfile`
+before activation to resolve incompatible settings, enforced effects and customer responsibilities.
+GDPR preview and activation accept sorted customer-provided data-category and purpose IDs; Almira
+does not treat those IDs as legal approval. `activateComplianceProfile` binds the current
+environment revision and an explicit operation ID, while `removeComplianceProfile` binds the
+current profile revision and an auditable reason. Exact retries reuse the operation ID. These
+profiles enforce only the named Almira storage environment; they do not certify an application or
+organization. Reviewed CMP admission, provider/deployment evidence and owner facts separately gate
+publication of a corresponding claim or evidence report.
 
 `getStorageCapabilities` discovers the current FileService-backed AWS S3, Google Cloud Storage and
 Azure Blob realizations available to an active environment in one Almira request. It returns only

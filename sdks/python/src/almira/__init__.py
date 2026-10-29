@@ -42,6 +42,7 @@ from .server import (
 )
 from .transfer import AlmiraTransferError, DirectUploadPartGrant, DirectUploadResponse, upload_direct
 from .webhook import VerifiedWebhook, verify_webhook_signature
+from .verification import VerificationReceiptExpectation, verify_verification_receipt
 
 __all__ = [
     "AlmiraApiError",
@@ -86,6 +87,8 @@ __all__ = [
     "upload_direct",
     "VerifiedWebhook",
     "verify_webhook_signature",
+    "VerificationReceiptExpectation",
+    "verify_verification_receipt",
 ]
 
 __version__ = "0.1.0.dev44"

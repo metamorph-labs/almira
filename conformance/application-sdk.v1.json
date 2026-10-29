@@ -1,0 +1,144 @@
+{
+  "schema_id": "almira.public.application-sdk-conformance.v1",
+  "format_version": 1,
+  "contract_version": "0.1.0-dev.59",
+  "managed_development": {
+    "base_url": "https://almira.test",
+    "origin": "https://app.example",
+    "reference": {
+      "tenant_id": "018f0000-0000-7000-8000-000000000002",
+      "project_id": "018f0000-0000-7000-8000-000000000003",
+      "environment_id": "018f0000-0000-7000-8000-000000000004",
+      "collection_instance_id": "018f0000-0000-7000-8000-000000000005",
+      "entry_id": "018f0000-0000-7000-8000-000000000006"
+    },
+    "positive": {
+      "capability": "alm_local_v1.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "response": {
+        "entry_id": "018f0000-0000-7000-8000-000000000006",
+        "logical_path": "conformance/canary.bin",
+        "lifecycle": "active",
+        "revision": 1,
+        "metadata_revision": 1,
+        "tags": [],
+        "custom_metadata": {},
+        "current_generation_id": "018f0000-0000-7000-8000-000000000007",
+        "current_generation": {
+          "entry_id": "018f0000-0000-7000-8000-000000000006",
+          "generation_id": "018f0000-0000-7000-8000-000000000007",
+          "generation_number": 1,
+          "state": "available",
+          "expected_size_bytes": 4,
+          "content_sha256": "sha256:9f64a747e1b97f131fabb6b447296c9b6f0201e79fb3c5356e6c77e89b6a806a",
+          "declared_media_type": "application/octet-stream",
+          "malware_scan_requirement": "required",
+          "safety_state": "clean",
+          "revision": 1,
+          "created_at": "2026-10-17T12:00:00Z"
+        },
+        "deleted_at": null,
+        "recycle_until": null,
+        "latest_generation": {
+          "entry_id": "018f0000-0000-7000-8000-000000000006",
+          "generation_id": "018f0000-0000-7000-8000-000000000007",
+          "generation_number": 1,
+          "state": "available",
+          "expected_size_bytes": 4,
+          "content_sha256": "sha256:9f64a747e1b97f131fabb6b447296c9b6f0201e79fb3c5356e6c77e89b6a806a",
+          "declared_media_type": "application/octet-stream",
+          "malware_scan_requirement": "required",
+          "safety_state": "clean",
+          "revision": 1,
+          "created_at": "2026-10-17T12:00:00Z"
+        },
+        "created_at": "2026-10-17T12:00:00Z",
+        "updated_at": "2026-10-17T12:00:00Z"
+      }
+    },
+    "refusal": {
+      "credential": "mm_pat_v1.not-a-data-capability",
+      "client_code": "ALMIRA_CLIENT_INPUT_INVALID"
+    },
+    "retry": {
+      "capabilities": [
+        "alm_local_v1.bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "alm_local_v1.ccccccccccccccccccccccccccccccccccccccccccc"
+      ],
+      "first_status": 503,
+      "first_error": {
+        "code": "ALMIRA_TEMPORARILY_UNAVAILABLE",
+        "request_id": "018f0000-0000-7000-8000-000000000008"
+      },
+      "retry_after_seconds": 0,
+      "final_status": 200
+    },
+    "cleanup": {
+      "applicable": false,
+      "reason": "read_only_journey"
+    }
+  },
+  "behavior_receipt": {
+    "signed": {
+      "receipt": {
+        "receipt_version": "almira.verification.v1",
+        "contract_version": "0.1.0-dev.59",
+        "verification_id": "018f0000-0000-7000-8000-000000000021",
+        "realm_id": "018f0000-0000-7000-8000-000000000022",
+        "tenant_id": "018f0000-0000-7000-8000-000000000002",
+        "project_id": "018f0000-0000-7000-8000-000000000003",
+        "environment_id": "018f0000-0000-7000-8000-000000000004",
+        "collection_instance_id": "018f0000-0000-7000-8000-000000000005",
+        "entry_id": "018f0000-0000-7000-8000-000000000006",
+        "generation_id": "018f0000-0000-7000-8000-000000000007",
+        "expected_size_bytes": 4,
+        "content_sha256": "sha256:9f64a747e1b97f131fabb6b447296c9b6f0201e79fb3c5356e6c77e89b6a806a",
+        "safety_state": "clean",
+        "checks": [
+          {
+            "name": "finalization_idempotency",
+            "result": "passed"
+          },
+          {
+            "name": "private_read_integrity",
+            "result": "passed"
+          },
+          {
+            "name": "cross_scope_refusal",
+            "result": "passed"
+          },
+          {
+            "name": "malware_safety",
+            "result": "passed"
+          }
+        ],
+        "signing_key_id": "dev-vector-1"
+      },
+      "algorithm": "ed25519",
+      "signature": "zb8pIfCKXXk1zLxovj-bTVD-LiS97ddzcEsH4q0SaxchGyTza4xSRvlafq07nHWx3WLJvMCcK4PQ_ik46Y6GAg"
+    },
+    "key_set": {
+      "format_version": 1,
+      "keys": [
+        {
+          "key_id": "dev-vector-1",
+          "algorithm": "ed25519",
+          "public_key": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+        }
+      ]
+    },
+    "expected": {
+      "verification_id": "018f0000-0000-7000-8000-000000000021",
+      "tenant_id": "018f0000-0000-7000-8000-000000000002",
+      "project_id": "018f0000-0000-7000-8000-000000000003",
+      "environment_id": "018f0000-0000-7000-8000-000000000004",
+      "collection_instance_id": "018f0000-0000-7000-8000-000000000005",
+      "entry_id": "018f0000-0000-7000-8000-000000000006",
+      "generation_id": "018f0000-0000-7000-8000-000000000007",
+      "expected_size_bytes": 4,
+      "content_sha256": "sha256:9f64a747e1b97f131fabb6b447296c9b6f0201e79fb3c5356e6c77e89b6a806a"
+    },
+    "substitution": {
+      "generation_id": "018f0000-0000-7000-8000-000000000009"
+    }
+  }
+}
