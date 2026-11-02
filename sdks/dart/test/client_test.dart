@@ -104,7 +104,7 @@ void main() {
     await client.createUpload(reference, {'path': 'avatar.png'}, operation);
     expect(transport.calls.single.headers['authorization'],
         'MetamorphWorkload workload_evidence');
-    expect(contractVersion, '0.1.0-dev.59');
+    expect(contractVersion, '0.1.0-dev.60');
   });
   test('direct transfer returns only finalize evidence', () async {
     final directory = await Directory.systemTemp.createTemp('almira-test');

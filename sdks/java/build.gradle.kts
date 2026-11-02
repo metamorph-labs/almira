@@ -3,7 +3,7 @@ plugins {
 }
 
 group = "com.metamorph"
-version = "0.1.0-dev.59"
+version = "0.1.0-dev.60"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_17

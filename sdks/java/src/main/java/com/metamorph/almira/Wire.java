@@ -18,7 +18,7 @@ import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
 final class Wire {
-    static final String CONTRACT_VERSION = "0.1.0-dev.59";
+    static final String CONTRACT_VERSION = "0.1.0-dev.60";
     static final Pattern UUID_V7 = Pattern.compile("^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$");
     static final Pattern CAPABILITY = Pattern.compile("^(?:alm_cap_v1|alm_local_v1)\\.[A-Za-z0-9_-]{43,4096}$");
     static final Pattern SHARE = Pattern.compile("^alm_share_v1\\.[A-Za-z0-9_-]{43,4096}$");

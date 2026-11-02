@@ -9,5 +9,5 @@ methods.
 `VerificationReceiptExpectation` for exact resource binding.
 
 It implements the complete capability-data and builder-workload surfaces from promoted contract
-`0.1.0-dev.59`; it deliberately contains no Almira management API. Run
+`0.1.0-dev.60`; it deliberately contains no Almira management API. Run
 `gradle -p sdks/jvm :kotlin:test` from the repository root.

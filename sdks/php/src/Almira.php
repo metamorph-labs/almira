@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Metamorph\Almira;
 
-const CONTRACT_VERSION = '0.1.0-dev.59';
+const CONTRACT_VERSION = '0.1.0-dev.60';
 const UUID_V7 = '/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/D';
 
 final class ClientException extends \RuntimeException

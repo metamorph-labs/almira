@@ -1,7 +1,7 @@
 # Almira .NET SDK
 
 `Metamorph.Almira` is the .NET 8+ application SDK for promoted Almira contract
-`0.1.0-dev.59`. It exposes the complete capability-data plane and a separate
+`0.1.0-dev.60`. It exposes the complete capability-data plane and a separate
 `AlmiraServerClient` for short-lived workload exchange, upload ceremonies and builder-subject
 lifecycle operations. It contains no management API.
 

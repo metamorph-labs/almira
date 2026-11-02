@@ -1,8 +1,47 @@
 {
   "schema_id": "almira.public.api-conformance-vectors.v1",
   "format_version": 1,
-  "openapi": "0.1.0-dev.59",
+  "openapi": "0.1.0-dev.60",
   "schema_vectors": [
+    {
+      "name": "commercial_reservation_receipt_is_pricing_free_and_operation_bound",
+      "schema": "CommercialReservationReceipt",
+      "instance": {
+        "schema_version": 1,
+        "operation_id": "018f0000-0000-7000-8000-000000000091",
+        "reservation_id": "018f0000-0000-7000-8000-000000000092",
+        "producer_id": "almira.api",
+        "meter_id": "file.operations",
+        "unit_id": "request",
+        "quantity": "1",
+        "state": "reserved",
+        "owner_transition_revision": 1,
+        "lease_expires_at": "2026-10-27T12:05:00Z",
+        "remediation_code": null,
+        "updated_at": "2026-10-27T12:00:00Z"
+      },
+      "expected": "valid"
+    },
+    {
+      "name": "commercial_reservation_receipt_cannot_carry_local_price",
+      "schema": "CommercialReservationReceipt",
+      "instance": {
+        "schema_version": 1,
+        "operation_id": "018f0000-0000-7000-8000-000000000091",
+        "reservation_id": "018f0000-0000-7000-8000-000000000092",
+        "producer_id": "almira.api",
+        "meter_id": "file.operations",
+        "unit_id": "request",
+        "quantity": "1",
+        "state": "reserved",
+        "owner_transition_revision": 1,
+        "lease_expires_at": "2026-10-27T12:05:00Z",
+        "remediation_code": null,
+        "updated_at": "2026-10-27T12:00:00Z",
+        "estimated_cost": "0.01"
+      },
+      "expected": "invalid"
+    },
     {
       "name": "additional_environment_is_managed_by_default",
       "schema": "CreateEnvironmentRequest",
@@ -1919,21 +1958,21 @@
   ],
   "error_vectors": [
     {
-      "name": "compliance_profile_is_unavailable_without_reviewed_admission",
-      "condition": "the signed CMP catalog does not admit the exact Almira profile and reviewed contribution",
-      "code": "ALMIRA_COMPLIANCE_PROFILE_NOT_AVAILABLE",
-      "http_status": 503
-    },
-    {
-      "name": "compliance_profile_refuses_unmet_platform_prerequisite",
-      "condition": "Governance or Billing returns a current authoritative fact whose outcome does not satisfy the selected profile",
-      "code": "ALMIRA_COMPLIANCE_PROFILE_PREREQUISITE_NOT_MET",
+      "name": "gdpr_profile_activation_requires_customer_declaration",
+      "condition": "the GDPR-supporting technical profile is activated without its canonical customer data-category and purpose declaration",
+      "code": "ALMIRA_COMPLIANCE_PROFILE_PREREQUISITE_INVALID",
       "http_status": 409
     },
     {
-      "name": "compliance_profile_refuses_substituted_platform_fact",
-      "condition": "an eligibility fact is stale, malformed, owner-mismatched, request-mismatched, or digest-substituted",
+      "name": "hipaa_profile_activation_refuses_customer_declaration",
+      "condition": "the HIPAA-eligible technical profile is activated with a GDPR-only customer data-category and purpose declaration",
       "code": "ALMIRA_COMPLIANCE_PROFILE_PREREQUISITE_INVALID",
+      "http_status": 409
+    },
+    {
+      "name": "compliance_profile_activation_refuses_incompatible_configuration",
+      "condition": "the current environment configuration conflicts with the selected technical profile constraints",
+      "code": "ALMIRA_COMPLIANCE_PROFILE_PREREQUISITE_NOT_MET",
       "http_status": 409
     },
     {

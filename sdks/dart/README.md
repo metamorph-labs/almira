@@ -1,6 +1,6 @@
 # Almira Dart and Flutter SDK
 
-`metamorph_almira` implements promoted Almira contract `0.1.0-dev.59` for Dart and Flutter.
+`metamorph_almira` implements promoted Almira contract `0.1.0-dev.60` for Dart and Flutter.
 
 - `package:metamorph_almira/almira.dart` is the mobile-safe capability client. It provides all
   metadata, search, immutable-generation, derivative and share reads as byte streams. Rotating

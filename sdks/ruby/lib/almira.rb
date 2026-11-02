@@ -11,7 +11,7 @@ require "time"
 require "uri"
 
 module Almira
-  CONTRACT_VERSION = "0.1.0-dev.59"
+  CONTRACT_VERSION = "0.1.0-dev.60"
   UUID_V7 = /\A[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\z/
 
   class ClientError < StandardError

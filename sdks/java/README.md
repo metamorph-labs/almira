@@ -12,5 +12,5 @@ lifecycle operations. Streaming bodies remain closeable `InputStream` values.
 `VerificationReceiptVerifier.verify` performs closed-shape canonical Ed25519 verification against
 Almira's trusted public key set and an optional exact resource expectation.
 
-The package targets contract `0.1.0-dev.59`. Run `gradle -p sdks/jvm :java:test` from the
+The package targets contract `0.1.0-dev.60`. Run `gradle -p sdks/jvm :java:test` from the
 repository root.

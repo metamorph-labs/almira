@@ -1,7 +1,7 @@
 # Almira Swift SDK
 
 The Swift 6 package targets Apple application development against promoted Almira contract
-`0.1.0-dev.59`.
+`0.1.0-dev.60`.
 
 - Import `Almira` in iOS, macOS, tvOS or watchOS applications for capability-backed metadata,
   search, immutable-generation, derivative and share reads. Response bodies are asynchronous

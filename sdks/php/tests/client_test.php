@@ -69,7 +69,7 @@ $server = new AlmiraServerClient('https://almira.test', fn(): string => 'workloa
 $server->createUpload($reference, ['path' => 'avatar.png'], OPERATION);
 expect($transport->calls[2]['headers']['authorization'] === 'MetamorphWorkload workload_evidence', 'workload evidence missing');
 expect($transport->calls[2]['headers']['x-almira-tenant-id'] === TENANT, 'tenant scope missing');
-expect(\Metamorph\Almira\CONTRACT_VERSION === '0.1.0-dev.59', 'contract drift');
+expect(\Metamorph\Almira\CONTRACT_VERSION === '0.1.0-dev.60', 'contract drift');
 $source = fopen('php://temp', 'w+b'); fwrite($source, 'hello'); rewind($source);
 $finalize = \Metamorph\Almira\uploadDirect([
     'descriptor_id' => OPERATION, 'protocol' => 'single_put', 'expected_size_bytes' => 5,

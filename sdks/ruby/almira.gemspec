@@ -1,6 +1,6 @@
 Gem::Specification.new do |spec|
   spec.name = "metamorph-almira"
-  spec.version = "0.1.0.dev.59"
+  spec.version = "0.1.0.dev.60"
   spec.summary = "Capability-only application SDK for Almira"
   spec.authors = ["Metamorph Labs"]
   spec.homepage = "https://github.com/metamorph-labs/almira"

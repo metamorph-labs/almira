@@ -7,7 +7,7 @@ import java.time.Duration
 import java.time.Instant
 import java.nio.file.Path
 
-const val CONTRACT_VERSION: String = "0.1.0-dev.59"
+const val CONTRACT_VERSION: String = "0.1.0-dev.60"
 
 data class CollectionReference(
     val tenantId: String,

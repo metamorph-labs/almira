@@ -1,6 +1,6 @@
 name: metamorph_almira
 description: Capability-only application SDK for Almira and Flutter.
-version: 0.1.0-dev.59
+version: 0.1.0-dev.60
 repository: https://github.com/metamorph-labs/almira
 environment:
   sdk: ">=3.5.0 <4.0.0"
