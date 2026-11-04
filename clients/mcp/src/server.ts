@@ -879,6 +879,7 @@ export function createAlmiraMcpServer(
           display_name: z.string().min(1).max(80),
           malware_scan_required: z.boolean(),
           storage_class: z.enum(["normal", "express"]).optional(),
+          storage_realization_generation: z.number().int().positive(),
           operation_id: operationId,
         })
         .strict(),
@@ -893,6 +894,7 @@ export function createAlmiraMcpServer(
       display_name,
       malware_scan_required,
       storage_class,
+      storage_realization_generation,
       operation_id,
     }) => {
       const id = operation_id ?? createOperationId();
@@ -905,6 +907,7 @@ export function createAlmiraMcpServer(
               display_name,
               malware_scan_required,
               storage_class: storage_class ?? "normal",
+              storage_realization_generation,
             },
             { operationId: id },
           ),

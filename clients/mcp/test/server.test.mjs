@@ -742,6 +742,7 @@ test("collection creation forwards the selected storage class", async (context) 
       display_name: "Sessions",
       malware_scan_required: false,
       storage_class: "express",
+      storage_realization_generation: 2,
       operation_id: operationId,
     },
   });
@@ -752,6 +753,7 @@ test("collection creation forwards the selected storage class", async (context) 
     display_name: "Sessions",
     malware_scan_required: false,
     storage_class: "express",
+    storage_realization_generation: 2,
   });
 });
 

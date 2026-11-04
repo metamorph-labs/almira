@@ -178,6 +178,7 @@ test("example obtains and verifies the canonical positive, retry, refusal, and s
   const pair = await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"]);
   const publicKey = Buffer.from(await crypto.subtle.exportKey("raw", pair.publicKey)).toString("base64url");
   const calls = [];
+  let verificationAttempts = 0;
   const client = new AlmiraClient({
     baseUrl: "https://almira.test",
     credential: "mm_sak_v1.test",
@@ -217,6 +218,12 @@ test("example obtains and verifies the canonical positive, retry, refusal, and s
       }
       if (input.endsWith("/finalize")) {
         return json({ entry_id: entryId, generation_id: generationId, safety_state: "clean" });
+      }
+      if (input.endsWith("/verifications") && verificationAttempts++ === 0) {
+        return json({
+          code: "ALMIRA_VERIFICATION_CHECK_FAILED",
+          request_id: "018f0000-0000-7000-8000-000000000013",
+        }, 409);
       }
       const receipt = {
         receipt_version: "almira.verification.v1",
@@ -262,12 +269,12 @@ test("example obtains and verifies the canonical positive, retry, refusal, and s
   });
   assert.equal(result.generation.generation_id, generationId);
   assert.equal(result.receipt.receipt.checks.length, 4);
-  assert.equal(calls.length, 4);
+  assert.equal(calls.length, 5);
   const finalizeOperation = calls[1].init.headers.get("idempotency-key");
   const verificationRequest = JSON.parse(calls[2].init.body);
   assert.equal(verificationRequest.finalize_operation_id, finalizeOperation);
   assert.equal(verificationRequest.refusal_environment_id, refusalEnvironmentId);
-  assert.equal(calls[3].init.credentials, "omit");
+  assert.equal(calls[4].init.credentials, "omit");
 });
 
 test("Next.js-compatible route delegates app authorization before storage work", async () => {

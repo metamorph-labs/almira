@@ -122,6 +122,42 @@ test("expired and structurally invalid descriptors fail before transfer", async 
   assert.equal(calls, 0);
 });
 
+test("development loopback HTTP requires an explicit option, loopback host, and port", async () => {
+  const loopback = part(1, 0, 4);
+  loopback.url = "http://127.0.0.1:9000/upload/1?signature=fixture";
+  await assert.rejects(
+    uploadDirect(descriptor("single_put", [loopback]), new Uint8Array(4), {
+      now: () => 1_800_000_000_000,
+      fetch: async () => new Response(null, { status: 200, headers: { etag: "fixture" } }),
+    }),
+    (error) =>
+      error instanceof AlmiraTransferError &&
+      error.code === "ALMIRA_TRANSFER_DESCRIPTOR_INVALID",
+  );
+  let called = false;
+  await uploadDirect(descriptor("single_put", [loopback]), new Uint8Array(4), {
+    allowDevelopmentLoopbackHttp: true,
+    now: () => 1_800_000_000_000,
+    fetch: async () => {
+      called = true;
+      return new Response(null, { status: 200, headers: { etag: "fixture" } });
+    },
+  });
+  assert.equal(called, true);
+  for (const url of ["http://storage.example:9000/upload", "http://127.0.0.1/upload"]) {
+    const invalid = part(1, 0, 4);
+    invalid.url = url;
+    await assert.rejects(
+      uploadDirect(descriptor("single_put", [invalid]), new Uint8Array(4), {
+        allowDevelopmentLoopbackHttp: true,
+      }),
+      (error) =>
+        error instanceof AlmiraTransferError &&
+        error.code === "ALMIRA_TRANSFER_DESCRIPTOR_INVALID",
+    );
+  }
+});
+
 test("ambiguous provider failures expose no URL or signed header", async () => {
   await assert.rejects(
     uploadDirect(descriptor("single_put", [part(1, 0, 4)]), new Uint8Array(4), {

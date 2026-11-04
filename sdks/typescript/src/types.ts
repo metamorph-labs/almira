@@ -226,6 +226,7 @@ export interface CreateCollectionRequest {
   display_name: string;
   malware_scan_required: boolean;
   storage_class?: "normal" | "express";
+  storage_realization_generation: number;
 }
 
 export interface Collection {

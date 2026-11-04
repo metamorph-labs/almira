@@ -33,6 +33,8 @@ if (
       environmentId,
       collectionInstanceId,
       refusalEnvironmentId,
+      allowDevelopmentLoopbackHttp:
+        process.env.ALMIRA_DEVELOPMENT_ALLOW_LOOPBACK_UPLOAD_URLS === "1",
       bytes,
       path: logicalPath ?? basename(filePath),
       mediaType: "application/octet-stream",
