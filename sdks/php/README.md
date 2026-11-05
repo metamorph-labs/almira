@@ -1,7 +1,7 @@
 # Almira PHP SDK
 
 `metamorph/almira` is the dependency-light PHP 8.2+ application SDK for promoted contract
-`0.1.0-dev.59`. It implements the complete capability-data surface and a separate workload client
+`0.1.0-dev.60`. It implements the complete capability-data surface and a separate workload client
 for capability exchange, uploads and builder-subject lifecycle operations. It has no management
 API.
 

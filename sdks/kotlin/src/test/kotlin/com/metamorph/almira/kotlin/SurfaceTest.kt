@@ -45,7 +45,7 @@ class SurfaceTest {
             ),
             server.filterNot { it.startsWith("delegate") }.toSet(),
         )
-        assertEquals("0.1.0-dev.59", CONTRACT_VERSION)
+        assertEquals("0.1.0-dev.60", CONTRACT_VERSION)
     }
 
     @Test

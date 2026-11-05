@@ -6,7 +6,7 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);1591</NoWarn>
     <PackageId>Metamorph.Almira</PackageId>
-    <Version>0.1.0-dev.59</Version>
+    <Version>0.1.0-dev.60</Version>
     <Description>Capability-only application SDK for Almira.</Description>
   </PropertyGroup>
   <ItemGroup>

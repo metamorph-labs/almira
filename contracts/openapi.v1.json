@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Almira API",
-    "version": "0.1.0-dev.59",
+    "version": "0.1.0-dev.60",
     "description": "Provider-neutral application file storage management and data API."
   },
   "servers": [
@@ -944,7 +944,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Reviewed compliance profiles applicable to the environment, including any active binding and the non-certification notice.",
+            "description": "Product-owned technical compliance profiles applicable to the environment, including any active binding and the non-certification notice. Profile selection does not activate a legal or regulatory claim.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1066,7 +1066,7 @@
         },
         "responses": {
           "200": {
-            "description": "Profile activated from fresh platform-owned prerequisite facts, or exactly replayed.",
+            "description": "Non-certifying technical profile activated from the current environment revision and product-owned candidate definition, or exactly replayed. Claim publication remains separately review-gated.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1973,6 +1973,11 @@
         "responses": {
           "201": {
             "description": "Durable transfer prepared with bounded one-use requests.",
+            "headers": {
+              "x-almira-commercial-reservation": {
+                "$ref": "#/components/headers/CommercialReservationReceipt"
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -2040,6 +2045,11 @@
         "responses": {
           "201": {
             "description": "Fresh checksum-bound one-use request for one exact multipart segment.",
+            "headers": {
+              "x-almira-commercial-reservation": {
+                "$ref": "#/components/headers/CommercialReservationReceipt"
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -2110,6 +2120,11 @@
         "responses": {
           "200": {
             "description": "Upload finalized or exactly replayed.",
+            "headers": {
+              "x-almira-commercial-reservation": {
+                "$ref": "#/components/headers/CommercialReservationReceipt"
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -2399,6 +2414,11 @@
         "responses": {
           "200": {
             "description": "Atomic batch applied or exactly replayed.",
+            "headers": {
+              "x-almira-commercial-reservation": {
+                "$ref": "#/components/headers/CommercialReservationReceipt"
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -2464,6 +2484,11 @@
         "responses": {
           "201": {
             "description": "Independent copy applied or exactly replayed.",
+            "headers": {
+              "x-almira-commercial-reservation": {
+                "$ref": "#/components/headers/CommercialReservationReceipt"
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -3003,6 +3028,11 @@
         "responses": {
           "201": {
             "description": "Immutable version transfer prepared with bounded one-use requests.",
+            "headers": {
+              "x-almira-commercial-reservation": {
+                "$ref": "#/components/headers/CommercialReservationReceipt"
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -3382,6 +3412,11 @@
         "responses": {
           "200": {
             "description": "Selected retained generation made current or exactly replayed.",
+            "headers": {
+              "x-almira-commercial-reservation": {
+                "$ref": "#/components/headers/CommercialReservationReceipt"
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -3449,6 +3484,11 @@
         "responses": {
           "200": {
             "description": "File restored from its unexpired recycle window or exactly replayed.",
+            "headers": {
+              "x-almira-commercial-reservation": {
+                "$ref": "#/components/headers/CommercialReservationReceipt"
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -4974,6 +5014,17 @@
         "description": "MetamorphWorkload followed by the canonical base64url workload-session artifact."
       }
     },
+    "headers": {
+      "CommercialReservationReceipt": {
+        "description": "Optional pricing-free receipt for the exact Billing-owned commercial reservation associated with this operation. The base64url value decodes to canonical JSON matching CommercialReservationReceipt; clients must treat an absent header as no generic fact-bound reservation for this response, not as free usage.",
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096,
+          "pattern": "^[A-Za-z0-9_-]+$"
+        }
+      }
+    },
     "parameters": {
       "TenantId": {
         "name": "x-almira-tenant-id",
@@ -5243,6 +5294,87 @@
         "minLength": 1,
         "maxLength": 128,
         "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$"
+      },
+      "CommercialReservationReceipt": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "operation_id",
+          "reservation_id",
+          "producer_id",
+          "meter_id",
+          "unit_id",
+          "quantity",
+          "state",
+          "owner_transition_revision",
+          "lease_expires_at",
+          "remediation_code",
+          "updated_at"
+        ],
+        "properties": {
+          "schema_version": {
+            "type": "integer",
+            "const": 1
+          },
+          "operation_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "reservation_id": {
+            "$ref": "#/components/schemas/UuidV7"
+          },
+          "producer_id": {
+            "$ref": "#/components/schemas/CatalogIdentifier"
+          },
+          "meter_id": {
+            "$ref": "#/components/schemas/CatalogIdentifier"
+          },
+          "unit_id": {
+            "$ref": "#/components/schemas/CatalogIdentifier"
+          },
+          "quantity": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 48,
+            "pattern": "^(?:0\\.[0-9]*[1-9]|[1-9][0-9]*(?:\\.[0-9]*[1-9])?)$"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "reserve_pending",
+              "reserved",
+              "refused",
+              "outcome_unknown",
+              "settled",
+              "released"
+            ]
+          },
+          "owner_transition_revision": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "lease_expires_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "remediation_code": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 128,
+            "pattern": "^ALMIRA_[A-Z0-9_]+$"
+          },
+          "updated_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        }
       },
       "ComplianceProfileId": {
         "type": "string",
@@ -9633,7 +9765,7 @@
             "const": "almira.verification.v1"
           },
           "contract_version": {
-            "const": "0.1.0-dev.59"
+            "const": "0.1.0-dev.60"
           },
           "verification_id": {
             "$ref": "#/components/schemas/UuidV7"

@@ -70,7 +70,7 @@ expect(!transport.calls[1][:headers].key?("authorization"), "share leaked creden
 server = Almira::ServerClient.new(base_url: "https://almira.test", workload_session: -> { "workload_evidence" }, transport:)
 server.create_upload(reference, { "path" => "avatar.png" }, operation_id: OPERATION)
 expect(transport.calls[2][:headers]["authorization"] == "MetamorphWorkload workload_evidence", "workload evidence missing")
-expect(Almira::CONTRACT_VERSION == "0.1.0-dev.59", "contract drift")
+expect(Almira::CONTRACT_VERSION == "0.1.0-dev.60", "contract drift")
 source = StringIO.new("hello")
 finalize = Almira.upload_direct(
   descriptor: {

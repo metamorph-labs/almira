@@ -63,7 +63,7 @@ private actor CapabilitySequence {
 }
 
 @Test func contractVersionIsPinned() {
-    #expect(almiraContractVersion == "0.1.0-dev.59")
+    #expect(almiraContractVersion == "0.1.0-dev.60")
 }
 
 private struct UploadRecorder: DirectUploadTransport {

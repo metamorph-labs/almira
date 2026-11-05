@@ -10,7 +10,7 @@ namespace Metamorph.Almira;
 
 public static class AlmiraContract
 {
-    public const string Version = "0.1.0-dev.59";
+    public const string Version = "0.1.0-dev.60";
 }
 
 public class AlmiraClientException(string code) : Exception(code)

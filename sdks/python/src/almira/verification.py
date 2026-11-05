@@ -85,7 +85,7 @@ def _valid_receipt(receipt: Mapping[str, object]) -> bool:
     if (
         set(receipt) != fields
         or receipt.get("receipt_version") != "almira.verification.v1"
-        or receipt.get("contract_version") != "0.1.0-dev.59"
+        or receipt.get("contract_version") != "0.1.0-dev.60"
         or not isinstance(receipt.get("signing_key_id"), str)
         or _KEY_ID.fullmatch(str(receipt["signing_key_id"])) is None
         or not isinstance(receipt.get("content_sha256"), str)

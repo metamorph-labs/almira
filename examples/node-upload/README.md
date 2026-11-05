@@ -12,6 +12,10 @@ pnpm build
 node dist/main.js ./photo.jpg TENANT_ID PROJECT_ID DEVELOPMENT_ENVIRONMENT_ID COLLECTION_INSTANCE_ID PRODUCTION_ENVIRONMENT_ID images/photo.jpg
 ```
 
+For the managed local FileService fixture only, set
+`ALMIRA_DEVELOPMENT_ALLOW_LOOPBACK_UPLOAD_URLS=1`. The example then accepts only an HTTP
+`127.0.0.1` or `localhost` transfer URL with an explicit port; ordinary SDK use remains HTTPS-only.
+
 The small example reads one file into memory to keep the integration clear. Production callers can
 pass a `Blob`, `ArrayBuffer` or typed-array view directly to `uploadDirect`. Multipart descriptors
 contain geometry rather than prefetched credentials; the example uses `createUploadPart` after each

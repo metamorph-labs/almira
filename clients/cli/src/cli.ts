@@ -180,6 +180,8 @@ Common identifiers:
 Collection creation:
   --class CLASS           normal (default) or express
   --scan POLICY           required or optional
+  --realization-generation N
+                          Exact generation advertised by storage capabilities
   --days DAYS             Recycle retention from 1 to 3650 days
 
 Mutations accept --operation-id UUID. If omitted, the CLI creates one and includes it in output.
@@ -453,6 +455,7 @@ export async function runCli(arguments_: string[], dependencies: CliDependencies
           display_name: required(values, "display"),
           malware_scan_required: scan === "required",
           storage_class: storageClass,
+          storage_realization_generation: positiveInteger(values, "realization-generation"),
         },
         { operationId },
       );
@@ -1035,7 +1038,7 @@ const commandOptions = new Map<string, ReadonlySet<string>>([
   ["config:preview", new Set(["base-url", "file", "project", "tenant"])],
   ["config:apply", new Set(["base-url", "file", "operation-id", "project", "tenant"])],
   ["collection:list", new Set(["base-url", "cursor", "environment", "limit", "project", "tenant"])],
-  ["collection:create", new Set(["base-url", "class", "display", "environment", "key", "operation-id", "project", "scan", "tenant"])],
+  ["collection:create", new Set(["base-url", "class", "display", "environment", "key", "operation-id", "project", "realization-generation", "scan", "tenant"])],
   ["collection:get", new Set(["base-url", "collection", "environment", "project", "tenant"])],
   ["lifecycle:set", collectionCommandOptions("days", "operation-id", "revision")],
   ["collection:migrate", new Set(["base-url", "class", "collection", "environment", "operation-id", "project", "realization-generation", "revision", "tenant"])],

@@ -3,7 +3,7 @@ import Foundation
 import FoundationNetworking
 #endif
 
-public let almiraContractVersion = "0.1.0-dev.59"
+public let almiraContractVersion = "0.1.0-dev.60"
 
 public enum JSONValue: Codable, Equatable, Sendable {
     case object([String: JSONValue])

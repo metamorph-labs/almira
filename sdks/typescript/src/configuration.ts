@@ -86,6 +86,7 @@ export type AlmiraConfigurationAction =
       readonly display_name: string;
       readonly malware_scan_required: boolean;
       readonly storage_class: "normal" | "express";
+      readonly storage_realization_generation: number | null;
       readonly capability: "verified" | "check_on_apply";
     }
   | {
@@ -222,7 +223,7 @@ export async function previewConfiguration(
         actions.push(originAction(desired, null, null));
       }
       for (const collection of desired.collections) {
-        actions.push(collectionAction(desired.key, null, collection, "check_on_apply"));
+        actions.push(collectionAction(desired.key, null, collection, "check_on_apply", null));
         if (collection.recycle_retention_days !== 30) {
           actions.push(lifecycleAction(desired.key, null, null, collection, null));
         }
@@ -357,7 +358,12 @@ export async function previewConfiguration(
         }
         continue;
       }
-      if (!classAvailable(capabilities, collection.storage_class)) {
+      const storageRealizationGeneration = realizationGeneration(
+        capabilities,
+        collection.storage_class,
+        false,
+      );
+      if (storageRealizationGeneration === null) {
         conflicts.push(conflict(
           "ALMIRA_CONFIGURATION_STORAGE_CLASS_UNAVAILABLE",
           desired.key,
@@ -370,6 +376,7 @@ export async function previewConfiguration(
         environment.environment_id,
         collection,
         "verified",
+        storageRealizationGeneration,
       ));
       if (collection.recycle_retention_days !== 30) {
         actions.push(lifecycleAction(
@@ -534,7 +541,12 @@ export async function applyConfiguration(
       receipts.push(receipt(action, operationId, outcome.disposition));
     } else {
       const capabilities = await client.getStorageCapabilities(environment, signalOptions);
-      if (!classAvailable(capabilities, action.storage_class)) {
+      const storageRealizationGeneration = realizationGeneration(
+        capabilities,
+        action.storage_class,
+        false,
+      );
+      if (storageRealizationGeneration === null) {
         throw new AlmiraConfigurationError("ALMIRA_CONFIGURATION_STORAGE_CLASS_UNAVAILABLE", plan);
       }
       const outcome = await client.createCollection(
@@ -544,6 +556,7 @@ export async function applyConfiguration(
           display_name: action.display_name,
           malware_scan_required: action.malware_scan_required,
           storage_class: action.storage_class,
+          storage_realization_generation: storageRealizationGeneration,
         },
         { operationId, ...signalOptions },
       );
@@ -826,6 +839,7 @@ function collectionAction(
   environmentId: UuidV7 | null,
   collection: AlmiraConfigurationCollectionV1,
   capability: "verified" | "check_on_apply",
+  storageRealizationGeneration: number | null,
 ): AlmiraConfigurationAction {
   return {
     action_id: `collection.create:${environmentKey}:${collection.key}`,
@@ -836,6 +850,7 @@ function collectionAction(
     display_name: collection.display_name,
     malware_scan_required: collection.malware_scan_required,
     storage_class: collection.storage_class,
+    storage_realization_generation: storageRealizationGeneration,
     capability,
   };
 }

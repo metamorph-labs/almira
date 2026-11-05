@@ -18,6 +18,7 @@ const PROVIDER_VERSION_HEADERS = ["x-amz-version-id", "x-goog-generation", "x-ms
 export type DirectUploadBody = Blob | ArrayBuffer | ArrayBufferView;
 
 export interface DirectUploadOptions {
+  allowDevelopmentLoopbackHttp?: boolean;
   createPart?: DirectUploadPartGrant;
   fetch?: typeof globalThis.fetch;
   now?: () => number;
@@ -45,7 +46,8 @@ export async function uploadDirect(
   options: DirectUploadOptions = {},
 ): Promise<FinalizeUploadRequest> {
   const size = bodySize(body);
-  validateDescriptor(descriptor, size);
+  const allowDevelopmentLoopbackHttp = options.allowDevelopmentLoopbackHttp === true;
+  validateDescriptor(descriptor, size, allowDevelopmentLoopbackHttp);
   const now = options.now ?? Date.now;
   requireUnexpired(descriptor, now());
   const fetch_ = options.fetch ?? globalThis.fetch;
@@ -61,7 +63,7 @@ export async function uploadDirect(
     const request = descriptor.protocol === "single_put"
       ? descriptor.requests[0]!
       : await grantMultipartPart(descriptor, expected, partBody, options);
-    validateGrantedPart(request, expected);
+    validateGrantedPart(request, expected, allowDevelopmentLoopbackHttp);
     const response = await putPart(fetch_, request, partBody, options.signal);
     const etag = response.headers.get("etag");
     if (etag === null || !PROVIDER_RECEIPT.test(etag)) {
@@ -102,7 +104,7 @@ export async function openPortableExport(
   descriptor: PortableDownloadDescriptor,
   options: DirectUploadOptions = {},
 ): Promise<PortableExportStream> {
-  validatePortableDescriptor(descriptor);
+  validatePortableDescriptor(descriptor, options.allowDevelopmentLoopbackHttp === true);
   const now = options.now ?? Date.now;
   const currentTime = now();
   if (!Number.isFinite(currentTime) || Date.parse(descriptor.expires_at) <= currentTime) {
@@ -175,7 +177,11 @@ async function putPart(
   }
 }
 
-function validateDescriptor(descriptor: DirectUploadDescriptor, size: number): void {
+function validateDescriptor(
+  descriptor: DirectUploadDescriptor,
+  size: number,
+  allowDevelopmentLoopbackHttp: boolean,
+): void {
   if (
     descriptor === null ||
     typeof descriptor !== "object" ||
@@ -222,7 +228,7 @@ function validateDescriptor(descriptor: DirectUploadDescriptor, size: number): v
       request.length_bytes < 1 ||
       request.method !== "PUT" ||
       request.one_use !== true ||
-      !validTransferUrl(request.url) ||
+      !validTransferUrl(request.url, allowDevelopmentLoopbackHttp) ||
       !validHeaders(request)
     ) {
       invalidDescriptor();
@@ -259,7 +265,11 @@ async function grantMultipartPart(
   return options.createPart({ part_number: expected.part_number, content_sha256 }, options.signal);
 }
 
-function validateGrantedPart(request: DirectUploadPart, expected: DirectUploadPart): void {
+function validateGrantedPart(
+  request: DirectUploadPart,
+  expected: DirectUploadPart,
+  allowDevelopmentLoopbackHttp: boolean,
+): void {
   if (
     request === null ||
     typeof request !== "object" ||
@@ -268,7 +278,7 @@ function validateGrantedPart(request: DirectUploadPart, expected: DirectUploadPa
     request.length_bytes !== expected.length_bytes ||
     request.method !== "PUT" ||
     request.one_use !== true ||
-    !validTransferUrl(request.url) ||
+    !validTransferUrl(request.url, allowDevelopmentLoopbackHttp) ||
     !validHeaders(request)
   ) invalidDescriptor();
 }
@@ -281,13 +291,16 @@ async function partSha256(body: Blob | Uint8Array<ArrayBuffer>): Promise<`sha256
   return `sha256:${[...digest].map((byte) => byte.toString(16).padStart(2, "0")).join("")}`;
 }
 
-function validatePortableDescriptor(descriptor: PortableDownloadDescriptor): void {
+function validatePortableDescriptor(
+  descriptor: PortableDownloadDescriptor,
+  allowDevelopmentLoopbackHttp: boolean,
+): void {
   if (
     descriptor === null ||
     typeof descriptor !== "object" ||
     !UUID_V7.test(descriptor.descriptor_id) ||
     descriptor.method !== "GET" ||
-    !validTransferUrl(descriptor.url) ||
+    !validTransferUrl(descriptor.url, allowDevelopmentLoopbackHttp) ||
     !Array.isArray(descriptor.headers) ||
     descriptor.headers.length > 16 ||
     descriptor.headers.some(({ name, value }) =>
@@ -303,12 +316,16 @@ function validatePortableDescriptor(descriptor: PortableDownloadDescriptor): voi
   ) invalidDescriptor();
 }
 
-function validTransferUrl(value: string): boolean {
+function validTransferUrl(value: string, allowDevelopmentLoopbackHttp: boolean): boolean {
   if (value.length > 8192 || /[\\\u0000-\u0020\u007f]/u.test(value)) return false;
   try {
     const url = new URL(value);
     return (
-      url.protocol === "https:" &&
+      (url.protocol === "https:" ||
+        (allowDevelopmentLoopbackHttp &&
+          url.protocol === "http:" &&
+          (url.hostname === "127.0.0.1" || url.hostname === "localhost") &&
+          url.port !== "")) &&
       url.username === "" &&
       url.password === "" &&
       url.hash === "" &&

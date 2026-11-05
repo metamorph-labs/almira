@@ -64,7 +64,7 @@ public static partial class VerificationReceiptVerifier
                 "environment_id", "expected_size_bytes", "generation_id", "project_id", "realm_id",
                 "receipt_version", "safety_state", "signing_key_id", "tenant_id", "verification_id") ||
             receipt["receipt_version"]?.GetValue<string>() != "almira.verification.v1" ||
-            receipt["contract_version"]?.GetValue<string>() != "0.1.0-dev.59" ||
+            receipt["contract_version"]?.GetValue<string>() != "0.1.0-dev.60" ||
             receipt["signing_key_id"] is not JsonValue keyIdValue || !keyIdValue.TryGetValue<string>(out var keyId) || !KeyId().IsMatch(keyId) ||
             receipt["content_sha256"] is not JsonValue digestValue || !digestValue.TryGetValue<string>(out var digest) || !Digest().IsMatch(digest) ||
             receipt["expected_size_bytes"] is not JsonValue sizeValue || !sizeValue.TryGetValue<long>(out var size) || size is < 1 or > 8 * 1024 * 1024 ||

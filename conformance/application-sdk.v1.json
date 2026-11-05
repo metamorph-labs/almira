@@ -1,7 +1,7 @@
 {
   "schema_id": "almira.public.application-sdk-conformance.v1",
   "format_version": 1,
-  "contract_version": "0.1.0-dev.59",
+  "contract_version": "0.1.0-dev.60",
   "managed_development": {
     "base_url": "https://almira.test",
     "origin": "https://app.example",
@@ -81,7 +81,7 @@
     "signed": {
       "receipt": {
         "receipt_version": "almira.verification.v1",
-        "contract_version": "0.1.0-dev.59",
+        "contract_version": "0.1.0-dev.60",
         "verification_id": "018f0000-0000-7000-8000-000000000021",
         "realm_id": "018f0000-0000-7000-8000-000000000022",
         "tenant_id": "018f0000-0000-7000-8000-000000000002",
@@ -114,7 +114,7 @@
         "signing_key_id": "dev-vector-1"
       },
       "algorithm": "ed25519",
-      "signature": "zb8pIfCKXXk1zLxovj-bTVD-LiS97ddzcEsH4q0SaxchGyTza4xSRvlafq07nHWx3WLJvMCcK4PQ_ik46Y6GAg"
+      "signature": "bul_dAViW4N_GvZZHTHDv3qMgW1s1_yBe19jh9gaL4R9mkBHd7Kf1R8XzQXlH9qNyBE6wuJGo4SryT5DIqrhCg"
     },
     "key_set": {
       "format_version": 1,

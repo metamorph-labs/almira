@@ -247,6 +247,7 @@ test("apply uses stable child operation IDs and returns a resumable receipt", as
     display_name: "Sessions",
     malware_scan_required: false,
     storage_class: "express",
+    storage_realization_generation: 2,
   });
 });
 

@@ -1,7 +1,7 @@
 # Almira Ruby SDK
 
 `metamorph-almira` is the Ruby 3.2+ application SDK for promoted Almira contract
-`0.1.0-dev.59`. `Almira::DataClient` implements all capability-data operations, while the separate
+`0.1.0-dev.60`. `Almira::DataClient` implements all capability-data operations, while the separate
 `Almira::ServerClient` accepts short-lived workload evidence for capability exchange, uploads and
 builder-subject lifecycle operations. No management operations are included.
 

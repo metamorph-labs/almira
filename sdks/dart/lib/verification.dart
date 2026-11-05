@@ -3,7 +3,7 @@ import 'dart:convert';
 
 import 'package:cryptography/cryptography.dart';
 
-const _contractVersion = '0.1.0-dev.59';
+const _contractVersion = '0.1.0-dev.60';
 final _uuidV7 = RegExp(
     r'^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$');
 final _digest = RegExp(r'^sha256:[0-9a-f]{64}$');
